@@ -32,6 +32,13 @@ const saveServiceTokenButton = document.querySelector('#save-service-token-butto
 const clearServiceTokenButton = document.querySelector('#clear-service-token-button');
 const testExchangeButton = document.querySelector('#test-exchange-button');
 const exchangeStatus = document.querySelector('#exchange-status');
+const filterProfileSelect = document.querySelector('#filter-profile-select');
+const filterProfileNameInput = document.querySelector('#filter-profile-name-input');
+const newFilterProfileButton = document.querySelector('#new-filter-profile-button');
+const duplicateFilterProfileButton = document.querySelector('#duplicate-filter-profile-button');
+const deleteFilterProfileButton = document.querySelector('#delete-filter-profile-button');
+const importFilterProfileButton = document.querySelector('#import-filter-profile-button');
+const exportFilterProfileButton = document.querySelector('#export-filter-profile-button');
 const filterOutputPathInput = document.querySelector('#filter-output-path-input');
 const filterQuickActionInput = document.querySelector('#filter-quick-action-input');
 const saveFilterConfigButton = document.querySelector('#save-filter-config-button');
@@ -43,10 +50,45 @@ const saveFilterWorkbenchButton = document.querySelector('#save-filter-workbench
 const filterStatus = document.querySelector('#filter-status');
 const filterCaptureDefaults = document.querySelector('#filter-capture-defaults');
 const filterStyleList = document.querySelector('#filter-style-list');
+const customStyleNameInput = document.querySelector('#custom-style-name-input');
+const addCustomStyleButton = document.querySelector('#add-custom-style-button');
+const customStyleStatus = document.querySelector('#custom-style-status');
 const currencyTierList = document.querySelector('#currency-tier-list');
 const rareTierList = document.querySelector('#rare-tier-list');
 const addCurrencyTierButton = document.querySelector('#add-currency-tier-button');
 const addRareTierButton = document.querySelector('#add-rare-tier-button');
+const uniqueRulesEnabledInput = document.querySelector('#unique-rules-enabled-input');
+const uniqueRulesStatus = document.querySelector('#unique-rules-status');
+const uniqueRuleList = document.querySelector('#unique-rule-list');
+const addUniqueRuleButton = document.querySelector('#add-unique-rule-button');
+const mapRulesEnabledInput = document.querySelector('#map-rules-enabled-input');
+const mapRulesStatus = document.querySelector('#map-rules-status');
+const mapRuleList = document.querySelector('#map-rule-list');
+const addMapRuleButton = document.querySelector('#add-map-rule-button');
+const fragmentRulesEnabledInput = document.querySelector('#fragment-rules-enabled-input');
+const fragmentRulesStatus = document.querySelector('#fragment-rules-status');
+const fragmentRuleList = document.querySelector('#fragment-rule-list');
+const addFragmentRuleButton = document.querySelector('#add-fragment-rule-button');
+const gemRulesEnabledInput = document.querySelector('#gem-rules-enabled-input');
+const gemRulesStatus = document.querySelector('#gem-rules-status');
+const gemRuleList = document.querySelector('#gem-rule-list');
+const addGemRuleButton = document.querySelector('#add-gem-rule-button');
+const divinationCardRulesEnabledInput = document.querySelector('#divination-card-rules-enabled-input');
+const divinationCardRulesStatus = document.querySelector('#divination-card-rules-status');
+const divinationCardRuleList = document.querySelector('#divination-card-rule-list');
+const addDivinationCardRuleButton = document.querySelector('#add-divination-card-rule-button');
+const scarabRulesEnabledInput = document.querySelector('#scarab-rules-enabled-input');
+const scarabRulesStatus = document.querySelector('#scarab-rules-status');
+const scarabRuleList = document.querySelector('#scarab-rule-list');
+const addScarabRuleButton = document.querySelector('#add-scarab-rule-button');
+const oilRulesEnabledInput = document.querySelector('#oil-rules-enabled-input');
+const oilRulesStatus = document.querySelector('#oil-rules-status');
+const oilRuleList = document.querySelector('#oil-rule-list');
+const addOilRuleButton = document.querySelector('#add-oil-rule-button');
+const jewelRulesEnabledInput = document.querySelector('#jewel-rules-enabled-input');
+const jewelRulesStatus = document.querySelector('#jewel-rules-status');
+const jewelRuleList = document.querySelector('#jewel-rule-list');
+const addJewelRuleButton = document.querySelector('#add-jewel-rule-button');
 const rareEquipmentEnabledInput = document.querySelector('#rare-equipment-enabled-input');
 const showNormalItemsInput = document.querySelector('#show-normal-items-input');
 const showMagicItemsInput = document.querySelector('#show-magic-items-input');
@@ -73,6 +115,10 @@ const chanceBaseList = document.querySelector('#chance-base-list');
 const miscRulesEnabledInput = document.querySelector('#misc-rules-enabled-input');
 const miscRulesStatus = document.querySelector('#misc-rules-status');
 const miscRuleList = document.querySelector('#misc-rule-list');
+const flaskRulesEnabledInput = document.querySelector('#flask-rules-enabled-input');
+const flaskRulesStatus = document.querySelector('#flask-rules-status');
+const flaskRuleList = document.querySelector('#flask-rule-list');
+const addFlaskRuleButton = document.querySelector('#add-flask-rule-button');
 const economyHighlightsEnabledInput = document.querySelector('#economy-highlights-enabled-input');
 const economyTierList = document.querySelector('#economy-tier-list');
 const economyTypeList = document.querySelector('#economy-type-list');
@@ -108,7 +154,9 @@ const shortcutInputs = {
 
 let shortcutValues = { ...DEFAULT_SHORTCUTS };
 let lootFilterState;
+let lootFilterRefreshToken = 0;
 let chanceBaseOptions = [];
+let lootFilterSoundFiles = [];
 
 const STYLE_LABELS = {
   default: 'Default',
@@ -121,6 +169,8 @@ const STYLE_LABELS = {
   gems: 'Gems',
   divinationCards: 'Divination Cards',
   scarabs: 'Scarabs',
+  oils: 'Oils',
+  flasks: 'Flasks',
   jewelNormal: 'Normal Jewels',
   jewelMagic: 'Magic Jewels',
   jewelRare: 'Rare Jewels',
@@ -131,7 +181,220 @@ const STYLE_LABELS = {
 };
 
 const TIER_OPTIONS = ['high', 'valuable', 'baseline'];
-const STYLE_OPTIONS = Object.keys(STYLE_LABELS);
+const STYLE_SOUND_TIERS = ['baseline', 'high', 'valuable'];
+const STYLE_TIER_LABELS = {
+  baseline: 'Base',
+  high: 'High',
+  valuable: 'Valuable'
+};
+const DEFAULT_STYLE_OPTIONS = Object.keys(STYLE_LABELS);
+const OIL_BASE_TYPES = [
+  'Golden Oil',
+  'Silver Oil',
+  'Opalescent Oil',
+  'Black Oil',
+  'Crimson Oil',
+  'Violet Oil',
+  'Azure Oil',
+  'Teal Oil',
+  'Verdant Oil',
+  'Amber Oil',
+  'Sepia Oil',
+  'Clear Oil',
+  'Prismatic Oil',
+  'Reflective Oil',
+  'Tainted Oil'
+];
+const FLASK_BASE_TYPES = [
+  'Small Life Flask',
+  'Divine Life Flask',
+  'Eternal Life Flask',
+  'Quicksilver Flask',
+  'Diamond Flask',
+  'Granite Flask',
+  'Jade Flask',
+  'Quartz Flask'
+];
+const CATEGORY_RULE_DEFINITIONS = {
+  uniques: {
+    label: 'Unique',
+    enabledInput: uniqueRulesEnabledInput,
+    status: uniqueRulesStatus,
+    list: uniqueRuleList,
+    addButton: addUniqueRuleButton,
+    defaultStyle: 'unique',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Rarity', value: 'Unique' }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New unique rule',
+      style: 'unique',
+      tier: 'baseline',
+      conditions: [{ key: 'Rarity', value: 'Unique' }]
+    },
+    fields: ['itemClass', 'baseTypes', 'minItemLevel', 'maxItemLevel', 'corrupted', 'identified']
+  },
+  maps: {
+    label: 'Map',
+    enabledInput: mapRulesEnabledInput,
+    status: mapRulesStatus,
+    list: mapRuleList,
+    addButton: addMapRuleButton,
+    defaultStyle: 'maps',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Maps' }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New map rule',
+      style: 'maps',
+      tier: 'baseline',
+      conditions: [
+        { key: 'Class', value: 'Maps' },
+        { key: 'MapTier', operator: '>=', value: 1 }
+      ]
+    },
+    fields: ['minMapTier', 'maxMapTier', 'baseTypes', 'minItemLevel', 'maxItemLevel']
+  },
+  fragments: {
+    label: 'Fragment',
+    enabledInput: fragmentRulesEnabledInput,
+    status: fragmentRulesStatus,
+    list: fragmentRuleList,
+    addButton: addFragmentRuleButton,
+    defaultStyle: 'fragments',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New fragment rule',
+      style: 'fragments',
+      tier: 'baseline',
+      conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+    },
+    fields: ['baseTypes']
+  },
+  gems: {
+    label: 'Gem',
+    enabledInput: gemRulesEnabledInput,
+    status: gemRulesStatus,
+    list: gemRuleList,
+    addButton: addGemRuleButton,
+    defaultStyle: 'gems',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: ['Skill Gems', 'Support Gems'] }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New gem rule',
+      style: 'gems',
+      tier: 'baseline',
+      conditions: [{ key: 'Class', value: ['Skill Gems', 'Support Gems'] }]
+    },
+    fields: ['baseTypes', 'minGemLevel', 'maxGemLevel', 'minQuality', 'maxQuality', 'corrupted']
+  },
+  divinationCards: {
+    label: 'Divination card',
+    enabledInput: divinationCardRulesEnabledInput,
+    status: divinationCardRulesStatus,
+    list: divinationCardRuleList,
+    addButton: addDivinationCardRuleButton,
+    defaultStyle: 'divinationCards',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Divination Cards' }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New divination card rule',
+      style: 'divinationCards',
+      tier: 'baseline',
+      conditions: [{ key: 'Class', value: 'Divination Cards' }]
+    },
+    fields: ['baseTypes']
+  },
+  scarabs: {
+    label: 'Scarab',
+    enabledInput: scarabRulesEnabledInput,
+    status: scarabRulesStatus,
+    list: scarabRuleList,
+    addButton: addScarabRuleButton,
+    defaultStyle: 'scarabs',
+    defaultTier: 'baseline',
+    fallbackConditions: [{ key: 'BaseType', value: 'Scarab' }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New scarab rule',
+      style: 'scarabs',
+      tier: 'baseline',
+      conditions: [{ key: 'BaseType', value: 'Scarab' }]
+    },
+    fields: ['baseTypes']
+  },
+  oils: {
+    label: 'Oil',
+    enabledInput: oilRulesEnabledInput,
+    status: oilRulesStatus,
+    list: oilRuleList,
+    addButton: addOilRuleButton,
+    defaultStyle: 'oils',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Stackable Currency' }],
+    requireBaseTypes: true,
+    defaultRule: {
+      action: 'Show',
+      label: 'New oil rule',
+      style: 'oils',
+      tier: 'baseline',
+      conditions: [
+        { key: 'Class', value: 'Stackable Currency' },
+        { key: 'BaseType', value: ['Golden Oil'] }
+      ]
+    },
+    fields: ['baseTypes']
+  },
+  flasks: {
+    label: 'Flask',
+    enabledInput: flaskRulesEnabledInput,
+    status: flaskRulesStatus,
+    list: flaskRuleList,
+    addButton: addFlaskRuleButton,
+    defaultStyle: 'flasks',
+    defaultTier: 'baseline',
+    baseConditions: [
+      { key: 'Class', value: ['Life Flasks', 'Mana Flasks', 'Hybrid Flasks', 'Utility Flasks'] },
+      { key: 'Rarity', value: ['Normal', 'Magic', 'Rare'] }
+    ],
+    defaultRule: {
+      action: 'Show',
+      label: 'New flask rule',
+      style: 'flasks',
+      tier: 'baseline',
+      conditions: [
+        { key: 'Class', value: ['Life Flasks', 'Mana Flasks', 'Hybrid Flasks', 'Utility Flasks'] },
+        { key: 'Rarity', value: ['Normal', 'Magic', 'Rare'] }
+      ]
+    },
+    fields: ['baseTypes', 'minQuality', 'maxQuality', 'minItemLevel', 'maxItemLevel']
+  },
+  jewels: {
+    label: 'Jewel',
+    enabledInput: jewelRulesEnabledInput,
+    status: jewelRulesStatus,
+    list: jewelRuleList,
+    addButton: addJewelRuleButton,
+    defaultStyle: 'jewelRare',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Jewels' }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New jewel rule',
+      style: 'jewelRare',
+      tier: 'baseline',
+      conditions: [
+        { key: 'Class', value: 'Jewels' },
+        { key: 'Rarity', value: 'Rare' }
+      ]
+    },
+    fields: ['rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel', 'corrupted']
+  }
+};
 const ECONOMY_TYPE_LABELS = {
   Currency: 'Currency',
   Fragment: 'Fragments',
@@ -378,6 +641,22 @@ function formatCondition(condition) {
   return `${condition.key}${operator} ${value}`;
 }
 
+function renderProfileControls(state) {
+  const profiles = state.profiles || [];
+  filterProfileSelect.innerHTML = '';
+
+  for (const profile of profiles) {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = `${profile.name} (${profile.userRuleCount || 0} rules)`;
+    filterProfileSelect.appendChild(option);
+  }
+
+  filterProfileSelect.value = state.activeProfileId || profiles[0]?.id || '';
+  filterProfileNameInput.value = state.profileName || state.profile?.name || '';
+  deleteFilterProfileButton.disabled = profiles.length <= 1;
+}
+
 function normalizeBaseKey(value) {
   return String(value || '')
     .normalize('NFKD')
@@ -431,6 +710,15 @@ function createTextInput(value, dataset, type = 'text') {
   return input;
 }
 
+function createTextarea(value, dataset, placeholder = '') {
+  const textarea = document.createElement('textarea');
+  textarea.value = value ?? '';
+  textarea.placeholder = placeholder;
+  textarea.spellcheck = false;
+  Object.assign(textarea.dataset, dataset);
+  return textarea;
+}
+
 function createSelect(value, options, dataset) {
   const select = document.createElement('select');
   Object.assign(select.dataset, dataset);
@@ -442,6 +730,96 @@ function createSelect(value, options, dataset) {
     select.appendChild(option);
   }
   return select;
+}
+
+function createOptionSelect(value, options, dataset) {
+  const select = document.createElement('select');
+  Object.assign(select.dataset, dataset);
+  for (const optionConfig of options) {
+    const option = document.createElement('option');
+    option.value = optionConfig.value;
+    option.textContent = optionConfig.label;
+    option.selected = optionConfig.value === value;
+    select.appendChild(option);
+  }
+  return select;
+}
+
+function createSoundFileSelect(value, dataset) {
+  const selected = value || '';
+  const options = [
+    { value: '', label: 'No custom sound' },
+    ...lootFilterSoundFiles.map((file) => ({ value: file, label: file }))
+  ];
+
+  if (selected && !lootFilterSoundFiles.includes(selected)) {
+    options.push({ value: selected, label: `${selected} (missing)` });
+  }
+
+  return createOptionSelect(selected, options, dataset);
+}
+
+function getStyleOptions(profile = lootFilterState?.profile) {
+  return [
+    ...new Set([
+      ...DEFAULT_STYLE_OPTIONS,
+      ...Object.keys(profile?.styles || {})
+    ])
+  ];
+}
+
+function getStyleLabel(styleName) {
+  if (STYLE_LABELS[styleName]) {
+    return STYLE_LABELS[styleName];
+  }
+
+  return String(styleName || '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function createStyleSelect(value, dataset, profile = lootFilterState?.profile) {
+  const select = document.createElement('select');
+  Object.assign(select.dataset, dataset);
+  for (const styleName of getStyleOptions(profile)) {
+    const option = document.createElement('option');
+    option.value = styleName;
+    option.textContent = getStyleLabel(styleName);
+    option.selected = styleName === value;
+    select.appendChild(option);
+  }
+  return select;
+}
+
+function normalizeStyleId(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^A-Za-z0-9 _-]+/g, '')
+    .replace(/[-_\s]+(.)?/g, (_, letter = '') => letter.toUpperCase())
+    .replace(/^(.)/, (letter) => letter.toLowerCase());
+}
+
+function addCustomStyleFromInput() {
+  const styleId = normalizeStyleId(customStyleNameInput.value);
+  if (!styleId) {
+    setStatus(customStyleStatus, 'Enter a style group name first.', true);
+    return;
+  }
+
+  lootFilterState.profile.styles ||= {};
+  if (lootFilterState.profile.styles[styleId]) {
+    setStatus(customStyleStatus, `${getStyleLabel(styleId)} already exists.`, true);
+    return;
+  }
+
+  lootFilterState.profile.styles[styleId] = {
+    ...structuredClone(lootFilterState.profile.styles.default || {}),
+    tierBorders: structuredClone(lootFilterState.profile.styles.default?.tierBorders || {})
+  };
+  customStyleNameInput.value = '';
+  renderLootFilterState(lootFilterState);
+  setStatus(customStyleStatus, `${getStyleLabel(styleId)} added. Save Workbench to keep it.`);
 }
 
 function appendLabeled(container, labelText, control) {
@@ -483,7 +861,8 @@ function renderCaptureDefaults(profile) {
 
 function renderStyleList(profile) {
   filterStyleList.innerHTML = '';
-  for (const styleName of STYLE_OPTIONS) {
+  lootFilterSoundFiles = lootFilterState?.soundFiles || [];
+  for (const styleName of getStyleOptions(profile)) {
     const style = profile.styles?.[styleName] || {};
     const card = document.createElement('article');
     card.className = 'filter-style-card';
@@ -492,27 +871,54 @@ function renderStyleList(profile) {
     header.className = 'filter-style-card__header';
     const title = document.createElement('div');
     title.className = 'filter-style-card__title';
-    title.textContent = STYLE_LABELS[styleName] || styleName;
+    title.textContent = getStyleLabel(styleName);
     header.appendChild(title);
     card.appendChild(header);
 
-    const grid = document.createElement('div');
-    grid.className = 'editor-grid';
-    appendColorControl(grid, 'Text', styleName, 'textColor', style.textColor);
-    appendColorControl(grid, 'Background', styleName, 'backgroundColor', style.backgroundColor);
-    appendColorControl(grid, 'Border', styleName, 'borderColor', style.borderColor);
-    appendLabeled(grid, 'Font size', createTextInput(style.fontSize || 32, { styleName, styleField: 'fontSize' }, 'number'));
-    appendLabeled(grid, 'Sound id', createTextInput(style.alertSound?.id || '', { styleName, styleField: 'alertSoundId' }, 'number'));
-    appendLabeled(grid, 'Sound volume', createTextInput(style.alertSound?.volume || 80, { styleName, styleField: 'alertSoundVolume' }, 'number'));
-    appendLabeled(grid, 'Icon color', createSelect(style.minimapIcon?.color || 'None', ['None', 'Red', 'Green', 'Blue', 'Brown', 'White', 'Yellow', 'Cyan', 'Grey', 'Orange', 'Pink', 'Purple'], { styleName, styleField: 'iconColor' }));
-    appendLabeled(grid, 'Icon shape', createSelect(style.minimapIcon?.shape || 'Circle', ['Circle', 'Diamond', 'Hexagon', 'Square', 'Star', 'Triangle', 'Cross', 'Moon', 'Raindrop'], { styleName, styleField: 'iconShape' }));
-    appendLabeled(grid, 'Beam', createSelect(style.beam?.color || 'None', ['None', 'Red', 'Green', 'Blue', 'Brown', 'White', 'Yellow', 'Cyan', 'Grey', 'Orange', 'Pink', 'Purple'], { styleName, styleField: 'beamColor' }));
+    const visualGrid = document.createElement('div');
+    visualGrid.className = 'style-visual-grid';
+    appendColorControl(visualGrid, 'Text', styleName, 'textColor', style.textColor);
+    appendColorControl(visualGrid, 'Background', styleName, 'backgroundColor', style.backgroundColor);
+    appendColorControl(visualGrid, 'Border', styleName, 'borderColor', style.borderColor);
+    appendLabeled(visualGrid, 'Font size', createTextInput(style.fontSize || 32, { styleName, styleField: 'fontSize' }, 'number'));
+    appendLabeled(visualGrid, 'Icon color', createSelect(style.minimapIcon?.color || 'None', ['None', 'Red', 'Green', 'Blue', 'Brown', 'White', 'Yellow', 'Cyan', 'Grey', 'Orange', 'Pink', 'Purple'], { styleName, styleField: 'iconColor' }));
+    appendLabeled(visualGrid, 'Icon shape', createSelect(style.minimapIcon?.shape || 'Circle', ['Circle', 'Diamond', 'Hexagon', 'Square', 'Star', 'Triangle', 'Cross', 'Moon', 'Raindrop'], { styleName, styleField: 'iconShape' }));
+    appendLabeled(visualGrid, 'Beam', createSelect(style.beam?.color || 'None', ['None', 'Red', 'Green', 'Blue', 'Brown', 'White', 'Yellow', 'Cyan', 'Grey', 'Orange', 'Pink', 'Purple'], { styleName, styleField: 'beamColor' }));
 
-    for (const tier of TIER_OPTIONS) {
-      appendColorControl(grid, `${tier} border`, styleName, `tierBorder:${tier}`, style.tierBorders?.[tier] || style.borderColor);
+    const soundGrid = document.createElement('div');
+    soundGrid.className = 'style-sound-grid';
+    appendLabeled(soundGrid, 'Built-in sound id', createTextInput(style.alertSound?.id || '', { styleName, styleField: 'alertSoundId' }, 'number'));
+    appendLabeled(soundGrid, 'Built-in volume', createTextInput(style.alertSound?.volume || 80, { styleName, styleField: 'alertSoundVolume' }, 'number'));
+
+    const tierSoundGrid = document.createElement('div');
+    tierSoundGrid.className = 'style-tier-sound-grid';
+    for (const tier of STYLE_SOUND_TIERS) {
+      const tierSound = style.tierSounds?.[tier];
+      const tierRow = document.createElement('div');
+      tierRow.className = 'style-tier-sound-row';
+      const tierTitle = document.createElement('div');
+      tierTitle.className = 'style-tier-sound-row__title';
+      tierTitle.textContent = `${STYLE_TIER_LABELS[tier]} sound`;
+      tierRow.appendChild(tierTitle);
+      appendLabeled(tierRow, 'MP3', createSoundFileSelect(tierSound?.file || '', { styleName, styleField: `tierSoundFile:${tier}` }));
+      appendLabeled(tierRow, 'Volume', createTextInput(tierSound?.volume || 100, { styleName, styleField: `tierSoundVolume:${tier}` }, 'number'));
+      tierSoundGrid.appendChild(tierRow);
     }
 
-    card.appendChild(grid);
+    for (const tier of TIER_OPTIONS) {
+      appendColorControl(visualGrid, `${STYLE_TIER_LABELS[tier] || tier} border`, styleName, `tierBorder:${tier}`, style.tierBorders?.[tier] || style.borderColor);
+    }
+
+    if (lootFilterSoundFiles.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'filter-rule-row__meta';
+      hint.textContent = 'No .mp3 files found next to this profile output path.';
+      soundGrid.appendChild(hint);
+    }
+
+    card.appendChild(visualGrid);
+    soundGrid.appendChild(tierSoundGrid);
+    card.appendChild(soundGrid);
     filterStyleList.appendChild(card);
   }
 }
@@ -520,6 +926,145 @@ function renderStyleList(profile) {
 function renderTierLists(profile) {
   renderCurrencyTiers(profile.currencyTiers || []);
   renderRareTiers(profile.rareTiers || []);
+}
+
+function renderCategoryRules(profile) {
+  for (const categoryId of Object.keys(CATEGORY_RULE_DEFINITIONS)) {
+    renderCategoryRuleList(categoryId, profile.categoryRules?.[categoryId]);
+  }
+}
+
+function renderCategoryRuleList(categoryId, category = {}) {
+  const definition = CATEGORY_RULE_DEFINITIONS[categoryId];
+  const entries = category.rules || [];
+  definition.enabledInput.checked = category.enabled !== false;
+  definition.list.innerHTML = '';
+  setStatus(definition.status, `${entries.filter((entry) => entry.enabled !== false).length} ${definition.label.toLowerCase()} rules enabled.`);
+
+  if (entries.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = `No ${definition.label.toLowerCase()} rules configured.`;
+    definition.list.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((rule, index) => {
+    const row = document.createElement('article');
+    row.className = 'filter-rule-row category-rule-row';
+    row.dataset.categoryRuleCategory = categoryId;
+    row.dataset.categoryRuleIndex = String(index);
+
+    const header = document.createElement('div');
+    header.className = 'filter-rule-row__header';
+    const title = document.createElement('div');
+    title.className = 'filter-rule-row__title';
+    title.textContent = rule.label || `${definition.label} rule ${index + 1}`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'danger-button';
+    remove.dataset.removeCategoryRuleCategory = categoryId;
+    remove.dataset.removeCategoryRuleIndex = String(index);
+    remove.textContent = 'Delete';
+    header.appendChild(title);
+    header.appendChild(remove);
+
+    const editGrid = document.createElement('div');
+    editGrid.className = 'rule-edit-grid';
+    const enabled = document.createElement('input');
+    enabled.type = 'checkbox';
+    enabled.checked = rule.enabled !== false;
+    enabled.dataset.categoryRuleField = 'enabled';
+    appendLabeled(editGrid, 'Enabled', enabled);
+    appendLabeled(editGrid, 'Label', createTextInput(rule.label, { categoryRuleField: 'label' }));
+    appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', SPECIAL_ACTION_OPTIONS, { categoryRuleField: 'action' }));
+    appendLabeled(editGrid, 'Style', createStyleSelect(rule.style || definition.defaultStyle, { categoryRuleField: 'style' }));
+    appendLabeled(editGrid, 'Tier', createSelect(rule.tier || definition.defaultTier, TIER_OPTIONS, { categoryRuleField: 'tier' }));
+
+    const conditionsGrid = document.createElement('div');
+    conditionsGrid.className = 'special-item-row__conditions';
+    appendCategoryConditionControls(conditionsGrid, categoryId, definition, rule);
+
+    const conditionSummary = document.createElement('div');
+    conditionSummary.className = 'filter-rule-row__conditions';
+    for (const condition of rule.conditions || []) {
+      const pill = document.createElement('span');
+      pill.className = 'condition-pill';
+      pill.textContent = formatCondition(condition);
+      conditionSummary.appendChild(pill);
+    }
+
+    row.appendChild(header);
+    row.appendChild(editGrid);
+    row.appendChild(conditionsGrid);
+    row.appendChild(conditionSummary);
+    definition.list.appendChild(row);
+  });
+}
+
+function appendCategoryConditionControls(container, categoryId, definition, rule) {
+  if (definition.fields.includes('itemClass')) {
+    appendLabeled(container, 'Class', createTextarea(getConditionText(rule, 'Class').replace(/,\s*/g, '\n'), { categoryRuleField: 'itemClass' }, 'Optional classes, one per line'));
+  }
+
+  if (definition.fields.includes('rarity')) {
+    appendLabeled(container, 'Rarity', createSelect(getConditionText(rule, 'Rarity'), SPECIAL_RARITY_OPTIONS, { categoryRuleField: 'rarity' }));
+  }
+
+  if (definition.fields.includes('minMapTier')) {
+    appendLabeled(container, 'Min map tier', createTextInput(getConditionText(rule, 'MapTier', '>='), { categoryRuleField: 'minMapTier' }, 'number'));
+  }
+
+  if (definition.fields.includes('maxMapTier')) {
+    appendLabeled(container, 'Max map tier', createTextInput(getConditionText(rule, 'MapTier', '<='), { categoryRuleField: 'maxMapTier' }, 'number'));
+  }
+
+  if (definition.fields.includes('minItemLevel')) {
+    appendLabeled(container, 'Min ilvl', createTextInput(getConditionText(rule, 'ItemLevel', '>='), { categoryRuleField: 'minItemLevel' }, 'number'));
+  }
+
+  if (definition.fields.includes('maxItemLevel')) {
+    appendLabeled(container, 'Max ilvl', createTextInput(getConditionText(rule, 'ItemLevel', '<='), { categoryRuleField: 'maxItemLevel' }, 'number'));
+  }
+
+  if (definition.fields.includes('minGemLevel')) {
+    appendLabeled(container, 'Min gem level', createTextInput(getConditionText(rule, 'GemLevel', '>='), { categoryRuleField: 'minGemLevel' }, 'number'));
+  }
+
+  if (definition.fields.includes('maxGemLevel')) {
+    appendLabeled(container, 'Max gem level', createTextInput(getConditionText(rule, 'GemLevel', '<='), { categoryRuleField: 'maxGemLevel' }, 'number'));
+  }
+
+  if (definition.fields.includes('minQuality')) {
+    appendLabeled(container, 'Min quality', createTextInput(getConditionText(rule, 'Quality', '>='), { categoryRuleField: 'minQuality' }, 'number'));
+  }
+
+  if (definition.fields.includes('maxQuality')) {
+    appendLabeled(container, 'Max quality', createTextInput(getConditionText(rule, 'Quality', '<='), { categoryRuleField: 'maxQuality' }, 'number'));
+  }
+
+  if (definition.fields.includes('corrupted')) {
+    appendLabeled(container, 'Corrupted', createSelect(getConditionText(rule, 'Corrupted'), SPECIAL_BOOLEAN_OPTIONS, { categoryRuleField: 'corrupted' }));
+  }
+
+  if (definition.fields.includes('identified')) {
+    appendLabeled(container, 'Identified', createSelect(getConditionText(rule, 'Identified'), SPECIAL_BOOLEAN_OPTIONS, { categoryRuleField: 'identified' }));
+  }
+
+  if (definition.fields.includes('baseTypes')) {
+    const value = getConditionText(rule, 'BaseType');
+    const placeholders = {
+      oils: `Leave blank only when this rule should be skipped.\n${OIL_BASE_TYPES.join('\n')}`,
+      scarabs: 'Leave blank to match all scarabs.\nAmbush Scarab\nCartography Scarab',
+      divinationCards: 'Leave blank to match all divination cards.\nThe Doctor\nBrother\'s Gift',
+      gems: 'Leave blank to match all gems.\nScorching Ray\nVaal Lightning Strike',
+      fragments: 'Leave blank to match all fragments and invitations.\nScreaming Invitation\nFragment of the Hydra',
+      uniques: 'Leave blank to match all unique items.\nLeather Belt\nHeavy Belt\nMageblood',
+      flasks: `Leave blank to match all flasks.\n${FLASK_BASE_TYPES.join('\n')}`,
+      jewels: 'Leave blank to match all jewels.\nCobalt Jewel\nLarge Cluster Jewel'
+    };
+    appendLabeled(container, 'Only these names', createTextarea(value.replace(/,\s*/g, '\n'), { categoryRuleField: 'baseTypes' }, placeholders[categoryId] || 'Leave blank to match the whole category.'));
+  }
 }
 
 function renderRareEquipment(profile, groups) {
@@ -618,7 +1163,7 @@ function renderMiscRules(profile) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(rule.label, { miscRuleField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', SPECIAL_ACTION_OPTIONS, { miscRuleField: 'action' }));
-    appendLabeled(editGrid, 'Style', createSelect(rule.style || 'misc', STYLE_OPTIONS, { miscRuleField: 'style' }));
+    appendLabeled(editGrid, 'Style', createStyleSelect(rule.style || 'misc', { miscRuleField: 'style' }));
     appendLabeled(editGrid, 'Tier', createSelect(rule.tier || 'baseline', TIER_OPTIONS, { miscRuleField: 'tier' }));
 
     const conditions = document.createElement('div');
@@ -637,12 +1182,12 @@ function renderMiscRules(profile) {
   });
 }
 
-function renderStyleSelectOptions(select, selectedValue, options = STYLE_OPTIONS) {
+function renderStyleSelectOptions(select, selectedValue, options = getStyleOptions()) {
   select.innerHTML = '';
   for (const styleName of options) {
     const option = document.createElement('option');
     option.value = styleName;
-    option.textContent = STYLE_LABELS[styleName] || styleName;
+    option.textContent = getStyleLabel(styleName);
     option.selected = styleName === selectedValue;
     select.appendChild(option);
   }
@@ -666,7 +1211,7 @@ function renderEconomyTiers(tiers) {
     appendLabeled(grid, 'Label', createTextInput(tier.label || fallback.label, { economyTierField: 'label' }));
     appendLabeled(grid, 'Min chaos', createTextInput(tier.minChaos ?? '', { economyTierField: 'minChaos' }, 'number'));
     appendLabeled(grid, 'Min divines', createTextInput(tier.minDivines ?? '', { economyTierField: 'minDivines' }, 'number'));
-    appendLabeled(grid, 'Style', createSelect(tier.style || 'highValue', STYLE_OPTIONS, { economyTierField: 'style' }));
+    appendLabeled(grid, 'Style', createStyleSelect(tier.style || 'highValue', { economyTierField: 'style' }));
     appendLabeled(grid, 'Color tier', createSelect(tier.tier || fallback.tier || 'baseline', TIER_OPTIONS, { economyTierField: 'tier' }));
     appendLabeled(grid, 'Cache cap', createTextInput(tier.maxItems || fallback.maxItems || 500, { economyTierField: 'maxItems' }, 'number'));
     row.appendChild(grid);
@@ -907,8 +1452,9 @@ function renderCurrencyTiers(tiers) {
     const grid = document.createElement('div');
     grid.className = 'editor-grid';
     appendLabeled(grid, 'Label', createTextInput(tier.label, { currencyTierIndex: index, tierField: 'label' }));
+    appendLabeled(grid, 'Action', createSelect(tier.action || 'Show', SPECIAL_ACTION_OPTIONS, { currencyTierIndex: index, tierField: 'action' }));
     appendLabeled(grid, 'Tier', createSelect(tier.tier || 'baseline', TIER_OPTIONS, { currencyTierIndex: index, tierField: 'tier' }));
-    appendLabeled(grid, 'Style', createSelect(tier.style || 'currency', STYLE_OPTIONS, { currencyTierIndex: index, tierField: 'style' }));
+    appendLabeled(grid, 'Style', createStyleSelect(tier.style || 'currency', { currencyTierIndex: index, tierField: 'style' }));
     row.appendChild(grid);
     const bases = document.createElement('textarea');
     bases.dataset.currencyTierIndex = String(index);
@@ -925,16 +1471,61 @@ function renderRareTiers(tiers) {
     const row = document.createElement('article');
     row.className = 'tier-row';
     row.dataset.rareTierIndex = String(index);
-    appendTierHeader(row, tier.label || `Rare tier ${index + 1}`, 'rare', index);
-    const grid = document.createElement('div');
-    grid.className = 'editor-grid';
-    appendLabeled(grid, 'Label', createTextInput(tier.label, { rareTierIndex: index, tierField: 'label' }));
-    appendLabeled(grid, 'Min ilvl', createTextInput(tier.minItemLevel || '', { rareTierIndex: index, tierField: 'minItemLevel' }, 'number'));
-    appendLabeled(grid, 'Tier', createSelect(tier.tier || 'baseline', TIER_OPTIONS, { rareTierIndex: index, tierField: 'tier' }));
-    appendLabeled(grid, 'Style', createSelect(tier.style || 'rare', STYLE_OPTIONS, { rareTierIndex: index, tierField: 'style' }));
-    row.appendChild(grid);
+    appendTierHeader(row, tier.label || `Rare rule ${index + 1}`, 'rare', index);
+
+    const editGrid = document.createElement('div');
+    editGrid.className = 'rule-edit-grid';
+    const enabled = document.createElement('input');
+    enabled.type = 'checkbox';
+    enabled.checked = tier.enabled !== false;
+    enabled.dataset.tierField = 'enabled';
+    appendLabeled(editGrid, 'Enabled', enabled);
+    appendLabeled(editGrid, 'Label', createTextInput(tier.label, { rareTierIndex: index, tierField: 'label' }));
+    appendLabeled(editGrid, 'Action', createSelect(tier.action || 'Show', SPECIAL_ACTION_OPTIONS, { rareTierIndex: index, tierField: 'action' }));
+    appendLabeled(editGrid, 'Style', createStyleSelect(tier.style || 'rare', { rareTierIndex: index, tierField: 'style' }));
+    appendLabeled(editGrid, 'Tier', createSelect(tier.tier || 'baseline', TIER_OPTIONS, { rareTierIndex: index, tierField: 'tier' }));
+
+    const conditionsGrid = document.createElement('div');
+    conditionsGrid.className = 'special-item-row__conditions';
+    appendRareRuleConditionControls(conditionsGrid, tier, index);
+
+    const conditionSummary = document.createElement('div');
+    conditionSummary.className = 'filter-rule-row__conditions';
+    for (const condition of tier.conditions || []) {
+      const pill = document.createElement('span');
+      pill.className = 'condition-pill';
+      pill.textContent = formatCondition(condition);
+      conditionSummary.appendChild(pill);
+    }
+
+    row.appendChild(editGrid);
+    row.appendChild(conditionsGrid);
+    row.appendChild(conditionSummary);
     rareTierList.appendChild(row);
   });
+}
+
+function appendRareRuleConditionControls(container, rule, index) {
+  appendLabeled(container, 'Attribute group', createOptionSelect(rule.attributeGroup || '', getRareAttributeOptions(), { rareTierIndex: index, tierField: 'attributeGroup' }));
+  appendLabeled(container, 'Only these names', createTextarea(getConditionText(rule, 'BaseType').replace(/,\s*/g, '\n'), { rareTierIndex: index, tierField: 'baseTypes' }, 'Leave blank to match all rare items for this rule.'));
+  appendLabeled(container, 'Min ilvl', createTextInput(getConditionText(rule, 'ItemLevel', '>=') || rule.minItemLevel || '', { rareTierIndex: index, tierField: 'minItemLevel' }, 'number'));
+  appendLabeled(container, 'Max ilvl', createTextInput(getConditionText(rule, 'ItemLevel', '<='), { rareTierIndex: index, tierField: 'maxItemLevel' }, 'number'));
+  appendLabeled(container, 'Min quality', createTextInput(getConditionText(rule, 'Quality', '>='), { rareTierIndex: index, tierField: 'minQuality' }, 'number'));
+  appendLabeled(container, 'Max quality', createTextInput(getConditionText(rule, 'Quality', '<='), { rareTierIndex: index, tierField: 'maxQuality' }, 'number'));
+}
+
+function getRareAttributeOptions() {
+  const options = [{ value: '', label: 'Any rare item' }];
+  const groups = lootFilterState?.rareEquipmentGroups || {};
+  for (const section of ['armor', 'shields']) {
+    for (const group of groups[section] || []) {
+      options.push({
+        value: `${section}:${group.id}`,
+        label: `${section === 'shields' ? 'Shield' : 'Armour'} - ${group.label}`
+      });
+    }
+  }
+  return options;
 }
 
 function appendTierHeader(row, titleText, type, index) {
@@ -995,7 +1586,7 @@ function renderSpecialItems(profile) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(entry.label, { specialField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(entry.action || 'Show', SPECIAL_ACTION_OPTIONS, { specialField: 'action' }));
-    appendLabeled(editGrid, 'Style', createSelect(entry.style || 'specialItems', STYLE_OPTIONS, { specialField: 'style' }));
+    appendLabeled(editGrid, 'Style', createStyleSelect(entry.style || 'specialItems', { specialField: 'style' }));
     appendLabeled(editGrid, 'Tier', createSelect(entry.tier || 'high', TIER_OPTIONS, { specialField: 'tier' }));
 
     const conditionsGrid = document.createElement('div');
@@ -1037,14 +1628,17 @@ function getConditionText(rule, key, operator) {
 }
 
 function renderLootFilterState(state) {
+  lootFilterRefreshToken += 1;
   lootFilterState = state;
   const profile = state.profile || {};
+  renderProfileControls(state);
   filterOutputPathInput.value = state.outputPath || filterOutputPathInput.value;
   filterQuickActionInput.value = state.quickAction || filterQuickActionInput.value || 'Show';
   filterPreviewOutput.textContent = state.preview || 'No generated filter preview available.';
   renderCaptureDefaults(profile);
   renderStyleList(profile);
   renderTierLists(profile);
+  renderCategoryRules(profile);
   renderRareEquipment(profile, state.rareEquipmentGroups);
   renderChanceBases(profile, state.chanceBaseOptions);
   renderMiscRules(profile);
@@ -1094,7 +1688,7 @@ function renderLootFilterState(state) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(rule.label, { ruleIndex: rules.indexOf(rule), ruleField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', ['Show', 'Hide'], { ruleIndex: rules.indexOf(rule), ruleField: 'action' }));
-    appendLabeled(editGrid, 'Style', createSelect(rule.style || 'default', STYLE_OPTIONS, { ruleIndex: rules.indexOf(rule), ruleField: 'style' }));
+    appendLabeled(editGrid, 'Style', createStyleSelect(rule.style || 'default', { ruleIndex: rules.indexOf(rule), ruleField: 'style' }));
     appendLabeled(editGrid, 'Tier', createSelect(rule.tier || '', ['', ...TIER_OPTIONS], { ruleIndex: rules.indexOf(rule), ruleField: 'tier' }));
 
     const conditions = document.createElement('div');
@@ -1117,7 +1711,12 @@ function renderLootFilterState(state) {
 }
 
 async function refreshLootFilterState(updateStatus = true) {
+  const refreshToken = lootFilterRefreshToken + 1;
+  lootFilterRefreshToken = refreshToken;
   const state = await window.poehelper.getLootFilterState();
+  if (refreshToken !== lootFilterRefreshToken) {
+    return;
+  }
   renderLootFilterState(state);
   if (updateStatus) {
     setStatus(filterStatus, `Preview refreshed from ${state.outputPath}.`);
@@ -1136,7 +1735,7 @@ function collectCaptureDefaults() {
 function collectStyles() {
   const styles = structuredClone(lootFilterState?.profile?.styles || {});
 
-  for (const styleName of STYLE_OPTIONS) {
+  for (const styleName of getStyleOptions()) {
     const style = styles[styleName] || {};
     const controls = [...filterStyleList.querySelectorAll(`[data-style-name="${styleName}"]`)];
     const colorGroups = {};
@@ -1160,6 +1759,17 @@ function collectStyles() {
           : null;
       } else if (field === 'alertSoundVolume') {
         if (style.alertSound) style.alertSound.volume = Number(control.value);
+      } else if (field.startsWith('tierSoundFile:')) {
+        const tier = field.split(':')[1];
+        style.tierSounds ||= {};
+        style.tierSounds[tier] = control.value
+          ? { ...(style.tierSounds[tier] || {}), file: control.value }
+          : null;
+      } else if (field.startsWith('tierSoundVolume:')) {
+        const tier = field.split(':')[1];
+        if (style.tierSounds?.[tier]) {
+          style.tierSounds[tier].volume = Number(control.value);
+        }
       } else if (field === 'iconColor') {
         style.minimapIcon = control.value === 'None'
           ? null
@@ -1196,6 +1806,7 @@ function collectCurrencyTiers() {
       return {
         id: lootFilterState?.profile?.currencyTiers?.[index]?.id || `currency-${Date.now()}-${index}`,
         label: get('label') || `Currency tier ${index + 1}`,
+        action: get('action') || 'Show',
         bases: String(get('bases') || '').split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean),
         tier: get('tier') || 'baseline',
         style: get('style') || 'currency'
@@ -1207,16 +1818,122 @@ function collectRareTiers() {
   return [...rareTierList.querySelectorAll('[data-rare-tier-index]')]
     .filter((row) => row.classList.contains('tier-row'))
     .map((row, index) => {
-      const get = (field) => row.querySelector(`[data-tier-field="${field}"]`)?.value;
-      const minItemLevel = Number(get('minItemLevel'));
+      const existing = lootFilterState?.profile?.rareTiers?.[index] || {};
+      const get = (field) => row.querySelector(`[data-tier-field="${field}"]`);
+      const minItemLevel = Number(get('minItemLevel')?.value);
+      const conditions = [{ key: 'Rarity', value: 'Rare' }];
+      const attributeGroup = get('attributeGroup')?.value || '';
+      const attributeBases = getRareAttributeBases(attributeGroup);
+      const typedBases = splitTextValues(get('baseTypes')?.value);
+      const baseTypes = [...new Set([...attributeBases, ...typedBases])];
+      if (baseTypes.length > 0) {
+        conditions.push({ key: 'BaseType', value: baseTypes.length === 1 ? baseTypes[0] : baseTypes });
+      }
+      pushNumberCondition(conditions, 'ItemLevel', '>=', get('minItemLevel')?.value);
+      pushNumberCondition(conditions, 'ItemLevel', '<=', get('maxItemLevel')?.value);
+      pushNumberCondition(conditions, 'Quality', '>=', get('minQuality')?.value);
+      pushNumberCondition(conditions, 'Quality', '<=', get('maxQuality')?.value);
       return {
-        id: lootFilterState?.profile?.rareTiers?.[index]?.id || `rare-${Date.now()}-${index}`,
-        label: get('label') || `Rare tier ${index + 1}`,
+        ...existing,
+        id: existing.id || `rare-${Date.now()}-${index}`,
+        enabled: get('enabled')?.checked !== false,
+        action: get('action')?.value || existing.action || 'Show',
+        label: get('label')?.value || `Rare rule ${index + 1}`,
         minItemLevel: Number.isFinite(minItemLevel) && minItemLevel > 0 ? minItemLevel : undefined,
-        tier: get('tier') || 'baseline',
-        style: get('style') || 'rare'
+        attributeGroup: attributeGroup || undefined,
+        tier: get('tier')?.value || 'baseline',
+        style: get('style')?.value || 'rare',
+        source: 'rare-item-rule',
+        conditions
       };
     });
+}
+
+function splitTextValues(value) {
+  return String(value || '').split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean);
+}
+
+function getRareAttributeBases(attributeGroup) {
+  const [section, groupId] = String(attributeGroup || '').split(':');
+  if (!section || !groupId) {
+    return [];
+  }
+
+  const group = (lootFilterState?.rareEquipmentGroups?.[section] || []).find((entry) => entry.id === groupId);
+  return group?.bases || [];
+}
+
+function collectCategoryRules() {
+  const output = {};
+  for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
+    output[categoryId] = {
+      enabled: definition.enabledInput.checked,
+      rules: [...definition.list.querySelectorAll(`[data-category-rule-category="${categoryId}"]`)]
+        .map((row) => collectCategoryRuleRow(categoryId, row))
+        .filter((rule) => rule.conditions.length > 0)
+    };
+  }
+  return output;
+}
+
+function collectCategoryRuleRow(categoryId, row) {
+  const definition = CATEGORY_RULE_DEFINITIONS[categoryId];
+  const index = Number(row.dataset.categoryRuleIndex);
+  const existing = lootFilterState?.profile?.categoryRules?.[categoryId]?.rules?.[index] || {};
+  const get = (field) => row.querySelector(`[data-category-rule-field="${field}"]`);
+  const conditions = structuredClone(definition.baseConditions || []);
+
+  if (definition.fields.includes('itemClass')) {
+    removeConditions(conditions, 'Class');
+    pushTextCondition(conditions, 'Class', get('itemClass')?.value, true);
+  }
+
+  if (definition.fields.includes('rarity')) {
+    pushTextCondition(conditions, 'Rarity', get('rarity')?.value);
+  }
+
+  pushNumberCondition(conditions, 'MapTier', '>=', get('minMapTier')?.value);
+  pushNumberCondition(conditions, 'MapTier', '<=', get('maxMapTier')?.value);
+  pushNumberCondition(conditions, 'ItemLevel', '>=', get('minItemLevel')?.value);
+  pushNumberCondition(conditions, 'ItemLevel', '<=', get('maxItemLevel')?.value);
+  pushNumberCondition(conditions, 'GemLevel', '>=', get('minGemLevel')?.value);
+  pushNumberCondition(conditions, 'GemLevel', '<=', get('maxGemLevel')?.value);
+  pushNumberCondition(conditions, 'Quality', '>=', get('minQuality')?.value);
+  pushNumberCondition(conditions, 'Quality', '<=', get('maxQuality')?.value);
+  pushBooleanCondition(conditions, 'Corrupted', get('corrupted')?.value);
+  pushBooleanCondition(conditions, 'Identified', get('identified')?.value);
+
+  if (definition.fields.includes('baseTypes')) {
+    pushTextCondition(conditions, 'BaseType', get('baseTypes')?.value, true);
+  }
+
+  if (definition.fallbackConditions?.length && !conditions.some((condition) => condition.key === 'BaseType')) {
+    conditions.push(...structuredClone(definition.fallbackConditions));
+  }
+
+  if (definition.requireBaseTypes && !conditions.some((condition) => condition.key === 'BaseType')) {
+    conditions.length = 0;
+  }
+
+  return {
+    ...existing,
+    id: existing.id || `${categoryId}-${Date.now()}-${index}`,
+    enabled: get('enabled')?.checked !== false,
+    label: get('label')?.value?.trim() || existing.label || `${definition.label} rule`,
+    action: get('action')?.value || existing.action || 'Show',
+    style: get('style')?.value || existing.style || definition.defaultStyle,
+    tier: get('tier')?.value || existing.tier || definition.defaultTier,
+    source: 'category-rule',
+    conditions
+  };
+}
+
+function removeConditions(conditions, key) {
+  for (let index = conditions.length - 1; index >= 0; index -= 1) {
+    if (conditions[index].key === key) {
+      conditions.splice(index, 1);
+    }
+  }
 }
 
 function collectUserRules() {
@@ -1439,11 +2156,13 @@ function collectRarityVisibility() {
 
 function collectProfilePatch() {
   return {
+    name: filterProfileNameInput.value,
     quickAction: filterQuickActionInput.value,
     quickRuleDefaults: collectCaptureDefaults(),
     styles: collectStyles(),
     currencyTiers: collectCurrencyTiers(),
     rareTiers: collectRareTiers(),
+    categoryRules: collectCategoryRules(),
     rareEquipment: collectRareEquipment(),
     chanceBases: collectChanceBases(),
     miscRules: collectMiscRules(),
@@ -1457,6 +2176,7 @@ function collectProfilePatch() {
 async function saveLootFilterWorkbenchState() {
   const profilePatch = collectProfilePatch();
   await window.poehelper.setLootFilterConfig({
+    profileName: filterProfileNameInput.value,
     outputPath: filterOutputPathInput.value,
     quickAction: filterQuickActionInput.value
   });
@@ -1547,6 +2267,90 @@ saveListingCountButton.addEventListener('click', async () => {
   setStatus(listingStatus, `Showing top ${settings.listingCount} instant-buyout listings.`);
 });
 
+filterProfileSelect.addEventListener('change', async () => {
+  const profileId = filterProfileSelect.value;
+  if (!profileId || profileId === lootFilterState?.activeProfileId) {
+    return;
+  }
+
+  setStatus(filterStatus, 'Switching profiles...');
+  await saveLootFilterWorkbenchState();
+  const state = await window.poehelper.setActiveLootFilterProfile(profileId);
+  renderLootFilterState(state);
+  setStatus(filterStatus, `Active filter profile: ${state.profileName}.`);
+});
+
+newFilterProfileButton.addEventListener('click', () => {
+  runButton(newFilterProfileButton, filterStatus, 'Creating...', async () => {
+    await saveLootFilterWorkbenchState();
+    const state = await window.poehelper.createLootFilterProfile({
+      name: 'New Filter',
+      copyCurrent: false
+    });
+    renderLootFilterState(state);
+    filterProfileNameInput.focus();
+    filterProfileNameInput.select();
+    setStatus(filterStatus, `Created ${state.profileName}. Rename it, then Save Workbench.`);
+  });
+});
+
+duplicateFilterProfileButton.addEventListener('click', () => {
+  runButton(duplicateFilterProfileButton, filterStatus, 'Duplicating...', async () => {
+    await saveLootFilterWorkbenchState();
+    const state = await window.poehelper.createLootFilterProfile({
+      name: `${lootFilterState?.profileName || 'Filter'} Copy`,
+      copyCurrent: true
+    });
+    renderLootFilterState(state);
+    filterProfileNameInput.focus();
+    filterProfileNameInput.select();
+    setStatus(filterStatus, `Duplicated into ${state.profileName}.`);
+  });
+});
+
+deleteFilterProfileButton.addEventListener('click', () => {
+  if (!lootFilterState?.activeProfileId || (lootFilterState.profiles || []).length <= 1) {
+    setStatus(filterStatus, 'Keep at least one loot filter profile.', true);
+    return;
+  }
+
+  if (!window.confirm(`Delete "${lootFilterState.profileName}" from local profiles? This does not delete an exported JSON file.`)) {
+    return;
+  }
+
+  runButton(deleteFilterProfileButton, filterStatus, 'Deleting...', async () => {
+    const state = await window.poehelper.deleteLootFilterProfile(lootFilterState.activeProfileId);
+    renderLootFilterState(state);
+    setStatus(filterStatus, `Deleted profile. Active filter profile: ${state.profileName}.`);
+  });
+});
+
+importFilterProfileButton.addEventListener('click', () => {
+  runButton(importFilterProfileButton, filterStatus, 'Importing...', async () => {
+    const result = await window.poehelper.importLootFilterProfile();
+    if (result.status === 'cancelled') {
+      setStatus(filterStatus, 'Profile import cancelled.');
+      return;
+    }
+
+    renderLootFilterState(result.state);
+    setStatus(filterStatus, `Imported ${result.state.profileName}.`);
+  });
+});
+
+exportFilterProfileButton.addEventListener('click', () => {
+  runButton(exportFilterProfileButton, filterStatus, 'Exporting...', async () => {
+    await saveLootFilterWorkbenchState();
+    const result = await window.poehelper.exportLootFilterProfile(lootFilterState?.activeProfileId);
+    if (result.status === 'cancelled') {
+      setStatus(filterStatus, 'Profile export cancelled.');
+      return;
+    }
+
+    setStatus(filterStatus, `Exported ${result.profileName} to ${result.filePath}.`);
+  });
+});
+
 saveFilterConfigButton.addEventListener('click', () => {
   runButton(saveFilterConfigButton, filterStatus, 'Saving...', async () => {
     await saveLootFilterWorkbenchState();
@@ -1584,6 +2388,7 @@ addCurrencyTierButton.addEventListener('click', () => {
     ...(lootFilterState.profile.currencyTiers || []),
     {
       id: `currency-${Date.now()}`,
+      action: 'Show',
       label: 'New currency tier',
       bases: ['Chaos Orb'],
       style: 'currency',
@@ -1594,20 +2399,55 @@ addCurrencyTierButton.addEventListener('click', () => {
   setStatus(filterStatus, 'Currency tier added. Save Workbench to keep it.');
 });
 
+addCustomStyleButton.addEventListener('click', addCustomStyleFromInput);
+
+customStyleNameInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    addCustomStyleFromInput();
+  }
+});
+
 addRareTierButton.addEventListener('click', () => {
   lootFilterState.profile.rareTiers = [
     ...(lootFilterState.profile.rareTiers || []),
     {
       id: `rare-${Date.now()}`,
-      label: 'New rare tier',
-      minItemLevel: 84,
+      enabled: true,
+      action: 'Show',
+      label: 'New rare rule',
       style: 'rare',
-      tier: 'baseline'
+      tier: 'baseline',
+      source: 'rare-item-rule',
+      conditions: [{ key: 'Rarity', value: 'Rare' }]
     }
   ];
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Rare tier added. Save Workbench to keep it.');
+  setStatus(filterStatus, 'Rare item rule added. Save Workbench to keep it.');
 });
+
+for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
+  definition.addButton.addEventListener('click', () => addCategoryRule(categoryId));
+}
+
+function addCategoryRule(categoryId) {
+  const definition = CATEGORY_RULE_DEFINITIONS[categoryId];
+  lootFilterState.profile.categoryRules ||= {};
+  const category = lootFilterState.profile.categoryRules[categoryId] || { enabled: true, rules: [] };
+  lootFilterState.profile.categoryRules[categoryId] = {
+    ...category,
+    enabled: category.enabled !== false,
+    rules: [
+      ...(category.rules || []),
+      {
+        ...structuredClone(definition.defaultRule),
+        id: `${categoryId}-${Date.now()}`
+      }
+    ]
+  };
+  renderLootFilterState(lootFilterState);
+  setStatus(filterStatus, `${definition.label} rule added. Save Workbench to keep it.`);
+}
 
 refreshFilterPreviewButton.addEventListener('click', () => {
   runButton(refreshFilterPreviewButton, filterStatus, 'Refreshing...', () => refreshLootFilterState(true));
@@ -1698,6 +2538,28 @@ specialItemList.addEventListener('click', (event) => {
   setStatus(specialItemStatus, 'Special item removed. Save Workbench to keep this change.');
 });
 
+for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
+  definition.list.addEventListener('click', (event) => {
+    if (event.target?.dataset?.removeCategoryRuleCategory !== categoryId) {
+      return;
+    }
+
+    const index = Number(event.target.dataset.removeCategoryRuleIndex);
+    if (!Number.isFinite(index) || !lootFilterState?.profile) {
+      return;
+    }
+
+    lootFilterState.profile.categoryRules ||= {};
+    const category = lootFilterState.profile.categoryRules[categoryId] || { enabled: true, rules: [] };
+    lootFilterState.profile.categoryRules[categoryId] = {
+      ...category,
+      rules: (category.rules || []).filter((_, entryIndex) => entryIndex !== index)
+    };
+    renderCategoryRuleList(categoryId, lootFilterState.profile.categoryRules[categoryId]);
+    setStatus(definition.status, `${definition.label} rule removed. Save Workbench to keep this change.`);
+  });
+}
+
 filterRuleList.addEventListener('click', (event) => {
   const ruleId = event.target?.dataset?.ruleId;
   if (!ruleId) {
@@ -1730,7 +2592,7 @@ rareTierList.addEventListener('click', (event) => {
   const index = Number(event.target.dataset.removeTierIndex);
   lootFilterState.profile.rareTiers = (lootFilterState.profile.rareTiers || []).filter((_, entryIndex) => entryIndex !== index);
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Rare tier removed. Save Workbench to keep this change.');
+  setStatus(filterStatus, 'Rare item rule removed. Save Workbench to keep this change.');
 });
 
 for (const [name, input] of Object.entries(shortcutInputs)) {

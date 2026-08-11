@@ -117,6 +117,23 @@
 
           <section class="settings-page settings-page--loot" data-settings-panel="loot-filter">
             <section class="loot-command-bar">
+              <div class="profile-command-grid">
+                <label>
+                  Profile
+                  <select id="filter-profile-select"></select>
+                </label>
+                <label>
+                  Filter name
+                  <input id="filter-profile-name-input" type="text" autocomplete="off" spellcheck="false">
+                </label>
+                <div class="button-row button-row--flush profile-command-actions">
+                  <button id="new-filter-profile-button" type="button">New</button>
+                  <button id="duplicate-filter-profile-button" type="button">Duplicate</button>
+                  <button id="delete-filter-profile-button" class="danger-button" type="button">Delete</button>
+                  <button id="import-filter-profile-button" type="button">Import JSON</button>
+                  <button id="export-filter-profile-button" type="button">Export JSON</button>
+                </div>
+              </div>
               <div class="loot-command-grid">
                 <label>
                   Output filter path
@@ -146,7 +163,14 @@
                 <button class="is-active" type="button" data-loot-tab="capture">Capture</button>
                 <button type="button" data-loot-tab="styles">Styles</button>
                 <button type="button" data-loot-tab="currency">Currency</button>
-                <button type="button" data-loot-tab="rare">Rares</button>
+                <button type="button" data-loot-tab="uniques">Uniques</button>
+                <button type="button" data-loot-tab="maps">Maps</button>
+                <button type="button" data-loot-tab="fragments">Fragments</button>
+                <button type="button" data-loot-tab="gems">Gems</button>
+                <button type="button" data-loot-tab="divination-cards">Div Cards</button>
+                <button type="button" data-loot-tab="scarabs">Scarabs</button>
+                <button type="button" data-loot-tab="oils">Oils</button>
+                <button type="button" data-loot-tab="jewels">Jewels</button>
                 <button type="button" data-loot-tab="equipment">Equipment</button>
                 <button type="button" data-loot-tab="chance">Chancing</button>
                 <button type="button" data-loot-tab="misc">Misc</button>
@@ -162,7 +186,14 @@
                   <div id="filter-capture-defaults" class="toggle-grid"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="styles">
-                  <h3>Family Styles</h3>
+                  <div class="section-heading-row">
+                    <h3>Style Groups</h3>
+                    <div class="style-group-entry">
+                      <input id="custom-style-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="Custom style name">
+                      <button id="add-custom-style-button" type="button">Add Style</button>
+                    </div>
+                  </div>
+                  <p id="custom-style-status" class="status-line">Create reusable style groups, then assign them to category and item rules.</p>
                   <div id="filter-style-list" class="filter-style-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="currency">
@@ -172,14 +203,108 @@
                   </div>
                   <div id="currency-tier-list" class="tier-list"></div>
                 </section>
-                <section class="loot-workbench-section" data-loot-section="rare">
+                <section class="loot-workbench-section" data-loot-section="uniques">
                   <div class="section-heading-row">
-                    <h3>Rare Tiers</h3>
-                    <button id="add-rare-tier-button" type="button">Add Rare Tier</button>
+                    <h3>Unique Rules</h3>
+                    <button id="add-unique-rule-button" type="button">Add Unique Rule</button>
                   </div>
-                  <div id="rare-tier-list" class="tier-list"></div>
+                  <label class="inline-toggle">
+                    <input id="unique-rules-enabled-input" type="checkbox">
+                    Enable unique category rules
+                  </label>
+                  <p id="unique-rules-status" class="status-line">Style unique items by class, base type, item level, or other rule fields.</p>
+                  <div id="unique-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="maps">
+                  <div class="section-heading-row">
+                    <h3>Map Rules</h3>
+                    <button id="add-map-rule-button" type="button">Add Map Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="map-rules-enabled-input" type="checkbox">
+                    Enable map category rules
+                  </label>
+                  <p id="map-rules-status" class="status-line">Style maps using explicit MapTier thresholds.</p>
+                  <div id="map-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="fragments">
+                  <div class="section-heading-row">
+                    <h3>Fragment Rules</h3>
+                    <button id="add-fragment-rule-button" type="button">Add Fragment Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="fragment-rules-enabled-input" type="checkbox">
+                    Enable fragment category rules
+                  </label>
+                  <p id="fragment-rules-status" class="status-line">Style map fragments and boss invitations before broad fallback rules.</p>
+                  <div id="fragment-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="gems">
+                  <div class="section-heading-row">
+                    <h3>Gem Rules</h3>
+                    <button id="add-gem-rule-button" type="button">Add Gem Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="gem-rules-enabled-input" type="checkbox">
+                    Enable gem category rules
+                  </label>
+                  <p id="gem-rules-status" class="status-line">Style skill and support gems by level, quality, corruption, and base name.</p>
+                  <div id="gem-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="divination-cards">
+                  <div class="section-heading-row">
+                    <h3>Divination Card Rules</h3>
+                    <button id="add-divination-card-rule-button" type="button">Add Div Card Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="divination-card-rules-enabled-input" type="checkbox">
+                    Enable divination card category rules
+                  </label>
+                  <p id="divination-card-rules-status" class="status-line">Style divination cards globally or by selected card names.</p>
+                  <div id="divination-card-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="scarabs">
+                  <div class="section-heading-row">
+                    <h3>Scarab Rules</h3>
+                    <button id="add-scarab-rule-button" type="button">Add Scarab Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="scarab-rules-enabled-input" type="checkbox">
+                    Enable scarab category rules
+                  </label>
+                  <p id="scarab-rules-status" class="status-line">Style scarabs as a category or by selected scarab names.</p>
+                  <div id="scarab-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="oils">
+                  <div class="section-heading-row">
+                    <h3>Oil Rules</h3>
+                    <button id="add-oil-rule-button" type="button">Add Oil Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="oil-rules-enabled-input" type="checkbox">
+                    Enable oil category rules
+                  </label>
+                  <p id="oil-rules-status" class="status-line">Style oils before the broader currency rules match.</p>
+                  <div id="oil-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="jewels">
+                  <div class="section-heading-row">
+                    <h3>Jewel Rules</h3>
+                    <button id="add-jewel-rule-button" type="button">Add Jewel Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="jewel-rules-enabled-input" type="checkbox">
+                    Enable jewel category rules
+                  </label>
+                  <p id="jewel-rules-status" class="status-line">Style jewels by rarity, base type, item level, and custom groupings.</p>
+                  <div id="jewel-rule-list" class="category-rule-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="equipment">
+                  <div class="section-heading-row">
+                    <h3>Rare Item Rules</h3>
+                    <button id="add-rare-tier-button" type="button">Add Rare Rule</button>
+                  </div>
+                  <div id="rare-tier-list" class="tier-list"></div>
                   <h3>Equipment Visibility</h3>
                   <div class="toolbar-strip">
                     <label class="inline-toggle">
@@ -238,6 +363,16 @@
                   </label>
                   <p id="misc-rules-status" class="status-line">Show 6-links, 6-sockets, RGB links, and quality recipe items before equipment hiding rules.</p>
                   <div id="misc-rule-list" class="misc-rule-list"></div>
+                  <div class="section-heading-row">
+                    <h3>Flask Rules</h3>
+                    <button id="add-flask-rule-button" type="button">Add Flask Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="flask-rules-enabled-input" type="checkbox">
+                    Enable flask category rules
+                  </label>
+                  <p id="flask-rules-status" class="status-line">Style flask drops from the Misc page instead of Equipment Visibility.</p>
+                  <div id="flask-rule-list" class="category-rule-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="economy">
                   <h3>Economy High Value</h3>

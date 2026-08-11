@@ -1,5 +1,6 @@
 const {
   EQUIPMENT_MISC_GROUPS,
+  FLASK_EQUIPMENT_GROUP_IDS,
   RARE_ARMOR_GROUPS,
   RARE_SHIELD_GROUPS,
   RARE_WEAPON_GROUPS
@@ -7,6 +8,28 @@ const {
 
 const LOOT_FILTER_PROFILE_SCHEMA_VERSION = 1;
 const ECONOMY_HIGHLIGHT_CACHE_VERSION = 3;
+
+const OIL_BASE_TYPES = [
+  'Golden Oil',
+  'Silver Oil',
+  'Opalescent Oil',
+  'Black Oil',
+  'Crimson Oil',
+  'Violet Oil',
+  'Azure Oil',
+  'Teal Oil',
+  'Verdant Oil',
+  'Amber Oil',
+  'Sepia Oil',
+  'Clear Oil',
+  'Prismatic Oil',
+  'Reflective Oil',
+  'Tainted Oil'
+];
+const FLASK_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => FLASK_EQUIPMENT_GROUP_IDS.includes(group.id));
+const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => !FLASK_EQUIPMENT_GROUP_IDS.includes(group.id));
+const FLASK_CLASSES = [...new Set(FLASK_GROUPS.flatMap((group) => group.classes || []))];
+const FLASK_BASE_TYPES = [...new Set(FLASK_GROUPS.flatMap((group) => group.bases || []))];
 
 const DEFAULT_LOOT_FILTER_PROFILE = {
   schemaVersion: LOOT_FILTER_PROFILE_SCHEMA_VERSION,
@@ -127,6 +150,30 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         baseline: [130, 95, 40, 255]
       }
     },
+    oils: {
+      textColor: [150, 255, 180, 255],
+      backgroundColor: [0, 0, 0, 240],
+      borderColor: [95, 210, 120, 255],
+      fontSize: 36,
+      minimapIcon: { size: 1, color: 'Green', shape: 'Raindrop' },
+      tierBorders: {
+        high: [255, 210, 90, 255],
+        valuable: [190, 150, 255, 255],
+        baseline: [95, 210, 120, 255]
+      }
+    },
+    flasks: {
+      textColor: [185, 230, 255, 255],
+      backgroundColor: [4, 16, 24, 235],
+      borderColor: [80, 180, 230, 255],
+      fontSize: 34,
+      minimapIcon: { size: 1, color: 'Cyan', shape: 'Raindrop' },
+      tierBorders: {
+        high: [140, 220, 255, 255],
+        valuable: [80, 180, 230, 255],
+        baseline: [45, 110, 150, 255]
+      }
+    },
     jewelNormal: {
       textColor: [225, 235, 245, 255],
       backgroundColor: [16, 18, 24, 225],
@@ -201,6 +248,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
   currencyTiers: [
     {
       id: 'high',
+      action: 'Show',
       label: 'High currency',
       bases: ['Divine Orb', 'Mirror of Kalandra', 'Exalted Orb', 'Orb of Annulment'],
       style: 'currency',
@@ -208,6 +256,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     },
     {
       id: 'valuable',
+      action: 'Show',
       label: 'Useful currency',
       bases: ['Chaos Orb', 'Regal Orb', 'Vaal Orb', 'Orb of Alchemy', 'Orb of Scouring'],
       style: 'currency',
@@ -215,21 +264,324 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     }
   ],
   rareTiers: [
-    { id: 'rare-ilvl-86', label: 'Rare ilvl 86+', minItemLevel: 86, style: 'rare', tier: 'high' },
-    { id: 'rare-ilvl-84', label: 'Rare ilvl 84+', minItemLevel: 84, style: 'rare', tier: 'valuable' },
-    { id: 'rare-baseline', label: 'Rare baseline', style: 'rare', tier: 'baseline' }
+    {
+      id: 'rare-ilvl-86',
+      enabled: true,
+      action: 'Show',
+      label: 'Rare ilvl 86+',
+      source: 'rare-item-rule',
+      style: 'rare',
+      tier: 'high',
+      minItemLevel: 86,
+      conditions: [
+        { key: 'Rarity', value: 'Rare' },
+        { key: 'ItemLevel', operator: '>=', value: 86 }
+      ]
+    },
+    {
+      id: 'rare-ilvl-84',
+      enabled: true,
+      action: 'Show',
+      label: 'Rare ilvl 84+',
+      source: 'rare-item-rule',
+      style: 'rare',
+      tier: 'valuable',
+      minItemLevel: 84,
+      conditions: [
+        { key: 'Rarity', value: 'Rare' },
+        { key: 'ItemLevel', operator: '>=', value: 84 }
+      ]
+    },
+    {
+      id: 'rare-baseline',
+      enabled: true,
+      action: 'Show',
+      label: 'Rare baseline',
+      source: 'rare-item-rule',
+      style: 'rare',
+      tier: 'baseline',
+      conditions: [{ key: 'Rarity', value: 'Rare' }]
+    }
   ],
   rareEquipment: {
     enabled: false,
     armorGroups: RARE_ARMOR_GROUPS.map((group) => group.id),
     shieldGroups: RARE_SHIELD_GROUPS.map((group) => group.id),
     weaponGroups: RARE_WEAPON_GROUPS.map((group) => group.id),
-    miscGroups: EQUIPMENT_MISC_GROUPS.map((group) => group.id),
+    miscGroups: EQUIPMENT_MISC_VISIBILITY_GROUPS.map((group) => group.id),
     baseSelections: {
       armor: {},
       shields: {},
       weapons: {},
       misc: {}
+    }
+  },
+  categoryRules: {
+    uniques: {
+      enabled: true,
+      rules: [
+        {
+          id: 'uniques-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'Unique items',
+          source: 'category-rule',
+          style: 'unique',
+          tier: 'baseline',
+          conditions: [{ key: 'Rarity', value: 'Unique' }]
+        }
+      ]
+    },
+    maps: {
+      enabled: true,
+      rules: [
+        {
+          id: 'maps-tier-14-plus',
+          enabled: true,
+          action: 'Show',
+          label: 'Maps tier 14+',
+          source: 'category-rule',
+          style: 'maps',
+          tier: 'high',
+          conditions: [
+            { key: 'Class', value: 'Maps' },
+            { key: 'MapTier', operator: '>=', value: 14 }
+          ]
+        },
+        {
+          id: 'maps-tier-6-to-13',
+          enabled: true,
+          action: 'Show',
+          label: 'Maps tier 6-13',
+          source: 'category-rule',
+          style: 'maps',
+          tier: 'valuable',
+          conditions: [
+            { key: 'Class', value: 'Maps' },
+            { key: 'MapTier', operator: '>=', value: 6 },
+            { key: 'MapTier', operator: '<=', value: 13 }
+          ]
+        },
+        {
+          id: 'maps-tier-1-to-5',
+          enabled: true,
+          action: 'Show',
+          label: 'Maps tier 1-5',
+          source: 'category-rule',
+          style: 'maps',
+          tier: 'baseline',
+          conditions: [
+            { key: 'Class', value: 'Maps' },
+            { key: 'MapTier', operator: '<=', value: 5 }
+          ]
+        }
+      ]
+    },
+    fragments: {
+      enabled: true,
+      rules: [
+        {
+          id: 'fragments-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'Fragments and invitations',
+          source: 'category-rule',
+          style: 'fragments',
+          tier: 'baseline',
+          conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+        }
+      ]
+    },
+    gems: {
+      enabled: true,
+      rules: [
+        {
+          id: 'gems-quality',
+          enabled: true,
+          action: 'Show',
+          label: 'Quality gems',
+          source: 'category-rule',
+          style: 'gems',
+          tier: 'valuable',
+          conditions: [
+            { key: 'Class', value: ['Skill Gems', 'Support Gems'] },
+            { key: 'Quality', operator: '>=', value: 20 }
+          ]
+        },
+        {
+          id: 'gems-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'All gems',
+          source: 'category-rule',
+          style: 'gems',
+          tier: 'baseline',
+          conditions: [{ key: 'Class', value: ['Skill Gems', 'Support Gems'] }]
+        }
+      ]
+    },
+    divinationCards: {
+      enabled: true,
+      rules: [
+        {
+          id: 'divination-cards-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'Divination cards',
+          source: 'category-rule',
+          style: 'divinationCards',
+          tier: 'baseline',
+          conditions: [{ key: 'Class', value: 'Divination Cards' }]
+        }
+      ]
+    },
+    scarabs: {
+      enabled: true,
+      rules: [
+        {
+          id: 'scarabs-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'Scarabs',
+          source: 'category-rule',
+          style: 'scarabs',
+          tier: 'baseline',
+          conditions: [{ key: 'BaseType', value: 'Scarab' }]
+        }
+      ]
+    },
+    oils: {
+      enabled: true,
+      rules: [
+        {
+          id: 'oils-premium',
+          enabled: true,
+          action: 'Show',
+          label: 'Premium oils',
+          source: 'category-rule',
+          style: 'oils',
+          tier: 'high',
+          conditions: [
+            { key: 'Class', value: 'Stackable Currency' },
+            { key: 'BaseType', value: ['Golden Oil', 'Silver Oil', 'Opalescent Oil'] }
+          ]
+        },
+        {
+          id: 'oils-useful',
+          enabled: true,
+          action: 'Show',
+          label: 'Useful oils',
+          source: 'category-rule',
+          style: 'oils',
+          tier: 'valuable',
+          conditions: [
+            { key: 'Class', value: 'Stackable Currency' },
+            { key: 'BaseType', value: ['Black Oil', 'Crimson Oil', 'Violet Oil', 'Azure Oil'] }
+          ]
+        },
+        {
+          id: 'oils-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'All oils',
+          source: 'category-rule',
+          style: 'oils',
+          tier: 'baseline',
+          conditions: [
+            { key: 'Class', value: 'Stackable Currency' },
+            { key: 'BaseType', value: OIL_BASE_TYPES }
+          ]
+        }
+      ]
+    },
+    flasks: {
+      enabled: true,
+      rules: [
+        {
+          id: 'flasks-quality',
+          enabled: true,
+          action: 'Show',
+          label: 'Quality flasks',
+          source: 'category-rule',
+          style: 'flasks',
+          tier: 'valuable',
+          conditions: [
+            { key: 'Class', value: FLASK_CLASSES },
+            { key: 'Rarity', value: ['Normal', 'Magic', 'Rare'] },
+            { key: 'Quality', operator: '>=', value: 20 }
+          ]
+        },
+        {
+          id: 'flasks-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'All flasks',
+          source: 'category-rule',
+          style: 'flasks',
+          tier: 'baseline',
+          conditions: [
+            { key: 'Class', value: FLASK_CLASSES },
+            { key: 'Rarity', value: ['Normal', 'Magic', 'Rare'] }
+          ]
+        }
+      ]
+    },
+    jewels: {
+      enabled: true,
+      rules: [
+        {
+          id: 'jewels-unique',
+          enabled: true,
+          action: 'Show',
+          label: 'Unique jewels',
+          source: 'category-rule',
+          style: 'jewelUnique',
+          tier: 'high',
+          conditions: [
+            { key: 'Class', value: 'Jewels' },
+            { key: 'Rarity', value: 'Unique' }
+          ]
+        },
+        {
+          id: 'jewels-rare',
+          enabled: true,
+          action: 'Show',
+          label: 'Rare jewels',
+          source: 'category-rule',
+          style: 'jewelRare',
+          tier: 'valuable',
+          conditions: [
+            { key: 'Class', value: 'Jewels' },
+            { key: 'Rarity', value: 'Rare' }
+          ]
+        },
+        {
+          id: 'jewels-magic',
+          enabled: true,
+          action: 'Show',
+          label: 'Magic jewels',
+          source: 'category-rule',
+          style: 'jewelMagic',
+          tier: 'baseline',
+          conditions: [
+            { key: 'Class', value: 'Jewels' },
+            { key: 'Rarity', value: 'Magic' }
+          ]
+        },
+        {
+          id: 'jewels-normal',
+          enabled: true,
+          action: 'Show',
+          label: 'Normal jewels',
+          source: 'category-rule',
+          style: 'jewelNormal',
+          tier: 'baseline',
+          conditions: [
+            { key: 'Class', value: 'Jewels' },
+            { key: 'Rarity', value: 'Normal' }
+          ]
+        }
+      ]
     }
   },
   chanceBases: {
@@ -398,8 +750,9 @@ function normalizeLootFilterProfile(profile) {
     },
     styles: normalizeStyles(source.styles),
     currencyTiers: Array.isArray(source.currencyTiers) ? source.currencyTiers : DEFAULT_LOOT_FILTER_PROFILE.currencyTiers,
-    rareTiers: Array.isArray(source.rareTiers) ? source.rareTiers : DEFAULT_LOOT_FILTER_PROFILE.rareTiers,
+    rareTiers: normalizeRareItemRules(source.rareTiers),
     rareEquipment: normalizeRareEquipment(source.rareEquipment),
+    categoryRules: normalizeCategoryRules(source.categoryRules),
     chanceBases: normalizeChanceBases(source.chanceBases),
     miscRules: normalizeMiscRules(source.miscRules),
     specialItems: normalizeSpecialItems(source.specialItems),
@@ -407,6 +760,42 @@ function normalizeLootFilterProfile(profile) {
     rarityVisibility: normalizeRarityVisibility(source.rarityVisibility),
     userRules: Array.isArray(source.userRules) ? source.userRules.map(normalizeRule).filter(Boolean) : []
   };
+}
+
+function normalizeCategoryRules(categoryRules) {
+  const source = categoryRules && typeof categoryRules === 'object' ? categoryRules : {};
+  const output = {};
+
+  for (const [categoryId, fallback] of Object.entries(DEFAULT_LOOT_FILTER_PROFILE.categoryRules)) {
+    const category = source[categoryId] && typeof source[categoryId] === 'object' ? source[categoryId] : {};
+    const rules = Array.isArray(category.rules)
+      ? category.rules.map(normalizeCategoryRule).filter(Boolean)
+      : (fallback.rules || []).map(normalizeCategoryRule).filter(Boolean);
+
+    output[categoryId] = {
+      enabled: category.enabled === undefined ? fallback.enabled !== false : category.enabled !== false,
+      rules
+    };
+  }
+
+  return output;
+}
+
+function normalizeCategoryRule(entry) {
+  const rule = normalizeRule({
+    ...entry,
+    action: entry?.action || 'Show',
+    label: entry?.label || 'Category rule',
+    source: 'category-rule',
+    style: entry?.style || 'default',
+    tier: entry?.tier || 'baseline'
+  });
+
+  if (!rule || rule.conditions.length === 0) {
+    return undefined;
+  }
+
+  return rule;
 }
 
 function normalizeStyles(styles) {
@@ -467,6 +856,46 @@ function normalizeRule(rule) {
   return output;
 }
 
+function normalizeRareItemRules(rareTiers) {
+  const source = Array.isArray(rareTiers) ? rareTiers : DEFAULT_LOOT_FILTER_PROFILE.rareTiers;
+  return source.map(normalizeRareItemRule).filter(Boolean);
+}
+
+function normalizeRareItemRule(entry) {
+  const conditions = Array.isArray(entry?.conditions)
+    ? entry.conditions
+    : createLegacyRareConditions(entry);
+  const rule = normalizeRule({
+    ...entry,
+    enabled: entry?.enabled !== false,
+    action: entry?.action || 'Show',
+    label: entry?.label || 'Rare item rule',
+    source: 'rare-item-rule',
+    style: entry?.style || 'rare',
+    tier: entry?.tier || 'baseline',
+    conditions
+  });
+
+  if (!rule || rule.conditions.length === 0) {
+    return undefined;
+  }
+
+  if (Number.isFinite(Number(entry?.minItemLevel))) {
+    rule.minItemLevel = Number(entry.minItemLevel);
+  }
+
+  return rule;
+}
+
+function createLegacyRareConditions(entry = {}) {
+  const conditions = [{ key: 'Rarity', value: 'Rare' }];
+  const minItemLevel = Number(entry.minItemLevel);
+  if (Number.isFinite(minItemLevel) && minItemLevel > 0) {
+    conditions.push({ key: 'ItemLevel', operator: '>=', value: minItemLevel });
+  }
+  return conditions;
+}
+
 function normalizeStyle(style, fallback = DEFAULT_LOOT_FILTER_PROFILE.styles.default) {
   const source = style && typeof style === 'object' ? style : {};
   const has = (key) => Object.prototype.hasOwnProperty.call(source, key);
@@ -478,6 +907,7 @@ function normalizeStyle(style, fallback = DEFAULT_LOOT_FILTER_PROFILE.styles.def
     borderColor: normalizeColor(source.borderColor || fallback.borderColor),
     fontSize: normalizeFontSize(source.fontSize || fallback.fontSize),
     alertSound: normalizeAlertSound(has('alertSound') ? source.alertSound : fallback.alertSound),
+    tierSounds: normalizeTierSounds(has('tierSounds') ? source.tierSounds : fallback.tierSounds),
     minimapIcon: normalizeMinimapIcon(has('minimapIcon') ? source.minimapIcon : fallback.minimapIcon),
     beam: normalizeBeam(has('beam') ? source.beam : fallback.beam),
     tierBorders: normalizeTierBorders(source.tierBorders || fallback.tierBorders)
@@ -508,6 +938,41 @@ function normalizeAlertSound(alertSound) {
   return {
     id: Math.max(1, Math.round(Number(alertSound.id) || 1)),
     volume: Math.max(0, Math.min(300, Math.round(Number(alertSound.volume) || 80)))
+  };
+}
+
+function normalizeTierSounds(tierSounds) {
+  if (!tierSounds || typeof tierSounds !== 'object') {
+    return undefined;
+  }
+
+  const output = {};
+  for (const tier of ['baseline', 'high', 'valuable']) {
+    if (Object.prototype.hasOwnProperty.call(tierSounds, tier)) {
+      output[tier] = normalizeCustomAlertSound(tierSounds[tier]);
+    }
+  }
+
+  return Object.keys(output).length ? output : undefined;
+}
+
+function normalizeCustomAlertSound(sound) {
+  if (sound === null) {
+    return null;
+  }
+
+  if (!sound || typeof sound !== 'object') {
+    return undefined;
+  }
+
+  const file = String(sound.file || '').trim();
+  if (!file) {
+    return null;
+  }
+
+  return {
+    file,
+    volume: Math.max(0, Math.min(300, Math.round(Number(sound.volume) || 100)))
   };
 }
 
@@ -568,12 +1033,12 @@ function normalizeRareEquipment(rareEquipment) {
 
 function normalizeMiscEquipmentGroups(source) {
   if (Array.isArray(source.miscGroups)) {
-    return normalizeIdList(source.miscGroups, EQUIPMENT_MISC_GROUPS);
+    return normalizeIdList(source.miscGroups, EQUIPMENT_MISC_VISIBILITY_GROUPS);
   }
 
   return source.enabled
     ? []
-    : EQUIPMENT_MISC_GROUPS.map((group) => group.id);
+    : EQUIPMENT_MISC_VISIBILITY_GROUPS.map((group) => group.id);
 }
 
 function normalizeIdList(ids, availableGroups) {
@@ -832,6 +1297,8 @@ function normalizeCondition(condition) {
 
 function getStyleForItem(item) {
   if (isScarabItem(item)) return 'scarabs';
+  if (isOilItem(item)) return 'oils';
+  if (isFlaskItem(item) && item.rarity !== 'Unique') return 'flasks';
   if (item.category === 'currency') return 'currency';
   if (item.category === 'divination-card') return 'divinationCards';
   if (item.category === 'rare') return 'rare';
@@ -840,6 +1307,16 @@ function getStyleForItem(item) {
   if (item.category === 'gem') return 'gems';
   if (String(item.category || '').startsWith('unique')) return 'unique';
   return 'default';
+}
+
+function isOilItem(item) {
+  return item?.type === 'Oil'
+    || /\bOil\b/i.test(`${item?.name || ''} ${item?.baseType || ''} ${item?.searchLabel || ''}`);
+}
+
+function isFlaskItem(item) {
+  return FLASK_CLASSES.includes(item?.itemClass)
+    || /\bFlask\b/i.test(`${item?.itemClass || ''} ${item?.name || ''} ${item?.baseType || ''} ${item?.searchLabel || ''}`);
 }
 
 function isScarabItem(item) {
@@ -928,7 +1405,11 @@ function getRareTier(item) {
 module.exports = {
   DEFAULT_LOOT_FILTER_PROFILE,
   ECONOMY_HIGHLIGHT_CACHE_VERSION,
+  EQUIPMENT_MISC_VISIBILITY_GROUPS,
+  FLASK_BASE_TYPES,
+  FLASK_CLASSES,
   LOOT_FILTER_PROFILE_SCHEMA_VERSION,
+  OIL_BASE_TYPES,
   createRuleFromItem,
   normalizeLootFilterProfile,
   normalizeRule,

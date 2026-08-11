@@ -124,6 +124,16 @@ const renamedEconomyProfile = normalizeLootFilterProfile({
   }
 });
 assert.deepEqual(renamedEconomyProfile.economyHighlights.tiers.map((tier) => tier.label), ['Starter', 'Good Stuff', 'Big Tickets']);
+const emptyMapRulesProfile = normalizeLootFilterProfile({
+  categoryRules: {
+    maps: {
+      enabled: true,
+      rules: []
+    }
+  }
+});
+assert.equal(emptyMapRulesProfile.categoryRules.maps.rules.length, 0);
+assert.equal(emptyMapRulesProfile.categoryRules.oils.rules.length > 0, true);
 const output = generateLootFilter(profile);
 
 assert.match(output, /# POEHelper generated loot filter/);
@@ -140,23 +150,72 @@ assert.match(output, /Rarity Rare/);
 assert.match(output, /# Currency baseline\nShow\n    Class "Stackable Currency"/);
 assert.match(output, /# Unique items\nShow\n    Rarity Unique/);
 assert.match(output, /SetTextColor 255 170 80 255/);
-assert.match(output, /# Maps\nShow\n    Class Maps/);
-assert.match(output, /# Map fragments and invitations\nShow\n    Class "Map Fragments" "Misc Map Items"/);
-assert.match(output, /SetBorderColor 130 110 255 255/);
-assert.match(output, /# Gems\nShow\n    Class "Skill Gems" "Support Gems"/);
+assert.match(output, /# Category rules\n# Unique items\nShow\n    Rarity Unique/);
+assert.match(output, /# Maps tier 14\+\nShow\n    Class Maps\n    MapTier >= 14/);
+assert.match(output, /# Maps tier 6-13\nShow\n    Class Maps\n    MapTier >= 6\n    MapTier <= 13/);
+assert.match(output, /# Maps tier 1-5\nShow\n    Class Maps\n    MapTier <= 5/);
+assert.match(output, /# Premium oils\nShow\n    Class "Stackable Currency"\n    BaseType "Golden Oil" "Silver Oil" "Opalescent Oil"/);
+assert.match(output, /# All oils\nShow\n    Class "Stackable Currency"\n    BaseType .*"Clear Oil"/);
+assert.ok(output.indexOf('# Category rules') < output.indexOf('# Currency tiers'));
+assert.match(output, /# Fragments and invitations\nShow\n    Class "Map Fragments" "Misc Map Items"/);
+assert.match(output, /SetBorderColor 75 95 170 255/);
+assert.match(output, /# Quality gems\nShow\n    Class "Skill Gems" "Support Gems"\n    Quality >= 20/);
+assert.match(output, /# All gems\nShow\n    Class "Skill Gems" "Support Gems"/);
 assert.match(output, /# Divination cards\nShow\n    Class "Divination Cards"/);
 assert.match(output, /SetBackgroundColor 210 235 255 235/);
 assert.match(output, /# Scarabs\nShow\n    BaseType Scarab/);
 assert.doesNotMatch(output, /Class Scarabs/);
-assert.match(output, /SetBorderColor 220 170 70 255/);
-assert.match(output, /# Jewels by rarity\n# Normal jewels\nShow\n    Class Jewels\n    Rarity Normal/);
+assert.match(output, /SetBorderColor 130 95 40 255/);
+assert.doesNotMatch(output, /# Jewels by rarity/);
+assert.match(output, /# Normal jewels\nShow\n    Class Jewels\n    Rarity Normal/);
 assert.match(output, /# Rare jewels\nShow\n    Class Jewels\n    Rarity Rare/);
 assert.match(output, /SetBorderColor 225 175 60 255/);
 assert.match(output, /# Misc rules\n# 6-linked items\nShow\n    LinkedSockets >= 6/);
 assert.match(output, /# 6-socket vendor recipe\nShow\n    Sockets >= 6/);
 assert.match(output, /# Chromatic RGB recipe\nShow\n    SocketGroup RGB/);
 assert.doesNotMatch(output, /# 20% quality gem recipe\nShow/);
+assert.match(output, /# Rare item rules\n# Rare ilvl 86\+\nShow\n    Rarity Rare\n    ItemLevel >= 86/);
 assert.match(output, /# Fresh-slate default: show everything not matched above\n# Default show all\nShow/);
+
+const hiddenCurrencyProfile = normalizeLootFilterProfile({
+  currencyTiers: [
+    {
+      id: 'hide-scrolls',
+      action: 'Hide',
+      label: 'Hide scrolls',
+      bases: ['Scroll of Wisdom'],
+      style: 'currency',
+      tier: 'baseline'
+    }
+  ]
+});
+const hiddenCurrencyOutput = generateLootFilter(hiddenCurrencyProfile);
+assert.match(hiddenCurrencyOutput, /# Hide scrolls\nHide\n    Class "Stackable Currency"\n    BaseType "Scroll of Wisdom"/);
+
+const customSoundProfile = normalizeLootFilterProfile({
+  styles: {
+    currency: {
+      ...DEFAULT_LOOT_FILTER_PROFILE.styles.currency,
+      tierSounds: {
+        baseline: { file: 'currency-base.mp3', volume: 70 },
+        high: { file: 'currency-high.mp3', volume: 110 }
+      }
+    }
+  },
+  currencyTiers: [
+    {
+      id: 'sound-chaos',
+      action: 'Show',
+      label: 'Sound chaos',
+      bases: ['Chaos Orb'],
+      style: 'currency',
+      tier: 'high'
+    }
+  ]
+});
+const customSoundOutput = generateLootFilter(customSoundProfile);
+assert.match(customSoundOutput, /# Sound chaos\nShow\n    Class "Stackable Currency"\n    BaseType "Chaos Orb"[\s\S]*CustomAlertSound "currency-high\.mp3" 110\n    DisableDropSoundIfAlertSound/);
+assert.match(customSoundOutput, /# Currency baseline\nShow\n    Class "Stackable Currency"[\s\S]*CustomAlertSound "currency-base\.mp3" 70\n    DisableDropSoundIfAlertSound/);
 
 const economyRules = createEconomyRulesFromOverviews([
   {
@@ -647,6 +706,37 @@ assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Wands/s)
 assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Sceptres/s);
 assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Staves/s);
 
+const rareOverrideProfile = normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  rareTiers: [
+    {
+      id: 'rare-show-necro',
+      enabled: true,
+      action: 'Show',
+      label: 'Show rare Necromancer Circlets',
+      source: 'rare-item-rule',
+      style: 'rare',
+      tier: 'valuable',
+      conditions: [
+        { key: 'Rarity', value: 'Rare' },
+        { key: 'BaseType', value: 'Necromancer Circlet' },
+        { key: 'ItemLevel', operator: '>=', value: 70 },
+        { key: 'Quality', operator: '>=', value: 20 }
+      ]
+    }
+  ],
+  rareEquipment: {
+    enabled: true,
+    armorGroups: [],
+    shieldGroups: [],
+    weaponGroups: [],
+    miscGroups: []
+  }
+});
+const rareOverrideOutput = generateLootFilter(rareOverrideProfile);
+assert.match(rareOverrideOutput, /# Rare item rules\n# Show rare Necromancer Circlets\nShow\n    Rarity Rare\n    BaseType "Necromancer Circlet"\n    ItemLevel >= 70\n    Quality >= 20/);
+assert.ok(rareOverrideOutput.indexOf('# Rare item rules') < rareOverrideOutput.indexOf('# Equipment narrowing for normal, magic, and rare bases'));
+
 const chanceProfile = normalizeLootFilterProfile({
   ...DEFAULT_LOOT_FILTER_PROFILE,
   chanceBases: {
@@ -761,11 +851,12 @@ const utilityFlaskOnlyProfile = normalizeLootFilterProfile({
     }
   }
 });
+assert.deepEqual(utilityFlaskOnlyProfile.rareEquipment.miscGroups, []);
 const utilityFlaskOnlyOutput = generateLootFilter(utilityFlaskOnlyProfile);
-assert.match(utilityFlaskOnlyOutput, /Hide\n    Rarity Normal\n    Class .*"Life Flasks".*"Mana Flasks".*"Hybrid Flasks"/s);
-assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Normal\n    Class .*"Utility Flasks"/s);
-assert.match(utilityFlaskOnlyOutput, /Hide\n    Rarity Magic\n    BaseType .*"Ruby Flask"/s);
-assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Magic\n    BaseType .*"Quicksilver Flask"/s);
+assert.match(utilityFlaskOnlyOutput, /# Quality flasks\nShow\n    Class "Life Flasks" "Mana Flasks" "Hybrid Flasks" "Utility Flasks"\n    Rarity Normal Magic Rare\n    Quality >= 20/);
+assert.match(utilityFlaskOnlyOutput, /# All flasks\nShow\n    Class "Life Flasks" "Mana Flasks" "Hybrid Flasks" "Utility Flasks"\n    Rarity Normal Magic Rare/);
+assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Normal\n    Class .*"Life Flasks"/s);
+assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Magic\n    BaseType .*"Ruby Flask"/s);
 assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Unique\n    BaseType .*"Ruby Flask"/s);
 
 const hiddenNormalMagicProfile = normalizeLootFilterProfile({
@@ -782,7 +873,9 @@ const hiddenNormalMagicProfile = normalizeLootFilterProfile({
 const hiddenNormalMagicOutput = generateLootFilter(hiddenNormalMagicProfile);
 const baseRaritySection = hiddenNormalMagicOutput.slice(
   hiddenNormalMagicOutput.indexOf('# Base rarity visibility'),
-  hiddenNormalMagicOutput.indexOf('# Jewels by rarity')
+  hiddenNormalMagicOutput.indexOf('# Equipment narrowing for normal, magic, and rare bases') > -1
+    ? hiddenNormalMagicOutput.indexOf('# Equipment narrowing for normal, magic, and rare bases')
+    : hiddenNormalMagicOutput.indexOf('# Family baseline rules')
 );
 assert.match(hiddenNormalMagicOutput, /# Chance bases\n# Selected chance bases\nShow\n    Rarity Normal\n    Corrupted False\n    BaseType "Leather Belt"/);
 assert.match(baseRaritySection, /# Disabled normal equipment\nHide\n    Rarity Normal\n    Class .*"Body Armours".*Wands/s);
@@ -791,8 +884,8 @@ assert.match(baseRaritySection, /Class .*Belts/s);
 assert.match(baseRaritySection, /Class .*Quivers/s);
 assert.match(baseRaritySection, /Class .*Amulets/s);
 assert.match(baseRaritySection, /Class .*Rings/s);
-assert.match(baseRaritySection, /Class .*"Life Flasks"/s);
-assert.match(baseRaritySection, /Class .*"Utility Flasks"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Life Flasks"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Utility Flasks"/s);
 assert.doesNotMatch(baseRaritySection, /Class .*Maps/);
 assert.doesNotMatch(baseRaritySection, /Class .*Jewels/);
 assert.doesNotMatch(baseRaritySection, /Class .*"Divination Cards"/);

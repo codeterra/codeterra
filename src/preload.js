@@ -73,6 +73,21 @@ contextBridge.exposeInMainWorld('poehelper', {
   getLootFilterState() {
     return ipcRenderer.invoke('get-loot-filter-state');
   },
+  setActiveLootFilterProfile(profileId) {
+    return ipcRenderer.invoke('set-active-loot-filter-profile', profileId);
+  },
+  createLootFilterProfile(options) {
+    return ipcRenderer.invoke('create-loot-filter-profile', options);
+  },
+  deleteLootFilterProfile(profileId) {
+    return ipcRenderer.invoke('delete-loot-filter-profile', profileId);
+  },
+  exportLootFilterProfile(profileId) {
+    return ipcRenderer.invoke('export-loot-filter-profile', profileId);
+  },
+  importLootFilterProfile() {
+    return ipcRenderer.invoke('import-loot-filter-profile');
+  },
   updateLootFilterProfile(profilePatch) {
     return ipcRenderer.invoke('update-loot-filter-profile', profilePatch);
   },

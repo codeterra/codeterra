@@ -414,8 +414,16 @@ const EQUIPMENT_MISC_GROUPS = [
   }
 ];
 
+const FLASK_EQUIPMENT_GROUP_IDS = [
+  'life-flasks',
+  'mana-flasks',
+  'hybrid-flasks',
+  'utility-flasks'
+];
+
 module.exports = {
   EQUIPMENT_MISC_GROUPS,
+  FLASK_EQUIPMENT_GROUP_IDS,
   RARE_ARMOR_GROUPS,
   RARE_SHIELD_GROUPS,
   RARE_WEAPON_GROUPS

@@ -1,5 +1,5 @@
 const {
-  EQUIPMENT_MISC_GROUPS,
+  EQUIPMENT_MISC_VISIBILITY_GROUPS,
   RARE_ARMOR_GROUPS,
   RARE_SHIELD_GROUPS,
   RARE_WEAPON_GROUPS,
@@ -14,7 +14,7 @@ const RARITY_VISIBILITY_EQUIPMENT_CLASSES = [
   'Shields',
   ...new Set(RARE_WEAPON_GROUPS.flatMap((group) => group.classes || [])),
   ...new Set(
-    EQUIPMENT_MISC_GROUPS
+    EQUIPMENT_MISC_VISIBILITY_GROUPS
       .filter((group) => group.id !== 'jewels')
       .flatMap((group) => group.classes || [])
   )
@@ -40,11 +40,12 @@ function generateLootFilter(profileLike) {
   }
 
   renderEconomyHighlightFilters(lines, profile);
+  renderCategoryRuleFilters(lines, profile);
 
   lines.push('# Currency tiers');
   for (const tier of profile.currencyTiers || []) {
     lines.push(...renderRule({
-      action: 'Show',
+      action: tier.action || 'Show',
       label: tier.label,
       style: tier.style || 'currency',
       tier: tier.tier,
@@ -67,75 +68,73 @@ function generateLootFilter(profileLike) {
 
   renderChanceBaseFilters(lines, profile);
   renderMiscRuleFilters(lines, profile);
+  renderRareItemRuleFilters(lines, profile);
   renderRarityVisibilityFilters(lines, profile);
   renderRareEquipmentFilters(lines, profile);
-  renderJewelRarityFilters(lines, profile);
+  if (!isCategoryEnabled(profile, 'jewels')) {
+    renderJewelRarityFilters(lines, profile);
+  }
 
-  lines.push('# Rare item tiers');
-  for (const tier of profile.rareTiers || []) {
-    const conditions = [{ key: 'Rarity', value: 'Rare' }];
-    if (tier.minItemLevel) {
-      conditions.push({ key: 'ItemLevel', operator: '>=', value: tier.minItemLevel });
-    }
-
+  lines.push('# Family baseline rules');
+  if (!isCategoryEnabled(profile, 'uniques')) {
     lines.push(...renderRule({
       action: 'Show',
-      label: tier.label,
-      style: tier.style || 'rare',
-      tier: tier.tier,
-      conditions
+      label: 'Unique items',
+      style: 'unique',
+      conditions: [{ key: 'Rarity', value: 'Unique' }]
     }, profile));
     lines.push('');
   }
 
-  lines.push('# Family baseline rules');
-  lines.push(...renderRule({
-    action: 'Show',
-    label: 'Unique items',
-    style: 'unique',
-    conditions: [{ key: 'Rarity', value: 'Unique' }]
-  }, profile));
-  lines.push('');
+  if (!isCategoryEnabled(profile, 'maps')) {
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Maps',
+      style: 'maps',
+      conditions: [{ key: 'Class', value: 'Maps' }]
+    }, profile));
+    lines.push('');
+  }
 
-  lines.push(...renderRule({
-    action: 'Show',
-    label: 'Maps',
-    style: 'maps',
-    conditions: [{ key: 'Class', value: 'Maps' }]
-  }, profile));
-  lines.push('');
+  if (!isCategoryEnabled(profile, 'fragments')) {
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Map fragments and invitations',
+      style: 'fragments',
+      conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+    }, profile));
+    lines.push('');
+  }
 
-  lines.push(...renderRule({
-    action: 'Show',
-    label: 'Map fragments and invitations',
-    style: 'fragments',
-    conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
-  }, profile));
-  lines.push('');
+  if (!isCategoryEnabled(profile, 'gems')) {
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Gems',
+      style: 'gems',
+      conditions: [{ key: 'Class', value: ['Skill Gems', 'Support Gems'] }]
+    }, profile));
+    lines.push('');
+  }
 
-  lines.push(...renderRule({
-    action: 'Show',
-    label: 'Gems',
-    style: 'gems',
-    conditions: [{ key: 'Class', value: ['Skill Gems', 'Support Gems'] }]
-  }, profile));
-  lines.push('');
+  if (!isCategoryEnabled(profile, 'divinationCards')) {
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Divination cards',
+      style: 'divinationCards',
+      conditions: [{ key: 'Class', value: 'Divination Cards' }]
+    }, profile));
+    lines.push('');
+  }
 
-  lines.push(...renderRule({
-    action: 'Show',
-    label: 'Divination cards',
-    style: 'divinationCards',
-    conditions: [{ key: 'Class', value: 'Divination Cards' }]
-  }, profile));
-  lines.push('');
-
-  lines.push(...renderRule({
-    action: 'Show',
-    label: 'Scarabs',
-    style: 'scarabs',
-    conditions: [{ key: 'BaseType', value: 'Scarab' }]
-  }, profile));
-  lines.push('');
+  if (!isCategoryEnabled(profile, 'scarabs')) {
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Scarabs',
+      style: 'scarabs',
+      conditions: [{ key: 'BaseType', value: 'Scarab' }]
+    }, profile));
+    lines.push('');
+  }
 
   lines.push('# Fresh-slate default: show everything not matched above');
   lines.push(...renderRule({
@@ -147,6 +146,53 @@ function generateLootFilter(profileLike) {
   lines.push('');
 
   return `${lines.join('\n')}\n`;
+}
+
+function renderRareItemRuleFilters(lines, profile) {
+  const entries = (profile.rareTiers || []).filter((rule) => rule.enabled !== false && rule.conditions?.length);
+  if (entries.length === 0) {
+    return;
+  }
+
+  lines.push('# Rare item rules');
+  for (const rule of entries) {
+    lines.push(...renderRule({
+      action: rule.action || 'Show',
+      label: rule.label,
+      style: rule.style || 'rare',
+      tier: rule.tier,
+      conditions: rule.conditions
+    }, profile));
+    lines.push('');
+  }
+}
+
+function isCategoryEnabled(profile, categoryId) {
+  return profile.categoryRules?.[categoryId]?.enabled !== false;
+}
+
+function renderCategoryRuleFilters(lines, profile) {
+  const categoryRules = profile.categoryRules || {};
+  const entries = Object.entries(categoryRules)
+    .filter(([, category]) => category?.enabled !== false)
+    .flatMap(([categoryId, category]) =>
+      (category.rules || [])
+        .filter((rule) => rule.enabled !== false && rule.conditions?.length)
+        .map((rule) => ({ categoryId, rule }))
+    );
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  lines.push('# Category rules');
+  for (const { categoryId, rule } of entries) {
+    lines.push(...renderRule({
+      ...rule,
+      label: rule.label || `${categoryId} rule`
+    }, profile));
+    lines.push('');
+  }
 }
 
 function renderSpecialItemFilters(lines, profile) {
@@ -318,14 +364,14 @@ function renderRareEquipmentFilters(lines, profile) {
     baseSelections.weapons
   );
   const disabledMiscBases = getDisabledBases(
-    EQUIPMENT_MISC_GROUPS.filter((group) => selectedMisc.has(group.id)),
+    EQUIPMENT_MISC_VISIBILITY_GROUPS.filter((group) => selectedMisc.has(group.id)),
     selectedMisc,
     baseSelections.misc
   );
   const disabledWeaponClasses = RARE_WEAPON_GROUPS
     .filter((group) => !selectedWeapons.has(group.id))
     .flatMap((group) => group.classes || []);
-  const disabledMiscClasses = EQUIPMENT_MISC_GROUPS
+  const disabledMiscClasses = EQUIPMENT_MISC_VISIBILITY_GROUPS
     .filter((group) => !selectedMisc.has(group.id))
     .flatMap((group) => group.classes || []);
 
@@ -424,9 +470,14 @@ function renderRule(rule, profile) {
 function getEffectiveStyle(profile, styleName, tier) {
   const style = profile.styles?.[styleName] || profile.styles?.default || {};
   const tierBorder = tier && style.tierBorders?.[tier] ? style.tierBorders[tier] : undefined;
+  const soundTier = tier || 'baseline';
+  const tierSound = style.tierSounds && Object.prototype.hasOwnProperty.call(style.tierSounds, soundTier)
+    ? style.tierSounds[soundTier]
+    : undefined;
   return {
     ...style,
-    borderColor: tierBorder || style.borderColor
+    borderColor: tierBorder || style.borderColor,
+    customAlertSound: tierSound === undefined ? style.customAlertSound : tierSound
   };
 }
 
@@ -437,6 +488,10 @@ function renderStyleActions(style) {
   if (style.borderColor) actions.push(`SetBorderColor ${renderColor(style.borderColor)}`);
   if (style.fontSize) actions.push(`SetFontSize ${Math.max(1, Math.min(45, Number(style.fontSize) || 32))}`);
   if (style.alertSound?.id) actions.push(`PlayAlertSound ${style.alertSound.id} ${style.alertSound.volume || 80}`);
+  if (style.customAlertSound?.file) {
+    actions.push(`CustomAlertSound "${escapeFilterString(style.customAlertSound.file)}" ${style.customAlertSound.volume || 100}`);
+    actions.push('DisableDropSoundIfAlertSound');
+  }
   if (style.minimapIcon) {
     actions.push(`MinimapIcon ${style.minimapIcon.size ?? 1} ${style.minimapIcon.color || 'White'} ${style.minimapIcon.shape || 'Circle'}`);
   }
@@ -444,6 +499,10 @@ function renderStyleActions(style) {
     actions.push(`PlayEffect ${style.beam.color || 'White'}${style.beam.temporary ? ' Temp' : ''}`);
   }
   return actions;
+}
+
+function escapeFilterString(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function renderCondition(condition) {

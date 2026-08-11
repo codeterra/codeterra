@@ -1,6 +1,7 @@
-const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { execFile } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 const { parseCopiedItem } = require('./domain/item-parser');
 const { createConfidenceHints } = require('./domain/item-intelligence');
@@ -12,10 +13,16 @@ const { getRelatedOutcomes } = require('./services/related-outcomes');
 const {
   addCapturedItemRule,
   clearLootFilterRules,
+  createLootFilterProfile,
+  deleteLootFilterProfile,
+  exportLootFilterProfile,
   getLootFilterSummary,
   getLootFilterState,
+  importLootFilterProfile,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
+  sanitizeFilterFileName,
+  setActiveLootFilterProfile,
   setLootFilterConfig,
   updateLootFilterProfile,
   writeLootFilter
@@ -953,9 +960,22 @@ function updateTrayMenu() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAIklEQVR4AWMYOnTof2RkZITJgBswagDRgqMGjBqAFAAAUCMCHh8QdNwAAAAASUVORK5CYII='
-  );
+  const fallbackTraySvg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">',
+    '<rect x="5" y="5" width="54" height="54" rx="13" fill="#111820"/>',
+    '<rect x="5" y="5" width="54" height="54" rx="13" fill="none" stroke="#6ee08f" stroke-width="4"/>',
+    '<path d="M32 12 18 29h8L16 42h13v9h6v-9h13L38 29h8L32 12Z" fill="#69d982"/>',
+    '<path d="M32 12v39h3v-9h13L38 29h8L32 12Z" fill="#3eb86d" opacity=".85"/>',
+    '</svg>'
+  ].join('');
+  const traySvgPath = path.join(__dirname, 'assets', 'tray-icon.svg');
+  const traySvg = fs.existsSync(traySvgPath) ? fs.readFileSync(traySvgPath, 'utf8') : fallbackTraySvg;
+  let icon = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(traySvg)}`);
+  if (icon.isEmpty()) {
+    icon = nativeImage.createFromDataURL(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAIklEQVR4AWMYOnTof2RkZITJgBswagDRgqMGjBqAFAAAUCMCHh8QdNwAAAAASUVORK5CYII='
+    );
+  }
 
   tray = new Tray(icon);
   tray.setToolTip('POEHelper');
@@ -1130,6 +1150,88 @@ ipcMain.handle('set-loot-filter-config', (_event, config) => {
 });
 
 ipcMain.handle('get-loot-filter-state', () => getLootFilterState(settings));
+
+ipcMain.handle('set-active-loot-filter-profile', async (_event, profileId) => {
+  settings = writeSettings({
+    ...settings,
+    lootFilter: setActiveLootFilterProfile(settings, profileId)
+  });
+  publishSettings();
+  return await getLootFilterState(settings);
+});
+
+ipcMain.handle('create-loot-filter-profile', async (_event, options) => {
+  settings = writeSettings({
+    ...settings,
+    lootFilter: createLootFilterProfile(settings, options)
+  });
+  publishSettings();
+  return await getLootFilterState(settings);
+});
+
+ipcMain.handle('delete-loot-filter-profile', async (_event, profileId) => {
+  settings = writeSettings({
+    ...settings,
+    lootFilter: deleteLootFilterProfile(settings, profileId)
+  });
+  publishSettings();
+  return await getLootFilterState(settings);
+});
+
+ipcMain.handle('export-loot-filter-profile', async (_event, profileId) => {
+  const exportData = exportLootFilterProfile(settings, profileId);
+  const profileName = exportData.profile?.name || 'POEHelper Filter';
+  const result = await dialog.showSaveDialog(settingsWindow || overlayWindow, {
+    title: 'Export loot filter profile',
+    defaultPath: path.join(app.getPath('documents'), `${sanitizeFilterFileName(profileName)}.poehelper-profile.json`),
+    filters: [
+      { name: 'POEHelper Profile', extensions: ['json'] },
+      { name: 'JSON', extensions: ['json'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { status: 'cancelled' };
+  }
+
+  fs.writeFileSync(result.filePath, `${JSON.stringify(exportData, null, 2)}\n`, 'utf8');
+  return {
+    status: 'exported',
+    filePath: result.filePath,
+    profileName
+  };
+});
+
+ipcMain.handle('import-loot-filter-profile', async () => {
+  const result = await dialog.showOpenDialog(settingsWindow || overlayWindow, {
+    title: 'Import loot filter profile',
+    properties: ['openFile'],
+    filters: [
+      { name: 'POEHelper Profile', extensions: ['json'] },
+      { name: 'JSON', extensions: ['json'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths?.[0]) {
+    return {
+      status: 'cancelled',
+      state: await getLootFilterState(settings)
+    };
+  }
+
+  const filePath = result.filePaths[0];
+  const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  settings = writeSettings({
+    ...settings,
+    lootFilter: importLootFilterProfile(settings, payload)
+  });
+  publishSettings();
+  return {
+    status: 'imported',
+    filePath,
+    state: await getLootFilterState(settings)
+  };
+});
 
 ipcMain.handle('update-loot-filter-profile', async (_event, profilePatch) => {
   settings = writeSettings({
