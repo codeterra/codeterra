@@ -175,6 +175,7 @@ assert.match(output, /# 6-socket vendor recipe\nShow\n    Sockets >= 6/);
 assert.match(output, /# Chromatic RGB recipe\nShow\n    SocketGroup RGB/);
 assert.doesNotMatch(output, /# 20% quality gem recipe\nShow/);
 assert.match(output, /# Rare item rules\n# Rare ilvl 86\+\nShow\n    Rarity Rare\n    ItemLevel >= 86/);
+assert.match(output, /# Rare baseline rules\n# Rare baseline\nShow\n    Rarity Rare/);
 assert.match(output, /# Fresh-slate default: show everything not matched above\n# Default show all\nShow/);
 
 const hiddenCurrencyProfile = normalizeLootFilterProfile({
@@ -671,6 +672,7 @@ const narrowedProfile = normalizeLootFilterProfile({
 });
 const narrowedOutput = generateLootFilter(narrowedProfile);
 assert.match(narrowedOutput, /# Equipment narrowing for normal, magic, and rare bases/);
+assert.ok(narrowedOutput.indexOf('# Equipment narrowing for normal, magic, and rare bases') < narrowedOutput.indexOf('# Rare baseline rules'));
 assert.match(narrowedOutput, /Hide\n    Rarity Normal\n    BaseType .*"Astral Plate"/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Magic\n    BaseType .*"Astral Plate"/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    BaseType .*"Astral Plate"/s);
@@ -705,6 +707,38 @@ assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Quivers/s);
 assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Wands/s);
 assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Sceptres/s);
 assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Staves/s);
+
+const rareBaselineWithHiddenBows = normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  rareTiers: [
+    {
+      id: 'rare-baseline',
+      enabled: true,
+      action: 'Show',
+      label: 'Rare baseline',
+      source: 'rare-item-rule',
+      style: 'rare',
+      tier: 'baseline',
+      conditions: [{ key: 'Rarity', value: 'Rare' }]
+    }
+  ],
+  rareEquipment: {
+    enabled: true,
+    armorGroups: [],
+    shieldGroups: [],
+    weaponGroups: ['wands'],
+    miscGroups: [],
+    baseSelections: {
+      armor: {},
+      shields: {},
+      weapons: {},
+      misc: {}
+    }
+  }
+});
+const rareBaselineWithHiddenBowsOutput = generateLootFilter(rareBaselineWithHiddenBows);
+assert.match(rareBaselineWithHiddenBowsOutput, /Hide\n    Rarity Rare\n    Class .*Bows/s);
+assert.ok(rareBaselineWithHiddenBowsOutput.indexOf('Hide\n    Rarity Rare\n    Class') < rareBaselineWithHiddenBowsOutput.indexOf('# Rare baseline rules'));
 
 const rareOverrideProfile = normalizeLootFilterProfile({
   ...DEFAULT_LOOT_FILTER_PROFILE,

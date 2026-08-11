@@ -68,9 +68,10 @@ function generateLootFilter(profileLike) {
 
   renderChanceBaseFilters(lines, profile);
   renderMiscRuleFilters(lines, profile);
-  renderRareItemRuleFilters(lines, profile);
+  renderRareItemRuleFilters(lines, profile, 'specific');
   renderRarityVisibilityFilters(lines, profile);
   renderRareEquipmentFilters(lines, profile);
+  renderRareItemRuleFilters(lines, profile, 'baseline');
   if (!isCategoryEnabled(profile, 'jewels')) {
     renderJewelRarityFilters(lines, profile);
   }
@@ -148,13 +149,15 @@ function generateLootFilter(profileLike) {
   return `${lines.join('\n')}\n`;
 }
 
-function renderRareItemRuleFilters(lines, profile) {
-  const entries = (profile.rareTiers || []).filter((rule) => rule.enabled !== false && rule.conditions?.length);
+function renderRareItemRuleFilters(lines, profile, placement = 'specific') {
+  const entries = (profile.rareTiers || [])
+    .filter((rule) => rule.enabled !== false && rule.conditions?.length)
+    .filter((rule) => isBaselineRareRule(rule) === (placement === 'baseline'));
   if (entries.length === 0) {
     return;
   }
 
-  lines.push('# Rare item rules');
+  lines.push(placement === 'baseline' ? '# Rare baseline rules' : '# Rare item rules');
   for (const rule of entries) {
     lines.push(...renderRule({
       action: rule.action || 'Show',
@@ -165,6 +168,14 @@ function renderRareItemRuleFilters(lines, profile) {
     }, profile));
     lines.push('');
   }
+}
+
+function isBaselineRareRule(rule) {
+  const conditions = rule.conditions || [];
+  return conditions.length === 1
+    && conditions[0].key === 'Rarity'
+    && conditions[0].value === 'Rare'
+    && (rule.action || 'Show') === 'Show';
 }
 
 function isCategoryEnabled(profile, categoryId) {
