@@ -102,7 +102,7 @@ npm.cmd run dist:win:installer
 
 Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path. Published releases require a pushed git tag matching the package version, such as `v0.0.3`.
 
-`release:win` publishes the installer update channel only. Build portable executables with `dist:win:portable` and upload them manually if you want to share a portable copy; publishing installer and portable targets in one release command can race GitHub release creation and create duplicate releases for the same tag.
+`release:win` publishes the installer update channel only. It first verifies the tag, then creates or verifies a single GitHub release before electron-builder uploads assets. Build portable executables with `dist:win:portable` and upload them manually if you want to share a portable copy.
 
 To publish a release, bump `version` in `package.json`, make sure `GH_TOKEN` can publish to `codeterra/codeterra`, then run:
 
@@ -114,6 +114,8 @@ git push --tags
 npm.cmd run release:check
 npm.cmd run release:win
 ```
+
+If GitHub shows duplicate releases for the same tag, delete both duplicate release entries in the GitHub Releases page while keeping the git tag, then rerun `npm.cmd run release:win`. The release setup step will recreate a single release and electron-builder will upload the installer, blockmap, and `latest.yml` to that one release.
 
 If GitHub reports `Published releases must have a valid tag`, fetch and verify tags before retrying:
 
