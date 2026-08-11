@@ -702,6 +702,7 @@ assert.doesNotMatch(narrowedOutput, /"Saints Hauberk"/);
 assert.match(narrowedOutput, /Hide\n    Rarity Normal\n    Class .*Bows/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Magic\n    Class .*Bows/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Bows/s);
+assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    BaseType .*"Abyssal Axe"/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Belts/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Quivers/s);
 assert.doesNotMatch(narrowedOutput, /Hide\n    Rarity Rare\n    Class .*Wands/s);

@@ -370,12 +370,12 @@ function renderRareEquipmentFilters(lines, profile) {
   const disabledArmorBases = getDisabledBases(RARE_ARMOR_GROUPS, selectedArmor, baseSelections.armor);
   const disabledShieldBases = getDisabledBases(RARE_SHIELD_GROUPS, selectedShields, baseSelections.shields);
   const disabledWeaponBases = getDisabledBases(
-    RARE_WEAPON_GROUPS.filter((group) => selectedWeapons.has(group.id)),
+    RARE_WEAPON_GROUPS,
     selectedWeapons,
     baseSelections.weapons
   );
   const disabledMiscBases = getDisabledBases(
-    EQUIPMENT_MISC_VISIBILITY_GROUPS.filter((group) => selectedMisc.has(group.id)),
+    EQUIPMENT_MISC_VISIBILITY_GROUPS,
     selectedMisc,
     baseSelections.misc
   );
