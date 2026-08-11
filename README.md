@@ -100,7 +100,7 @@ Build only the installer:
 npm.cmd run dist:win:installer
 ```
 
-Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path. Published releases require a pushed git tag matching the package version, such as `v0.0.3`.
+Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. The NSIS installer is one-click so downloaded updates can install silently when the user restarts through the app. Portable builds are still useful for manual sharing, but installed builds are the supported update path. Published releases require a pushed git tag matching the package version, such as `v0.0.3`.
 
 `release:win` publishes the installer update channel only. It first verifies the tag, then creates or verifies a single GitHub release before electron-builder uploads assets. Build portable executables with `dist:win:portable` and upload them manually if you want to share a portable copy.
 
