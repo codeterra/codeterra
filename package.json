@@ -24,7 +24,7 @@
     "dist:win": "electron-builder --win nsis portable --publish never",
     "dist:win:portable": "electron-builder --win portable --publish never",
     "dist:win:installer": "electron-builder --win nsis --publish never",
-    "release:win": "npm run release:check && electron-builder --win nsis portable --publish always",
+    "release:win": "npm run release:check && electron-builder --win nsis --publish always",
     "pack:win": "electron-builder --win --dir --publish never",
     "check": "node --check scripts/start-electron.js && node --check scripts/watch-electron.js && node --check scripts/chance-catalog-report.js && node --check scripts/economy-filter-audit.js && node --check scripts/validate-equipment-groups.js && node --check scripts/check-release-ready.js && node --check scripts/phase2-smoke.js && node --check scripts/phase3-smoke.js && node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/settings-renderer.js && node --check src/domain/loot-filter.js && node --check src/services/diagnostics.js && node --check src/services/errors.js && node --check src/services/ggg-oauth.js && node --check src/services/base-type-catalog.js && node --check src/services/chance-base-catalog.js && node --check src/services/economy-highlights.js && node --check src/services/related-outcomes.js && node --check src/services/loot-filter-generator.js && node --check src/services/loot-filter-manager.js && node scripts/phase2-smoke.js && node scripts/phase3-smoke.js"
   },

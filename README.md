@@ -86,7 +86,7 @@ Build the Windows installer plus portable exe:
 npm.cmd run dist:win
 ```
 
-The installer is written to `dist\POEHelper-0.0.1-x64-setup.exe`, and the portable file is written to `dist\POEHelper-0.0.1-x64-portable.exe`.
+The installer is written to `dist\POEHelper-<version>-x64-setup.exe`, and the portable file is written to `dist\POEHelper-<version>-x64-portable.exe`.
 
 Build only the portable exe:
 
@@ -100,7 +100,9 @@ Build only the installer:
 npm.cmd run dist:win:installer
 ```
 
-Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path. Published releases require a pushed git tag matching the package version, such as `v0.0.1`.
+Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path. Published releases require a pushed git tag matching the package version, such as `v0.0.3`.
+
+`release:win` publishes the installer update channel only. Build portable executables with `dist:win:portable` and upload them manually if you want to share a portable copy; publishing installer and portable targets in one release command can race GitHub release creation and create duplicate releases for the same tag.
 
 To publish a release, bump `version` in `package.json`, make sure `GH_TOKEN` can publish to `codeterra/codeterra`, then run:
 
