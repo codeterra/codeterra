@@ -51,7 +51,7 @@ if (tagCommit !== head) {
 
 let remoteTag;
 try {
-  remoteTag = git(['ls-remote', '--tags', 'origin', `refs/tags/${tag}`]);
+  remoteTag = git(['ls-remote', '--tags', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`]);
 } catch {
   fail(`could not verify ${tag} on origin. Check network/auth, then try again.`);
 }
@@ -60,7 +60,9 @@ if (!remoteTag) {
   fail(`remote tag ${tag} does not exist. Run: git push origin ${tag}`);
 }
 
-const remoteCommit = remoteTag.split(/\s+/)[0];
+const remoteLines = remoteTag.split(/\r?\n/).filter(Boolean);
+const peeledRemoteTag = remoteLines.find((line) => line.endsWith(`refs/tags/${tag}^{}`));
+const remoteCommit = (peeledRemoteTag || remoteLines[0]).split(/\s+/)[0];
 if (remoteCommit !== tagCommit) {
   fail(`origin ${tag} points at ${remoteCommit.slice(0, 7)}, but local ${tag} points at ${tagCommit.slice(0, 7)}.`);
 }
