@@ -100,11 +100,24 @@ Build only the installer:
 npm.cmd run dist:win:installer
 ```
 
-Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path.
+Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path. Published releases require a pushed git tag matching the package version, such as `v0.0.1`.
 
 To publish a release, bump `version` in `package.json`, make sure `GH_TOKEN` can publish to `codeterra/codeterra`, then run:
 
 ```powershell
+git status
+npm.cmd version patch -m "Release v%s"
+git push
+git push --tags
+npm.cmd run release:check
+npm.cmd run release:win
+```
+
+If GitHub reports `Published releases must have a valid tag`, fetch and verify tags before retrying:
+
+```powershell
+git fetch --tags origin
+npm.cmd run release:check
 npm.cmd run release:win
 ```
 
