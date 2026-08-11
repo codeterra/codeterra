@@ -104,7 +104,15 @@ Auto-update uses GitHub releases through `electron-updater` and should be tested
 
 `release:win` publishes the installer update channel only. It first verifies the tag, then creates or verifies a single GitHub release before electron-builder uploads assets. Build portable executables with `dist:win:portable` and upload them manually if you want to share a portable copy.
 
-To publish a release, bump `version` in `package.json`, make sure `GH_TOKEN` can publish to `codeterra/codeterra`, then run:
+To publish a normal patch release, make sure `GH_TOKEN` can publish to `codeterra/codeterra`, then run:
+
+```powershell
+npm.cmd run release:patch
+```
+
+That command runs checks, bumps `package.json` and `package-lock.json`, creates the git release tag, pushes the commit and tag, verifies the release preflight, creates the GitHub release if needed, and publishes the installer update.
+
+To run the same process manually, use:
 
 ```powershell
 git status
