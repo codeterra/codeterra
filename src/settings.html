@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POEHelper Settings</title>
+    <link rel="stylesheet" href="./settings.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="settings-sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">PH</div>
+          <div>
+            <div class="brand-name">POEHelper</div>
+            <div class="brand-subtitle">Desktop companion</div>
+          </div>
+        </div>
+
+        <nav class="settings-tabs" aria-label="Settings sections">
+          <button class="is-active" type="button" data-settings-tab="general">General</button>
+          <button type="button" data-settings-tab="loot-filter">Loot Filter</button>
+          <button type="button" data-settings-tab="account">Account</button>
+          <button type="button" data-settings-tab="diagnostics">Diagnostics</button>
+        </nav>
+
+        <section class="notice">
+          This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
+        </section>
+      </aside>
+
+      <main class="settings-main">
+        <header class="settings-topbar">
+          <div>
+            <div class="kicker">Settings</div>
+            <h1>Configure POEHelper</h1>
+          </div>
+          <p>Fast controls, one main work area, and room for the loot-filter editor to keep growing.</p>
+        </header>
+
+        <div class="settings-content">
+          <section class="settings-page is-active" data-settings-panel="general">
+            <section class="panel">
+              <h2>Gameplay Shortcuts</h2>
+              <div class="shortcut-grid">
+                <label>
+                  Price hovered item
+                  <input id="lookup-shortcut-input" class="shortcut-input" type="text" readonly value="Ctrl+D">
+                </label>
+                <label>
+                  Related outcomes
+                  <input id="related-outcomes-shortcut-input" class="shortcut-input" type="text" readonly value="Ctrl+Alt+B">
+                </label>
+                <label>
+                  Add loot-filter rule
+                  <input id="filter-rule-shortcut-input" class="shortcut-input" type="text" readonly value="Ctrl+Alt+F">
+                </label>
+                <label>
+                  Open settings
+                  <input id="settings-shortcut-input" class="shortcut-input" type="text" readonly value="Shift+Space">
+                </label>
+                <label>
+                  Toggle click-through
+                  <input id="click-through-shortcut-input" class="shortcut-input" type="text" readonly value="Ctrl+Alt+T">
+                </label>
+                <label>
+                  Hide overlay
+                  <input id="hide-shortcut-input" class="shortcut-input" type="text" readonly value="Esc">
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="save-shortcuts-button" type="button">Save Shortcuts</button>
+                <button id="reset-shortcuts-button" type="button">Reset Defaults</button>
+              </div>
+              <p id="shortcut-status" class="status-line">Click a field, then press the key combination you want.</p>
+            </section>
+
+            <section class="panel panel--compact">
+              <h2>Trade League</h2>
+              <div class="field-row">
+                <input id="league-input" type="text" value="Standard" autocomplete="off" spellcheck="false">
+                <button id="save-league-button" type="button">Save</button>
+              </div>
+              <p id="save-status" class="status-line">League is saved locally.</p>
+            </section>
+
+            <section class="panel panel--compact">
+              <h2>Listings</h2>
+              <div class="field-row">
+                <input id="listing-count-input" type="number" value="20" min="5" max="50" step="1">
+                <button id="save-listing-count-button" type="button">Save</button>
+              </div>
+              <p id="listing-status" class="status-line">Lookup results show instant-buyout listings only.</p>
+            </section>
+
+            <section class="panel panel--compact">
+              <h2>Updates</h2>
+              <div class="update-meta">
+                <span id="app-version-label">Version -</span>
+                <span id="update-channel-label">GitHub releases</span>
+              </div>
+              <div class="button-row">
+                <button id="check-updates-button" type="button">Check Updates</button>
+                <button id="install-update-button" type="button" hidden>Install Restart</button>
+              </div>
+              <p id="update-status" class="status-line">Updates have not been checked yet.</p>
+            </section>
+
+            <section class="panel">
+              <h2>Behavior</h2>
+              <p>
+                The price lookup shortcut sends one Ctrl+C copy command to the active window, then reads the copied item text.
+                Keep Path of Exile in Windowed or Windowed Fullscreen mode for the overlay to appear reliably.
+              </p>
+            </section>
+          </section>
+
+          <section class="settings-page settings-page--loot" data-settings-panel="loot-filter">
+            <section class="loot-command-bar">
+              <div class="loot-command-grid">
+                <label>
+                  Output filter path
+                  <input id="filter-output-path-input" type="text" autocomplete="off" spellcheck="false">
+                </label>
+                <label>
+                  Captured item action
+                  <select id="filter-quick-action-input">
+                    <option value="Show">Show</option>
+                    <option value="Hide">Hide</option>
+                  </select>
+                </label>
+              </div>
+              <div class="button-row button-row--flush">
+                <button id="save-filter-config-button" type="button">Save</button>
+                <button id="save-filter-workbench-button" type="button">Save Workbench</button>
+                <button id="write-filter-button" type="button">Write Filter</button>
+                <button id="capture-filter-rule-button" type="button">Capture Rule</button>
+                <button id="refresh-filter-preview-button" type="button">Refresh Preview</button>
+                <button id="clear-filter-rules-button" type="button">Clear Rules</button>
+              </div>
+              <p id="filter-status" class="status-line">Fresh-slate filter defaults show all items, with configurable style tiers above the default rule.</p>
+            </section>
+
+            <div class="loot-workbench">
+              <nav class="loot-workbench-tabs" aria-label="Loot filter editors">
+                <button class="is-active" type="button" data-loot-tab="capture">Capture</button>
+                <button type="button" data-loot-tab="styles">Styles</button>
+                <button type="button" data-loot-tab="currency">Currency</button>
+                <button type="button" data-loot-tab="rare">Rares</button>
+                <button type="button" data-loot-tab="equipment">Equipment</button>
+                <button type="button" data-loot-tab="chance">Chancing</button>
+                <button type="button" data-loot-tab="misc">Misc</button>
+                <button type="button" data-loot-tab="economy">Economy</button>
+                <button type="button" data-loot-tab="special">Special</button>
+                <button type="button" data-loot-tab="rules">Rules</button>
+                <button type="button" data-loot-tab="preview">Preview</button>
+              </nav>
+
+              <div class="loot-workbench-stage">
+                <section class="loot-workbench-section is-active" data-loot-section="capture">
+                  <h3>Capture Defaults</h3>
+                  <div id="filter-capture-defaults" class="toggle-grid"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="styles">
+                  <h3>Family Styles</h3>
+                  <div id="filter-style-list" class="filter-style-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="currency">
+                  <div class="section-heading-row">
+                    <h3>Currency Tiers</h3>
+                    <button id="add-currency-tier-button" type="button">Add Currency Tier</button>
+                  </div>
+                  <div id="currency-tier-list" class="tier-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="rare">
+                  <div class="section-heading-row">
+                    <h3>Rare Tiers</h3>
+                    <button id="add-rare-tier-button" type="button">Add Rare Tier</button>
+                  </div>
+                  <div id="rare-tier-list" class="tier-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="equipment">
+                  <h3>Equipment Visibility</h3>
+                  <div class="toolbar-strip">
+                    <label class="inline-toggle">
+                      <input id="rare-equipment-enabled-input" type="checkbox">
+                      Narrow normal, magic, and rare equipment drops
+                    </label>
+                    <label class="inline-toggle">
+                      <input id="show-normal-items-input" type="checkbox">
+                      Show normal equipment
+                    </label>
+                    <label class="inline-toggle">
+                      <input id="show-magic-items-input" type="checkbox">
+                      Show magic equipment
+                    </label>
+                  </div>
+                  <div class="equipment-toggle-layout">
+                    <div>
+                      <h4>Armour Bases</h4>
+                      <div id="rare-armor-group-list" class="toggle-grid"></div>
+                    </div>
+                    <div>
+                      <h4>Shield Bases</h4>
+                      <div id="rare-shield-group-list" class="toggle-grid"></div>
+                    </div>
+                    <div>
+                      <h4>Weapon Classes</h4>
+                      <div id="rare-weapon-group-list" class="toggle-grid"></div>
+                    </div>
+                    <div>
+                      <h4>Other Equipment</h4>
+                      <div id="misc-equipment-group-list" class="toggle-grid"></div>
+                    </div>
+                  </div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="chance">
+                  <h3>Chance Bases</h3>
+                  <div class="toolbar-strip">
+                    <label class="inline-toggle">
+                      <input id="chance-bases-enabled-input" type="checkbox">
+                      Show selected normal bases
+                    </label>
+                    <div class="chance-base-entry">
+                      <input id="chance-base-input" list="chance-base-options" type="text" autocomplete="off" spellcheck="false" placeholder="Leather Belt">
+                      <button id="add-chance-base-button" type="button">Add Base</button>
+                    </div>
+                  </div>
+                  <datalist id="chance-base-options"></datalist>
+                  <p id="chance-base-status" class="status-line">Type a base name to check it against the local base catalog.</p>
+                  <div id="chance-base-list" class="token-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="misc">
+                  <h3>Misc Rules</h3>
+                  <label class="inline-toggle">
+                    <input id="misc-rules-enabled-input" type="checkbox">
+                    Enable misc socket and vendor rules
+                  </label>
+                  <p id="misc-rules-status" class="status-line">Show 6-links, 6-sockets, RGB links, and quality recipe items before equipment hiding rules.</p>
+                  <div id="misc-rule-list" class="misc-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="economy">
+                  <h3>Economy High Value</h3>
+                  <div class="toolbar-strip">
+                    <label class="inline-toggle">
+                      <input id="economy-highlights-enabled-input" type="checkbox">
+                      Show high-value economy items
+                    </label>
+                    <button id="refresh-economy-button" type="button">Refresh Economy</button>
+                  </div>
+                  <div id="economy-tier-list" class="economy-tier-list"></div>
+                  <div id="economy-type-list" class="toggle-grid"></div>
+                  <p id="economy-status" class="status-line">Refresh pulls poe.ninja economy data into cached high-value filter rules.</p>
+                  <div id="economy-highlight-list" class="token-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="special">
+                  <h3>Hand-Picked Special Items</h3>
+                  <label class="inline-toggle">
+                    <input id="special-items-enabled-input" type="checkbox">
+                    Show hand-picked special item rules
+                  </label>
+                  <div class="special-item-entry">
+                    <input id="special-item-label-input" type="text" autocomplete="off" spellcheck="false" placeholder="Rule label">
+                    <input id="special-item-base-input" type="text" autocomplete="off" spellcheck="false" placeholder="Base or item name">
+                    <button id="add-special-item-button" type="button">Add Item</button>
+                  </div>
+                  <p id="special-item-status" class="status-line">Add one special item at a time, then tune the matching options below.</p>
+                  <div id="special-item-list" class="special-item-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="rules">
+                  <h3>Captured Rules</h3>
+                  <div id="filter-rule-list" class="filter-rule-list">
+                    <div class="empty-state">No captured rules yet.</div>
+                  </div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="preview">
+                  <h3>Generated Filter Preview</h3>
+                  <pre id="filter-preview-output" class="filter-preview-output">No preview loaded.</pre>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-page" data-settings-panel="account">
+            <section class="panel">
+              <h2>GGG OAuth</h2>
+              <div class="form-stack">
+                <label>
+                  Client ID
+                  <input id="oauth-client-id-input" type="text" autocomplete="off" spellcheck="false">
+                </label>
+                <label>
+                  Redirect URI
+                  <input id="oauth-redirect-uri-input" type="text" value="http://127.0.0.1:8585/callback" autocomplete="off" spellcheck="false">
+                </label>
+                <label>
+                  Scopes
+                  <input id="oauth-scopes-input" type="text" value="account:profile account:item_filter" autocomplete="off" spellcheck="false">
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="save-oauth-button" type="button">Save</button>
+                <button id="connect-oauth-button" type="button">Connect</button>
+                <button id="refresh-oauth-button" type="button">Refresh</button>
+                <button id="disconnect-oauth-button" type="button">Disconnect</button>
+                <button id="test-profile-button" type="button">Test Profile</button>
+              </div>
+              <p id="oauth-status" class="status-line">OAuth is not connected.</p>
+              <p class="status-line status-line--muted">Public desktop clients use authorization code plus PKCE. Do not request service scopes here.</p>
+            </section>
+
+            <section class="panel">
+              <h2>Currency Exchange</h2>
+              <p>
+                Currency Exchange history is available through GGG's public exchange endpoint. A confidential service token can be saved later if we add server-side service workflows.
+              </p>
+              <div class="field-row">
+                <input id="service-token-input" type="password" placeholder="Optional service access token" autocomplete="off" spellcheck="false">
+                <button id="save-service-token-button" type="button">Save</button>
+              </div>
+              <div class="button-row button-row--compact">
+                <button id="clear-service-token-button" type="button">Clear Token</button>
+                <button id="test-exchange-button" type="button">Test Exchange</button>
+              </div>
+              <p id="exchange-status" class="status-line">Currency Exchange has not been tested yet.</p>
+              <p class="status-line status-line--muted">The `service:cxapi` scope requires a confidential client; public desktop OAuth cannot request it.</p>
+            </section>
+          </section>
+
+          <section class="settings-page" data-settings-panel="diagnostics">
+            <section class="panel">
+              <div class="section-heading-row">
+                <h2>Diagnostics</h2>
+                <div class="button-row button-row--flush button-row--compact">
+                  <button id="refresh-diagnostics-button" type="button">Refresh</button>
+                  <button id="clear-diagnostics-button" type="button">Clear</button>
+                </div>
+              </div>
+              <pre id="diagnostics-output" class="diagnostics-output">No diagnostics loaded.</pre>
+              <p id="diagnostics-status" class="status-line">Useful when a lookup parses or prices strangely.</p>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="./settings-renderer.js"></script>
+  </body>
+</html>

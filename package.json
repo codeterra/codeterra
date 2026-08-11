@@ -1,0 +1,71 @@
+{
+  "name": "poehelper",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Windows desktop companion prototype for Path of Exile.",
+  "author": "POEHelper contributors",
+  "main": "src/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codeterra/poe-helper.git"
+  },
+  "scripts": {
+    "start": "node scripts/start-electron.js .",
+    "phase0": "node scripts/start-electron.js .",
+    "phase1": "node scripts/start-electron.js .",
+    "phase2": "node scripts/start-electron.js .",
+    "phase3": "node scripts/start-electron.js .",
+    "watch-dev": "node scripts/watch-electron.js .",
+    "report:chance": "node scripts/chance-catalog-report.js",
+    "audit:economy": "node scripts/economy-filter-audit.js",
+    "validate:equipment": "node scripts/validate-equipment-groups.js",
+    "dist": "npm run dist:win",
+    "dist:win": "electron-builder --win nsis portable --publish never",
+    "dist:win:portable": "electron-builder --win portable --publish never",
+    "dist:win:installer": "electron-builder --win nsis --publish never",
+    "release:win": "electron-builder --win nsis portable --publish always",
+    "pack:win": "electron-builder --win --dir --publish never",
+    "check": "node --check scripts/start-electron.js && node --check scripts/watch-electron.js && node --check scripts/chance-catalog-report.js && node --check scripts/economy-filter-audit.js && node --check scripts/validate-equipment-groups.js && node --check scripts/phase2-smoke.js && node --check scripts/phase3-smoke.js && node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/settings-renderer.js && node --check src/domain/loot-filter.js && node --check src/services/diagnostics.js && node --check src/services/errors.js && node --check src/services/ggg-oauth.js && node --check src/services/base-type-catalog.js && node --check src/services/chance-base-catalog.js && node --check src/services/economy-highlights.js && node --check src/services/related-outcomes.js && node --check src/services/loot-filter-generator.js && node --check src/services/loot-filter-manager.js && node scripts/phase2-smoke.js && node scripts/phase3-smoke.js"
+  },
+  "build": {
+    "appId": "com.poehelper.app",
+    "productName": "POEHelper",
+    "asar": true,
+    "compression": "maximum",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "codeterra",
+      "repo": "poe-helper",
+      "releaseType": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${arch}-portable.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

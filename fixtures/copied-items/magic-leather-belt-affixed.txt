@@ -1,0 +1,16 @@
+Item Class: Belts
+Rarity: Magic
+Glowing Leather Belt of Refilling
+--------
+Requirements:
+Level: 18
+--------
+Item Level: 66
+--------
+{ Implicit Modifier - Life }
++36(25-40) to maximum Life
+--------
+{ Prefix Modifier "Glowing" (Tier: 9) - Defences, Energy Shield }
++13(13-15) to maximum Energy Shield
+{ Suffix Modifier "of Refilling" (Tier: 6) }
+7(5-10)% increased Flask Charges gained

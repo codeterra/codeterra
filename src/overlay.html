@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POEHelper Overlay</title>
+    <link rel="stylesheet" href="./overlay.css">
+  </head>
+  <body>
+    <main class="overlay">
+      <header class="overlay__header">
+        <div>
+          <h1 id="item-name">Waiting for clipboard</h1>
+        </div>
+        <button id="close-button" class="icon-button" title="Hide overlay" type="button">x</button>
+      </header>
+
+      <section class="status" id="poe-status" hidden></section>
+
+      <div class="scroll-area">
+        <dl class="facts">
+          <div>
+            <dt>Rarity</dt>
+            <dd id="rarity">-</dd>
+          </div>
+          <div>
+            <dt>Class</dt>
+            <dd id="item-class">-</dd>
+          </div>
+          <div>
+            <dt>Base</dt>
+            <dd id="base-type">-</dd>
+          </div>
+          <div>
+            <dt>Details</dt>
+            <dd id="details">-</dd>
+          </div>
+          <div>
+            <dt>Category</dt>
+            <dd id="category">-</dd>
+          </div>
+        </dl>
+
+        <section class="price-panel">
+          <div class="price-panel__header">
+            <div>
+              <div id="price-panel-label" class="panel-label">Instant Buyout Estimate</div>
+              <div class="price-value-row">
+                <span id="lookup-spinner" class="spinner" hidden></span>
+                <strong id="price-value">Waiting for lookup</strong>
+              </div>
+            </div>
+            <button id="price-button" type="button">Retry</button>
+          </div>
+          <div id="price-meta" class="price-meta">Hover an item in PoE, then press Ctrl+D.</div>
+          <div class="sparkline" id="sparkline" hidden>
+            <svg id="sparkline-svg" viewBox="0 0 220 44" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <span id="sparkline-change"></span>
+          </div>
+        </section>
+
+        <section class="listing-panel">
+          <div class="listing-panel__header">
+            <div class="section-title">Instant Buyouts</div>
+            <span id="listing-count-label">Top 20</span>
+          </div>
+          <div class="listing-table" id="listing-table">
+            <div class="listing-empty">No listings loaded yet.</div>
+          </div>
+        </section>
+
+        <section class="related-panel" id="related-panel" hidden>
+          <div class="related-panel__header">
+            <div>
+              <div class="section-title" id="related-title">Related Outcomes</div>
+              <div id="related-meta" class="related-meta"></div>
+            </div>
+          </div>
+          <div id="related-required" class="outcome-list"></div>
+          <div id="related-list" class="outcome-list"></div>
+          <div id="related-notes" class="message-list"></div>
+        </section>
+
+        <section class="insights" id="insights-panel" hidden>
+          <div class="section-title">Insights</div>
+          <div id="map-warnings" class="message-list"></div>
+          <div id="confidence-hints" class="message-list"></div>
+          <div id="pseudo-groups" class="pill-list"></div>
+        </section>
+
+        <section class="query-panel">
+          <div class="section-title">Trade Query</div>
+          <div class="query-options">
+            <label><input id="option-item-level" type="checkbox"> Item level</label>
+            <label><input id="option-map-tier" type="checkbox"> Map tier</label>
+            <label><input id="option-corrupted" type="checkbox"> Corrupted</label>
+            <label><input id="option-identified" type="checkbox"> Identified state</label>
+            <label><input id="option-values" type="checkbox"> Value floors</label>
+          </div>
+        </section>
+
+        <section class="mod-panel" id="modifier-panel" hidden>
+          <div class="section-title">Modifier Filters</div>
+          <div id="modifier-list" class="modifier-list"></div>
+        </section>
+
+        <details class="preset-panel">
+          <summary>Saved Presets</summary>
+          <div class="preset-row">
+            <input id="preset-name-input" type="text" placeholder="Preset name" autocomplete="off" spellcheck="false">
+            <button id="save-preset-button" type="button">Save</button>
+          </div>
+          <div class="preset-apply-row">
+            <select id="preset-select" aria-label="Saved presets"></select>
+            <button id="apply-preset-button" type="button">Apply</button>
+          </div>
+        </details>
+      </div>
+
+      <footer class="actions">
+        <button id="trade-button" type="button">Open Trade</button>
+        <button id="copy-query-button" type="button">Copy Query</button>
+        <button id="refresh-button" type="button">Clipboard</button>
+        <button id="settings-button" type="button">Settings</button>
+        <button id="lock-button" type="button">Click-through: off</button>
+      </footer>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+Item Class: Body Armours
+Rarity: Normal
+Simple Robe
+--------
+Quality: +20%

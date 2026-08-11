@@ -1,0 +1,8 @@
+Item Class: Belts
+Rarity: Rare
+Dread Buckle
+Leather Belt
+--------
+Item Level: 84
+--------
++82 to maximum Life

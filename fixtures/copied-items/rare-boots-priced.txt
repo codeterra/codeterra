@@ -1,0 +1,11 @@
+Item Class: Boots
+Rarity: Rare
+Victory Road
+Dragonscale Boots
+--------
+Item Level: 84
+--------
++78 to maximum Life
++34% to Fire Resistance
++29% to Cold Resistance
+20% increased Movement Speed

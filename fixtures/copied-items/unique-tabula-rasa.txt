@@ -1,0 +1,8 @@
+Item Class: Body Armours
+Rarity: Unique
+Tabula Rasa
+Simple Robe
+--------
+Quality: +20%
+--------
+Corrupted

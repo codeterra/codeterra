@@ -1,0 +1,30 @@
+Item Class: Wands
+Rarity: Rare
+Brimstone Needle
+Omen Wand
+--------
+Wand
+Physical Damage: 24-45
+Elemental Damage: 2-26 (augmented)
+Critical Strike Chance: 10.35% (augmented)
+Attacks per Second: 1.50
+--------
+Requirements:
+Level: 53
+Int: 200
+--------
+Sockets: W-W-W
+--------
+Item Level: 68
+--------
+{ Implicit Modifier - Damage, Caster }
+28(27-31)% increased Spell Damage
+--------
+{ Prefix Modifier "Buzzing" (Tier: 9) - Damage, Elemental, Lightning, Attack }
+Adds 2 to 26(25-29) Lightning Damage
+{ Prefix Modifier "Apprentice's" (Tier: 8) - Damage, Caster }
+14(10-19)% increased Spell Damage
+{ Prefix Modifier "Sparking" (Tier: 5) - Damage, Elemental, Lightning, Caster }
+Adds 2(2-6) to 74(74-78) Lightning Damage to Spells
+{ Suffix Modifier "of Stinging" (Tier: 5) - Attack, Critical }
+19(15-19)% increased Critical Strike Chance

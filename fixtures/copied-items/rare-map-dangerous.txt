@@ -1,0 +1,9 @@
+Item Class: Maps
+Rarity: Rare
+Doom Hold
+Crimson Temple Map
+--------
+Map Tier: 16
+--------
+Players cannot Regenerate Life, Mana or Energy Shield
+Monsters reflect 18% of Elemental Damage
