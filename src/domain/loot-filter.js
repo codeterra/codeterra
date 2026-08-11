@@ -317,7 +317,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         style: 'misc',
         tier: 'baseline',
         conditions: [
-          { key: 'Class', value: ['Life Flasks', 'Mana Flasks', 'Hybrid Flasks', 'Utility Flasks', 'Critical Utility Flasks'] },
+          { key: 'Class', value: ['Life Flasks', 'Mana Flasks', 'Hybrid Flasks', 'Utility Flasks'] },
           { key: 'Quality', operator: '>=', value: 20 }
         ]
       },

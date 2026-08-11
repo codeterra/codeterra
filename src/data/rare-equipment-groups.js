@@ -363,6 +363,46 @@ const EQUIPMENT_MISC_GROUPS = [
     ]
   },
   {
+    id: 'life-flasks',
+    label: 'Life Flasks',
+    classes: ['Life Flasks'],
+    bases: [
+      'Small Life Flask', 'Medium Life Flask', 'Large Life Flask', 'Greater Life Flask',
+      'Grand Life Flask', 'Giant Life Flask', 'Colossal Life Flask', 'Sacred Life Flask',
+      'Hallowed Life Flask', 'Sanctified Life Flask', 'Divine Life Flask', 'Eternal Life Flask'
+    ]
+  },
+  {
+    id: 'mana-flasks',
+    label: 'Mana Flasks',
+    classes: ['Mana Flasks'],
+    bases: [
+      'Small Mana Flask', 'Medium Mana Flask', 'Large Mana Flask', 'Greater Mana Flask',
+      'Grand Mana Flask', 'Giant Mana Flask', 'Colossal Mana Flask', 'Sacred Mana Flask',
+      'Hallowed Mana Flask', 'Sanctified Mana Flask', 'Divine Mana Flask', 'Eternal Mana Flask'
+    ]
+  },
+  {
+    id: 'hybrid-flasks',
+    label: 'Hybrid Flasks',
+    classes: ['Hybrid Flasks'],
+    bases: [
+      'Small Hybrid Flask', 'Medium Hybrid Flask', 'Large Hybrid Flask', 'Colossal Hybrid Flask',
+      'Sacred Hybrid Flask', 'Hallowed Hybrid Flask'
+    ]
+  },
+  {
+    id: 'utility-flasks',
+    label: 'Utility Flasks',
+    classes: ['Utility Flasks'],
+    bases: [
+      'Amethyst Flask', 'Aquamarine Flask', 'Basalt Flask', 'Bismuth Flask', 'Corundum Flask',
+      'Diamond Flask', 'Gold Flask', 'Granite Flask', 'Iron Flask', 'Jade Flask',
+      'Quartz Flask', 'Quicksilver Flask', 'Ruby Flask', 'Sapphire Flask', 'Silver Flask',
+      'Stibnite Flask', 'Sulphur Flask', 'Topaz Flask'
+    ]
+  },
+  {
     id: 'jewels',
     label: 'Jewels',
     classes: ['Jewels'],

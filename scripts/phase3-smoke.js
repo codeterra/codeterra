@@ -698,7 +698,7 @@ assert.equal(miscRulesProfile.miscRules.entries.find((rule) => rule.id === 'qual
 assert.equal(miscRulesProfile.miscRules.entries.find((rule) => rule.id === 'six-socket').enabled, false);
 const miscRulesOutput = generateLootFilter(miscRulesProfile);
 assert.match(miscRulesOutput, /# Gemcutter recipe\nShow\n    Class "Skill Gems" "Support Gems"\n    Quality >= 20/);
-assert.match(miscRulesOutput, /# Glassblower recipe\nShow\n    Class "Life Flasks" "Mana Flasks" "Hybrid Flasks" "Utility Flasks" "Critical Utility Flasks"\n    Quality >= 20/);
+assert.match(miscRulesOutput, /# Glassblower recipe\nShow\n    Class "Life Flasks" "Mana Flasks" "Hybrid Flasks" "Utility Flasks"\n    Quality >= 20/);
 assert.doesNotMatch(miscRulesOutput, /# 6-socket vendor recipe\nShow/);
 
 const legacyChanceProfile = normalizeLootFilterProfile({
@@ -746,6 +746,28 @@ assert.doesNotMatch(runeDaggerOnlyOutput, /Hide\n    Rarity Rare\n    Class .*Da
 assert.match(runeDaggerOnlyOutput, /Hide\n    Rarity Rare\n    BaseType .*"Glass Shank"/s);
 assert.doesNotMatch(runeDaggerOnlyOutput, /Hide\n    Rarity Rare\n    BaseType .*"Platinum Kris"/s);
 
+const utilityFlaskOnlyProfile = normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  rareEquipment: {
+    enabled: true,
+    armorGroups: [],
+    shieldGroups: [],
+    weaponGroups: [],
+    miscGroups: ['utility-flasks'],
+    baseSelections: {
+      misc: {
+        'utility-flasks': ['Quicksilver Flask', 'Diamond Flask']
+      }
+    }
+  }
+});
+const utilityFlaskOnlyOutput = generateLootFilter(utilityFlaskOnlyProfile);
+assert.match(utilityFlaskOnlyOutput, /Hide\n    Rarity Normal\n    Class .*"Life Flasks".*"Mana Flasks".*"Hybrid Flasks"/s);
+assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Normal\n    Class .*"Utility Flasks"/s);
+assert.match(utilityFlaskOnlyOutput, /Hide\n    Rarity Magic\n    BaseType .*"Ruby Flask"/s);
+assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Magic\n    BaseType .*"Quicksilver Flask"/s);
+assert.doesNotMatch(utilityFlaskOnlyOutput, /Hide\n    Rarity Unique\n    BaseType .*"Ruby Flask"/s);
+
 const hiddenNormalMagicProfile = normalizeLootFilterProfile({
   ...DEFAULT_LOOT_FILTER_PROFILE,
   chanceBases: {
@@ -769,6 +791,8 @@ assert.match(baseRaritySection, /Class .*Belts/s);
 assert.match(baseRaritySection, /Class .*Quivers/s);
 assert.match(baseRaritySection, /Class .*Amulets/s);
 assert.match(baseRaritySection, /Class .*Rings/s);
+assert.match(baseRaritySection, /Class .*"Life Flasks"/s);
+assert.match(baseRaritySection, /Class .*"Utility Flasks"/s);
 assert.doesNotMatch(baseRaritySection, /Class .*Maps/);
 assert.doesNotMatch(baseRaritySection, /Class .*Jewels/);
 assert.doesNotMatch(baseRaritySection, /Class .*"Divination Cards"/);
