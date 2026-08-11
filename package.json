@@ -7,7 +7,7 @@
   "main": "src/main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/codeterra/poe-helper.git"
+    "url": "https://github.com/codeterra/codeterra.git"
   },
   "scripts": {
     "start": "node scripts/start-electron.js .",
@@ -42,7 +42,7 @@
     "publish": {
       "provider": "github",
       "owner": "codeterra",
-      "repo": "poe-helper",
+      "repo": "codeterra",
       "releaseType": "release"
     },
     "win": {

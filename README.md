@@ -102,7 +102,7 @@ npm.cmd run dist:win:installer
 
 Auto-update uses GitHub releases through `electron-updater` and should be tested with the installer build. Portable builds are still useful for manual sharing, but installed builds are the supported update path.
 
-To publish a release, bump `version` in `package.json`, make sure `GH_TOKEN` can publish to `codeterra/poe-helper`, then run:
+To publish a release, bump `version` in `package.json`, make sure `GH_TOKEN` can publish to `codeterra/codeterra`, then run:
 
 ```powershell
 npm.cmd run release:win
