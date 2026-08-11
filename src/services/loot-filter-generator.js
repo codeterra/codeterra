@@ -152,7 +152,7 @@ function generateLootFilter(profileLike) {
 function renderRareItemRuleFilters(lines, profile, placement = 'specific') {
   const entries = (profile.rareTiers || [])
     .filter((rule) => rule.enabled !== false && rule.conditions?.length)
-    .filter((rule) => isBaselineRareRule(rule) === (placement === 'baseline'));
+    .filter((rule) => isBroadRareStylingRule(rule) === (placement === 'baseline'));
   if (entries.length === 0) {
     return;
   }
@@ -170,12 +170,14 @@ function renderRareItemRuleFilters(lines, profile, placement = 'specific') {
   }
 }
 
-function isBaselineRareRule(rule) {
+function isBroadRareStylingRule(rule) {
+  if ((rule.action || 'Show') !== 'Show') {
+    return false;
+  }
+
   const conditions = rule.conditions || [];
-  return conditions.length === 1
-    && conditions[0].key === 'Rarity'
-    && conditions[0].value === 'Rare'
-    && (rule.action || 'Show') === 'Show';
+  return conditions.some((condition) => condition.key === 'Rarity' && condition.value === 'Rare')
+    && conditions.every((condition) => ['Rarity', 'ItemLevel', 'Quality'].includes(condition.key));
 }
 
 function isCategoryEnabled(profile, categoryId) {

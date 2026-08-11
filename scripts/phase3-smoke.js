@@ -174,8 +174,8 @@ assert.match(output, /# Misc rules\n# 6-linked items\nShow\n    LinkedSockets >=
 assert.match(output, /# 6-socket vendor recipe\nShow\n    Sockets >= 6/);
 assert.match(output, /# Chromatic RGB recipe\nShow\n    SocketGroup RGB/);
 assert.doesNotMatch(output, /# 20% quality gem recipe\nShow/);
-assert.match(output, /# Rare item rules\n# Rare ilvl 86\+\nShow\n    Rarity Rare\n    ItemLevel >= 86/);
-assert.match(output, /# Rare baseline rules\n# Rare baseline\nShow\n    Rarity Rare/);
+assert.match(output, /# Rare baseline rules\n# Rare ilvl 86\+\nShow\n    Rarity Rare\n    ItemLevel >= 86/);
+assert.match(output, /# Rare baseline rules[\s\S]*# Rare baseline\nShow\n    Rarity Rare/);
 assert.match(output, /# Fresh-slate default: show everything not matched above\n# Default show all\nShow/);
 
 const hiddenCurrencyProfile = normalizeLootFilterProfile({
@@ -673,6 +673,7 @@ const narrowedProfile = normalizeLootFilterProfile({
 const narrowedOutput = generateLootFilter(narrowedProfile);
 assert.match(narrowedOutput, /# Equipment narrowing for normal, magic, and rare bases/);
 assert.ok(narrowedOutput.indexOf('# Equipment narrowing for normal, magic, and rare bases') < narrowedOutput.indexOf('# Rare baseline rules'));
+assert.ok(narrowedOutput.indexOf('# Rare baseline rules') < narrowedOutput.indexOf('# Family baseline rules'));
 assert.match(narrowedOutput, /Hide\n    Rarity Normal\n    BaseType .*"Astral Plate"/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Magic\n    BaseType .*"Astral Plate"/s);
 assert.match(narrowedOutput, /Hide\n    Rarity Rare\n    BaseType .*"Astral Plate"/s);
@@ -740,6 +741,42 @@ const rareBaselineWithHiddenBows = normalizeLootFilterProfile({
 const rareBaselineWithHiddenBowsOutput = generateLootFilter(rareBaselineWithHiddenBows);
 assert.match(rareBaselineWithHiddenBowsOutput, /Hide\n    Rarity Rare\n    Class .*Bows/s);
 assert.ok(rareBaselineWithHiddenBowsOutput.indexOf('Hide\n    Rarity Rare\n    Class') < rareBaselineWithHiddenBowsOutput.indexOf('# Rare baseline rules'));
+
+const rareIlvlWithHiddenAxes = normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  rareTiers: [
+    {
+      id: 'rare-ilvl-86',
+      enabled: true,
+      action: 'Show',
+      label: 'Rare ilvl 86+',
+      source: 'rare-item-rule',
+      style: 'rare',
+      tier: 'high',
+      conditions: [
+        { key: 'Rarity', value: 'Rare' },
+        { key: 'ItemLevel', operator: '>=', value: 86 }
+      ]
+    }
+  ],
+  rareEquipment: {
+    enabled: true,
+    armorGroups: [],
+    shieldGroups: [],
+    weaponGroups: ['wands'],
+    miscGroups: [],
+    baseSelections: {
+      armor: {},
+      shields: {},
+      weapons: {},
+      misc: {}
+    }
+  }
+});
+const rareIlvlWithHiddenAxesOutput = generateLootFilter(rareIlvlWithHiddenAxes);
+assert.match(rareIlvlWithHiddenAxesOutput, /Hide\n    Rarity Rare\n    BaseType .*"Abyssal Axe"/s);
+assert.match(rareIlvlWithHiddenAxesOutput, /# Rare baseline rules\n# Rare ilvl 86\+\nShow\n    Rarity Rare\n    ItemLevel >= 86/);
+assert.ok(rareIlvlWithHiddenAxesOutput.indexOf('Hide\n    Rarity Rare\n    BaseType') < rareIlvlWithHiddenAxesOutput.indexOf('# Rare baseline rules'));
 
 const rareOverrideProfile = normalizeLootFilterProfile({
   ...DEFAULT_LOOT_FILTER_PROFILE,
