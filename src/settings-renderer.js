@@ -69,6 +69,10 @@ const fragmentRulesEnabledInput = document.querySelector('#fragment-rules-enable
 const fragmentRulesStatus = document.querySelector('#fragment-rules-status');
 const fragmentRuleList = document.querySelector('#fragment-rule-list');
 const addFragmentRuleButton = document.querySelector('#add-fragment-rule-button');
+const blueprintRulesEnabledInput = document.querySelector('#blueprint-rules-enabled-input');
+const blueprintRulesStatus = document.querySelector('#blueprint-rules-status');
+const blueprintRuleList = document.querySelector('#blueprint-rule-list');
+const addBlueprintRuleButton = document.querySelector('#add-blueprint-rule-button');
 const gemRulesEnabledInput = document.querySelector('#gem-rules-enabled-input');
 const gemRulesStatus = document.querySelector('#gem-rules-status');
 const gemRuleList = document.querySelector('#gem-rule-list');
@@ -166,6 +170,7 @@ const STYLE_LABELS = {
   unique: 'Uniques',
   maps: 'Maps',
   fragments: 'Fragments and Invitations',
+  blueprints: 'Blueprints',
   gems: 'Gems',
   divinationCards: 'Divination Cards',
   scarabs: 'Scarabs',
@@ -272,6 +277,24 @@ const CATEGORY_RULE_DEFINITIONS = {
       conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
     },
     fields: ['baseTypes']
+  },
+  blueprints: {
+    label: 'Blueprint',
+    enabledInput: blueprintRulesEnabledInput,
+    status: blueprintRulesStatus,
+    list: blueprintRuleList,
+    addButton: addBlueprintRuleButton,
+    defaultStyle: 'blueprints',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Blueprints' }],
+    defaultRule: {
+      action: 'Show',
+      label: 'New blueprint rule',
+      style: 'blueprints',
+      tier: 'baseline',
+      conditions: [{ key: 'Class', value: 'Blueprints' }]
+    },
+    fields: ['rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel']
   },
   gems: {
     label: 'Gem',
@@ -1059,6 +1082,7 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
       divinationCards: 'Leave blank to match all divination cards.\nThe Doctor\nBrother\'s Gift',
       gems: 'Leave blank to match all gems.\nScorching Ray\nVaal Lightning Strike',
       fragments: 'Leave blank to match all fragments and invitations.\nScreaming Invitation\nFragment of the Hydra',
+      blueprints: 'Leave blank to match all blueprints.\nBlueprint\nRecords Office',
       uniques: 'Leave blank to match all unique items.\nLeather Belt\nHeavy Belt\nMageblood',
       flasks: `Leave blank to match all flasks.\n${FLASK_BASE_TYPES.join('\n')}`,
       jewels: 'Leave blank to match all jewels.\nCobalt Jewel\nLarge Cluster Jewel'

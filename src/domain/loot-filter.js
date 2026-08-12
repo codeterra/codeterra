@@ -106,6 +106,18 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
       fontSize: 38,
       minimapIcon: { size: 1, color: 'Cyan', shape: 'Square' }
     },
+    blueprints: {
+      textColor: [185, 235, 255, 255],
+      backgroundColor: [6, 18, 28, 238],
+      borderColor: [70, 190, 230, 255],
+      fontSize: 38,
+      minimapIcon: { size: 1, color: 'Cyan', shape: 'Triangle' },
+      tierBorders: {
+        high: [120, 235, 255, 255],
+        valuable: [70, 190, 230, 255],
+        baseline: [45, 115, 150, 255]
+      }
+    },
     fragments: {
       textColor: [205, 235, 255, 255],
       backgroundColor: [6, 14, 28, 240],
@@ -389,6 +401,34 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
           style: 'fragments',
           tier: 'baseline',
           conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+        }
+      ]
+    },
+    blueprints: {
+      enabled: true,
+      rules: [
+        {
+          id: 'blueprints-area-83',
+          enabled: true,
+          action: 'Show',
+          label: 'Blueprints ilvl 83+',
+          source: 'category-rule',
+          style: 'blueprints',
+          tier: 'valuable',
+          conditions: [
+            { key: 'Class', value: 'Blueprints' },
+            { key: 'ItemLevel', operator: '>=', value: 83 }
+          ]
+        },
+        {
+          id: 'blueprints-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'Blueprints',
+          source: 'category-rule',
+          style: 'blueprints',
+          tier: 'baseline',
+          conditions: [{ key: 'Class', value: 'Blueprints' }]
         }
       ]
     },

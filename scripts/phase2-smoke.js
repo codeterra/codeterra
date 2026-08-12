@@ -29,6 +29,8 @@ assert.equal(unique.name, 'Tabula Rasa');
 assert.equal(unique.baseType, 'Simple Robe');
 assert.equal(unique.poeNinjaType, 'UniqueArmour');
 assert.equal(createTradeQuery(unique).query.name, 'Tabula Rasa');
+assert.equal(createTradeQuery(unique).query.status.option, 'securable');
+assert.equal(createTradeQuery(unique, { tradeStatus: 'online' }).query.status.option, 'online');
 
 const normalBase = parseCopiedItem(fixture('normal-simple-robe.txt'));
 

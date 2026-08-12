@@ -8,6 +8,8 @@ const RARITY_OPTIONS = {
   'Divination Card': 'divination'
 };
 
+const DEFAULT_TRADE_STATUS = 'securable';
+
 function createFilterGroup() {
   return {
     type_filters: { filters: {} },
@@ -65,7 +67,7 @@ function createTradeQuery(item, options = {}) {
   const filters = createFilterGroup();
   const statFilters = getSelectedStatFilters(item, options);
   const query = {
-    status: { option: 'online' },
+    status: { option: options.tradeStatus || DEFAULT_TRADE_STATUS },
     stats: [{ type: 'and', filters: statFilters }]
   };
 
@@ -123,5 +125,6 @@ function createTradeQuery(item, options = {}) {
 }
 
 module.exports = {
+  DEFAULT_TRADE_STATUS,
   createTradeQuery
 };

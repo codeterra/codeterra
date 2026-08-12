@@ -166,6 +166,7 @@
                 <button type="button" data-loot-tab="uniques">Uniques</button>
                 <button type="button" data-loot-tab="maps">Maps</button>
                 <button type="button" data-loot-tab="fragments">Fragments</button>
+                <button type="button" data-loot-tab="blueprints">Blueprints</button>
                 <button type="button" data-loot-tab="gems">Gems</button>
                 <button type="button" data-loot-tab="divination-cards">Div Cards</button>
                 <button type="button" data-loot-tab="scarabs">Scarabs</button>
@@ -238,6 +239,18 @@
                   </label>
                   <p id="fragment-rules-status" class="status-line">Style map fragments and boss invitations before broad fallback rules.</p>
                   <div id="fragment-rule-list" class="category-rule-list"></div>
+                </section>
+                <section class="loot-workbench-section" data-loot-section="blueprints">
+                  <div class="section-heading-row">
+                    <h3>Blueprint Rules</h3>
+                    <button id="add-blueprint-rule-button" type="button">Add Blueprint Rule</button>
+                  </div>
+                  <label class="inline-toggle">
+                    <input id="blueprint-rules-enabled-input" type="checkbox">
+                    Enable blueprint category rules
+                  </label>
+                  <p id="blueprint-rules-status" class="status-line">Style Grand Heist blueprints by rarity, name, or item level.</p>
+                  <div id="blueprint-rule-list" class="category-rule-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="gems">
                   <div class="section-heading-row">

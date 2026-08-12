@@ -107,6 +107,16 @@ function generateLootFilter(profileLike) {
     lines.push('');
   }
 
+  if (!isCategoryEnabled(profile, 'blueprints')) {
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Blueprints',
+      style: 'blueprints',
+      conditions: [{ key: 'Class', value: 'Blueprints' }]
+    }, profile));
+    lines.push('');
+  }
+
   if (!isCategoryEnabled(profile, 'gems')) {
     lines.push(...renderRule({
       action: 'Show',

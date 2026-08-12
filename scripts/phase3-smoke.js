@@ -159,6 +159,9 @@ assert.match(output, /# All oils\nShow\n    Class "Stackable Currency"\n    Base
 assert.ok(output.indexOf('# Category rules') < output.indexOf('# Currency tiers'));
 assert.match(output, /# Fragments and invitations\nShow\n    Class "Map Fragments" "Misc Map Items"/);
 assert.match(output, /SetBorderColor 75 95 170 255/);
+assert.match(output, /# Blueprints ilvl 83\+\nShow\n    Class Blueprints\n    ItemLevel >= 83/);
+assert.match(output, /# Blueprints\nShow\n    Class Blueprints/);
+assert.match(output, /SetTextColor 185 235 255 255/);
 assert.match(output, /# Quality gems\nShow\n    Class "Skill Gems" "Support Gems"\n    Quality >= 20/);
 assert.match(output, /# All gems\nShow\n    Class "Skill Gems" "Support Gems"/);
 assert.match(output, /# Divination cards\nShow\n    Class "Divination Cards"/);
