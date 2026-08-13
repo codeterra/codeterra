@@ -53,7 +53,9 @@ const filterStyleList = document.querySelector('#filter-style-list');
 const customStyleNameInput = document.querySelector('#custom-style-name-input');
 const addCustomStyleButton = document.querySelector('#add-custom-style-button');
 const customStyleStatus = document.querySelector('#custom-style-status');
+const currencyBaselineStyle = document.querySelector('#currency-baseline-style');
 const currencyTierList = document.querySelector('#currency-tier-list');
+const rareBaselineStyle = document.querySelector('#rare-baseline-style');
 const rareTierList = document.querySelector('#rare-tier-list');
 const addCurrencyTierButton = document.querySelector('#add-currency-tier-button');
 const addRareTierButton = document.querySelector('#add-rare-tier-button');
@@ -111,6 +113,7 @@ const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')];
 const lootTabButtons = [...document.querySelectorAll('[data-loot-tab]')];
 const lootSections = [...document.querySelectorAll('[data-loot-section]')];
 const chanceBasesEnabledInput = document.querySelector('#chance-bases-enabled-input');
+const chanceBaselineStyle = document.querySelector('#chance-baseline-style');
 const chanceBaseInput = document.querySelector('#chance-base-input');
 const addChanceBaseButton = document.querySelector('#add-chance-base-button');
 const chanceBaseOptionsList = document.querySelector('#chance-base-options');
@@ -127,6 +130,7 @@ const economyHighlightsEnabledInput = document.querySelector('#economy-highlight
 const economyTierList = document.querySelector('#economy-tier-list');
 const economyTypeList = document.querySelector('#economy-type-list');
 const refreshEconomyButton = document.querySelector('#refresh-economy-button');
+const addEconomyTierButton = document.querySelector('#add-economy-tier-button');
 const economyStatus = document.querySelector('#economy-status');
 const economyHighlightList = document.querySelector('#economy-highlight-list');
 const specialItemsEnabledInput = document.querySelector('#special-items-enabled-input');
@@ -161,6 +165,10 @@ let lootFilterState;
 let lootFilterRefreshToken = 0;
 let chanceBaseOptions = [];
 let lootFilterSoundFiles = [];
+let previewAudio;
+let previewAudioContext;
+const FILTER_FONT_SIZE_MIN = 18;
+const FILTER_FONT_SIZE_MAX = 45;
 
 const STYLE_LABELS = {
   default: 'Default',
@@ -187,6 +195,15 @@ const STYLE_LABELS = {
 
 const TIER_OPTIONS = ['high', 'valuable', 'baseline'];
 const STYLE_SOUND_TIERS = ['baseline', 'high', 'valuable'];
+const INHERIT_STYLE = '__inherit';
+const SOUND_OVERRIDE_OPTIONS = [
+  { value: 'inherit', label: 'Inherit sound' },
+  { value: 'none', label: 'No sound' },
+  { value: 'builtin', label: 'Built-in sound' },
+  { value: 'custom', label: 'Custom MP3' }
+];
+const FILTER_EFFECT_COLORS = ['None', 'Red', 'Green', 'Blue', 'Brown', 'White', 'Yellow', 'Cyan', 'Grey', 'Orange', 'Pink', 'Purple'];
+const FILTER_ICON_SHAPES = ['Circle', 'Diamond', 'Hexagon', 'Square', 'Star', 'Triangle', 'Cross', 'Moon', 'Raindrop'];
 const STYLE_TIER_LABELS = {
   baseline: 'Base',
   high: 'High',
@@ -802,9 +819,16 @@ function getStyleLabel(styleName) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function createStyleSelect(value, dataset, profile = lootFilterState?.profile) {
+function createStyleSelect(value, dataset, profile = lootFilterState?.profile, options = {}) {
   const select = document.createElement('select');
   Object.assign(select.dataset, dataset);
+  if (options.includeInherit) {
+    const inheritOption = document.createElement('option');
+    inheritOption.value = INHERIT_STYLE;
+    inheritOption.textContent = options.inheritLabel || 'Inherit category';
+    inheritOption.selected = value === INHERIT_STYLE;
+    select.appendChild(inheritOption);
+  }
   for (const styleName of getStyleOptions(profile)) {
     const option = document.createElement('option');
     option.value = styleName;
@@ -813,6 +837,68 @@ function createStyleSelect(value, dataset, profile = lootFilterState?.profile) {
     select.appendChild(option);
   }
   return select;
+}
+
+function appendSoundOverrideControls(container, styleOverride = {}) {
+  const mode = getSoundOverrideMode(styleOverride);
+  appendLabeled(container, 'Sound', createOptionSelect(mode, SOUND_OVERRIDE_OPTIONS, { styleOverrideField: 'soundMode' }));
+  appendLabeled(container, 'Sound id', createTextInput(styleOverride.alertSound?.id || '', { styleOverrideField: 'soundId' }, 'number'));
+  appendLabeled(container, 'Volume', createTextInput(styleOverride.alertSound?.volume || styleOverride.customAlertSound?.volume || 80, { styleOverrideField: 'soundVolume' }, 'number'));
+  appendLabeled(container, 'MP3', createSoundFileSelect(styleOverride.customAlertSound?.file || '', { styleOverrideField: 'soundFile' }));
+}
+
+function getSoundOverrideMode(styleOverride = {}) {
+  if (!styleOverride || typeof styleOverride !== 'object') {
+    return 'inherit';
+  }
+
+  if (styleOverride.customAlertSound?.file) {
+    return 'custom';
+  }
+
+  if (styleOverride.alertSound?.id) {
+    return 'builtin';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(styleOverride, 'alertSound')
+    && styleOverride.alertSound === null
+    && Object.prototype.hasOwnProperty.call(styleOverride, 'customAlertSound')
+    && styleOverride.customAlertSound === null) {
+    return 'none';
+  }
+
+  return 'inherit';
+}
+
+function collectStyleOverride(container) {
+  const get = (field) => container.querySelector(`[data-style-override-field="${field}"]`);
+  const mode = get('soundMode')?.value || 'inherit';
+  const volume = Math.max(0, Math.min(300, Math.round(Number(get('soundVolume')?.value) || 80)));
+
+  if (mode === 'none') {
+    return {
+      alertSound: null,
+      customAlertSound: null
+    };
+  }
+
+  if (mode === 'builtin') {
+    const id = Math.max(1, Math.round(Number(get('soundId')?.value) || 1));
+    return {
+      alertSound: { id, volume },
+      customAlertSound: null
+    };
+  }
+
+  if (mode === 'custom') {
+    const file = String(get('soundFile')?.value || '').trim();
+    return {
+      alertSound: null,
+      customAlertSound: file ? { file, volume } : null
+    };
+  }
+
+  return undefined;
 }
 
 function normalizeStyleId(value) {
@@ -868,7 +954,226 @@ function appendColorControl(container, labelText, styleName, field, color) {
   container.appendChild(label);
 }
 
+function appendInlineColorControl(container, labelText, field, color) {
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'swatch-input';
+  const picker = createTextInput(colorToHex(color), { styleConfigField: field, colorPart: 'hex' }, 'color');
+  const alpha = createTextInput(color?.[3] ?? 255, { styleConfigField: field, colorPart: 'alpha' }, 'number');
+  alpha.min = '0';
+  alpha.max = '255';
+  wrapper.appendChild(picker);
+  wrapper.appendChild(alpha);
+  label.appendChild(wrapper);
+  container.appendChild(label);
+}
+
+function appendInlineStyleControls(container, style = {}) {
+  appendInlineColorControl(container, 'Text', 'textColor', style.textColor);
+  appendInlineColorControl(container, 'Background', 'backgroundColor', style.backgroundColor);
+  appendInlineColorControl(container, 'Border', 'borderColor', style.borderColor);
+  const fontSizeInput = createTextInput(clampFilterFontSize(style.fontSize || 32), { styleConfigField: 'fontSize' }, 'number');
+  fontSizeInput.min = String(FILTER_FONT_SIZE_MIN);
+  fontSizeInput.max = String(FILTER_FONT_SIZE_MAX);
+  fontSizeInput.step = '1';
+  appendLabeled(container, 'Font size', fontSizeInput);
+  appendLabeled(container, 'Icon color', createSelect(style.minimapIcon?.color || 'None', FILTER_EFFECT_COLORS, { styleConfigField: 'iconColor' }));
+  appendLabeled(container, 'Icon shape', createSelect(style.minimapIcon?.shape || 'Circle', FILTER_ICON_SHAPES, { styleConfigField: 'iconShape' }));
+  appendLabeled(container, 'Beam', createSelect(style.beam?.color || 'None', FILTER_EFFECT_COLORS, { styleConfigField: 'beamColor' }));
+  appendLabeled(container, 'Sound', createOptionSelect(getInlineStyleSoundValue(style), getInlineStyleSoundOptions(style), { styleConfigField: 'sound' }));
+  appendLabeled(container, 'Volume', createTextInput(getInlineStyleSoundVolume(style), { styleConfigField: 'soundVolume' }, 'number'));
+}
+
+function getInlineStyleSoundOptions(style = {}) {
+  const options = [
+    { value: 'none', label: 'None' },
+    ...Array.from({ length: 16 }, (_, index) => {
+      const id = index + 1;
+      return { value: `builtin:${id}`, label: `Built-in ${id}` };
+    }),
+    ...lootFilterSoundFiles.map((file) => ({ value: `custom:${file}`, label: file }))
+  ];
+  const value = getInlineStyleSoundValue(style);
+  if (value.startsWith('custom:')) {
+    const file = value.slice('custom:'.length);
+    if (!lootFilterSoundFiles.includes(file)) {
+      options.push({ value, label: `${file} (missing)` });
+    }
+  }
+  return options;
+}
+
+function getInlineStyleSoundValue(style = {}) {
+  if (style.customAlertSound?.file) {
+    return `custom:${style.customAlertSound.file}`;
+  }
+  if (style.alertSound?.id) {
+    return `builtin:${style.alertSound.id}`;
+  }
+  return 'none';
+}
+
+function getInlineStyleSoundVolume(style = {}) {
+  return style.customAlertSound?.volume || style.alertSound?.volume || 80;
+}
+
+function collectInlineStyleConfig(container, fallbackStyle = {}) {
+  const style = structuredClone(fallbackStyle || {});
+  const controls = [...container.querySelectorAll('[data-style-config-field]')];
+  const colorGroups = {};
+
+  for (const control of controls) {
+    const field = control.dataset.styleConfigField;
+    if (!field) continue;
+
+    if (control.dataset.colorPart) {
+      colorGroups[field] ||= {};
+      colorGroups[field][control.dataset.colorPart] = control.value;
+      continue;
+    }
+
+    if (field === 'fontSize') {
+      style.fontSize = clampFilterFontSize(control.value);
+    } else if (field === 'iconColor') {
+      style.minimapIcon = control.value === 'None'
+        ? null
+        : { ...(style.minimapIcon || { size: 1, shape: 'Circle' }), color: control.value };
+    } else if (field === 'iconShape' && style.minimapIcon) {
+      style.minimapIcon.shape = control.value;
+    } else if (field === 'beamColor') {
+      style.beam = control.value === 'None' ? null : { color: control.value, temporary: true };
+    } else if (field === 'sound') {
+      applyInlineStyleSound(style, control.value, container);
+    }
+  }
+
+  for (const [field, parts] of Object.entries(colorGroups)) {
+    style[field] = hexToColor(parts.hex, parts.alpha);
+  }
+
+  return style;
+}
+
+function clampFilterFontSize(value) {
+  return Math.max(FILTER_FONT_SIZE_MIN, Math.min(FILTER_FONT_SIZE_MAX, Math.round(Number(value) || 32)));
+}
+
+function applyInlineStyleSound(style, value, container) {
+  const volume = Math.max(0, Math.min(300, Math.round(Number(container.querySelector('[data-style-config-field="soundVolume"]')?.value) || 80)));
+  if (value === 'none') {
+    style.alertSound = null;
+    style.customAlertSound = null;
+  } else if (String(value).startsWith('builtin:')) {
+    style.alertSound = { id: Math.max(1, Math.round(Number(value.slice('builtin:'.length)) || 1)), volume };
+    style.customAlertSound = null;
+  } else if (String(value).startsWith('custom:')) {
+    style.alertSound = null;
+    style.customAlertSound = { file: value.slice('custom:'.length), volume };
+  }
+}
+
+async function previewSelectedFilterSound(value, container) {
+  const soundValue = String(value || '');
+  if (soundValue === 'none') {
+    stopPreviewAudio();
+    return;
+  }
+
+  const volume = Math.max(0, Math.min(300, Math.round(Number(container?.querySelector('[data-style-config-field="soundVolume"]')?.value) || 80)));
+  try {
+    if (soundValue.startsWith('custom:')) {
+      await playCustomFilterSound(soundValue.slice('custom:'.length), volume);
+    } else if (soundValue.startsWith('builtin:')) {
+      playBuiltInFilterSound(Number(soundValue.slice('builtin:'.length)) || 1, volume);
+    }
+  } catch (error) {
+    setStatus(filterStatus, `Could not preview sound: ${error.message}`, true);
+  }
+}
+
+async function playCustomFilterSound(fileName, volume) {
+  if (!fileName) {
+    return;
+  }
+
+  const result = await window.poehelper.previewLootFilterSound(fileName);
+  if (result?.status !== 'ok' || !result.dataUrl) {
+    throw new Error(`${fileName} was not found next to the filter file.`);
+  }
+
+  stopPreviewAudio();
+  previewAudio = new Audio(result.dataUrl);
+  previewAudio.volume = Math.max(0, Math.min(1, volume / 100));
+  await previewAudio.play();
+}
+
+function playBuiltInFilterSound(soundId, volume) {
+  stopPreviewAudio();
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  previewAudioContext ||= new AudioContextClass();
+  const context = previewAudioContext;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const now = context.currentTime;
+  const frequency = 280 + (Math.max(1, Math.min(16, soundId)) * 45);
+
+  oscillator.type = soundId % 3 === 0 ? 'triangle' : 'sine';
+  oscillator.frequency.setValueAtTime(frequency, now);
+  oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.25, now + 0.12);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(Math.max(0.02, Math.min(0.35, volume / 300)), now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.3);
+}
+
+function stopPreviewAudio() {
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+    previewAudio = undefined;
+  }
+}
+
+function createStyleOverridePanel(style, hidden) {
+  const panel = document.createElement('div');
+  panel.className = 'inline-style-panel';
+  panel.dataset.styleOverridePanel = 'true';
+  panel.hidden = hidden;
+  appendInlineStyleControls(panel, style);
+  return panel;
+}
+
+function mergeInlineStyleConfig(baseStyle = {}, overrideStyle = {}) {
+  if (!overrideStyle || typeof overrideStyle !== 'object') {
+    return structuredClone(baseStyle || {});
+  }
+
+  return {
+    ...structuredClone(baseStyle || {}),
+    ...structuredClone(overrideStyle)
+  };
+}
+
+function toggleInlineStylePanel(input) {
+  const row = input.closest('.tier-row, .filter-rule-row');
+  const panel = row?.querySelector('[data-style-override-panel]');
+  if (panel) {
+    panel.hidden = !input.checked;
+  }
+}
+
 function renderCaptureDefaults(profile) {
+  if (!filterCaptureDefaults) {
+    return;
+  }
   filterCaptureDefaults.innerHTML = '';
   for (const [key, labelText] of Object.entries(CAPTURE_DEFAULT_LABELS)) {
     const label = document.createElement('label');
@@ -883,6 +1188,9 @@ function renderCaptureDefaults(profile) {
 }
 
 function renderStyleList(profile) {
+  if (!filterStyleList) {
+    return;
+  }
   filterStyleList.innerHTML = '';
   lootFilterSoundFiles = lootFilterState?.soundFiles || [];
   for (const styleName of getStyleOptions(profile)) {
@@ -947,8 +1255,48 @@ function renderStyleList(profile) {
 }
 
 function renderTierLists(profile) {
+  renderCurrencyBaselineStyle(profile.currencyStyle);
   renderCurrencyTiers(profile.currencyTiers || []);
+  renderRareBaselineStyle(profile.rareStyle);
   renderRareTiers(profile.rareTiers || []);
+}
+
+function renderCurrencyBaselineStyle(currencyStyle = {}) {
+  currencyBaselineStyle.innerHTML = '';
+  const row = document.createElement('article');
+  row.className = 'category-baseline-row';
+  row.dataset.currencyBaselineStyle = 'true';
+
+  const header = document.createElement('div');
+  header.className = 'category-baseline-row__title';
+  header.textContent = 'Currency baseline style';
+  row.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'inline-style-grid';
+  appendInlineStyleControls(grid, currencyStyle.styleConfig);
+  row.appendChild(grid);
+
+  currencyBaselineStyle.appendChild(row);
+}
+
+function renderRareBaselineStyle(rareStyle = {}) {
+  rareBaselineStyle.innerHTML = '';
+  const row = document.createElement('article');
+  row.className = 'category-baseline-row';
+  row.dataset.rareBaselineStyle = 'true';
+
+  const header = document.createElement('div');
+  header.className = 'category-baseline-row__title';
+  header.textContent = 'Equipment rule baseline style';
+  row.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'inline-style-grid';
+  appendInlineStyleControls(grid, rareStyle.styleConfig);
+  row.appendChild(grid);
+
+  rareBaselineStyle.appendChild(row);
 }
 
 function renderCategoryRules(profile) {
@@ -963,6 +1311,8 @@ function renderCategoryRuleList(categoryId, category = {}) {
   definition.enabledInput.checked = category.enabled !== false;
   definition.list.innerHTML = '';
   setStatus(definition.status, `${entries.filter((entry) => entry.enabled !== false).length} ${definition.label.toLowerCase()} rules enabled.`);
+
+  definition.list.appendChild(createCategoryBaselineRow(categoryId, definition, category));
 
   if (entries.length === 0) {
     const empty = document.createElement('div');
@@ -1001,8 +1351,11 @@ function renderCategoryRuleList(categoryId, category = {}) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(rule.label, { categoryRuleField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', SPECIAL_ACTION_OPTIONS, { categoryRuleField: 'action' }));
-    appendLabeled(editGrid, 'Style', createStyleSelect(rule.style || definition.defaultStyle, { categoryRuleField: 'style' }));
-    appendLabeled(editGrid, 'Tier', createSelect(rule.tier || definition.defaultTier, TIER_OPTIONS, { categoryRuleField: 'tier' }));
+    const override = document.createElement('input');
+    override.type = 'checkbox';
+    override.checked = Boolean(rule.overrideCategoryStyle);
+    override.dataset.categoryRuleField = 'overrideCategoryStyle';
+    appendLabeled(editGrid, 'Override category', override);
 
     const conditionsGrid = document.createElement('div');
     conditionsGrid.className = 'special-item-row__conditions';
@@ -1019,10 +1372,34 @@ function renderCategoryRuleList(categoryId, category = {}) {
 
     row.appendChild(header);
     row.appendChild(editGrid);
+    row.appendChild(createStyleOverridePanel(
+      rule.overrideCategoryStyle
+        ? mergeInlineStyleConfig(category.styleConfig, rule.styleOverride || rule.styleConfig)
+        : category.styleConfig,
+      !rule.overrideCategoryStyle
+    ));
     row.appendChild(conditionsGrid);
     row.appendChild(conditionSummary);
     definition.list.appendChild(row);
   });
+}
+
+function createCategoryBaselineRow(categoryId, definition, category = {}) {
+  const row = document.createElement('article');
+  row.className = 'category-baseline-row';
+  row.dataset.categoryBaselineCategory = categoryId;
+
+  const header = document.createElement('div');
+  header.className = 'category-baseline-row__title';
+  header.textContent = `${definition.label} baseline style`;
+  row.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'inline-style-grid';
+  appendInlineStyleControls(grid, category.styleConfig);
+  row.appendChild(grid);
+
+  return row;
 }
 
 function appendCategoryConditionControls(container, categoryId, definition, rule) {
@@ -1139,8 +1516,28 @@ function renderChanceBases(profile, options = []) {
 
   const chanceBases = profile.chanceBases || {};
   chanceBasesEnabledInput.checked = chanceBases.enabled !== false;
+  renderChanceBaselineStyle(chanceBases);
   renderChanceBaseList(chanceBases.bases || []);
   updateChanceBaseValidation();
+}
+
+function renderChanceBaselineStyle(chanceBases = {}) {
+  chanceBaselineStyle.innerHTML = '';
+  const row = document.createElement('article');
+  row.className = 'category-baseline-row';
+  row.dataset.chanceBaselineStyle = 'true';
+
+  const header = document.createElement('div');
+  header.className = 'category-baseline-row__title';
+  header.textContent = 'Chance base style';
+  row.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'inline-style-grid';
+  appendInlineStyleControls(grid, chanceBases.styleConfig);
+  row.appendChild(grid);
+
+  chanceBaselineStyle.appendChild(row);
 }
 
 function renderEconomyHighlights(profile) {
@@ -1187,8 +1584,6 @@ function renderMiscRules(profile) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(rule.label, { miscRuleField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', SPECIAL_ACTION_OPTIONS, { miscRuleField: 'action' }));
-    appendLabeled(editGrid, 'Style', createStyleSelect(rule.style || 'misc', { miscRuleField: 'style' }));
-    appendLabeled(editGrid, 'Tier', createSelect(rule.tier || 'baseline', TIER_OPTIONS, { miscRuleField: 'tier' }));
 
     const conditions = document.createElement('div');
     conditions.className = 'filter-rule-row__conditions';
@@ -1201,6 +1596,10 @@ function renderMiscRules(profile) {
 
     row.appendChild(header);
     row.appendChild(editGrid);
+    const styleGrid = document.createElement('div');
+    styleGrid.className = 'inline-style-grid';
+    appendInlineStyleControls(styleGrid, rule.styleConfig || lootFilterState?.profile?.styles?.[rule.style || 'misc'] || lootFilterState?.profile?.styles?.misc);
+    row.appendChild(styleGrid);
     row.appendChild(conditions);
     miscRuleList.appendChild(row);
   });
@@ -1220,14 +1619,24 @@ function renderStyleSelectOptions(select, selectedValue, options = getStyleOptio
 function renderEconomyTiers(tiers) {
   economyTierList.innerHTML = '';
   tiers.forEach((tier, index) => {
-    const fallback = DEFAULT_ECONOMY_TIERS[index] || DEFAULT_ECONOMY_TIERS[0];
+    const fallback = getEconomyTierFallback(index, tier);
+    const fallbackStyle = getEconomyTierStyleConfig(tier, fallback);
     const row = document.createElement('article');
     row.className = 'economy-tier-row';
     row.dataset.economyTierIndex = String(index);
 
     const header = document.createElement('div');
     header.className = 'economy-tier-row__header';
-    header.textContent = tier.label || fallback.label;
+    const title = document.createElement('div');
+    title.className = 'economy-tier-row__title';
+    title.textContent = tier.label || fallback.label;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'danger-button';
+    remove.dataset.removeEconomyTierIndex = String(index);
+    remove.textContent = 'Delete';
+    header.appendChild(title);
+    header.appendChild(remove);
     row.appendChild(header);
 
     const grid = document.createElement('div');
@@ -1235,12 +1644,36 @@ function renderEconomyTiers(tiers) {
     appendLabeled(grid, 'Label', createTextInput(tier.label || fallback.label, { economyTierField: 'label' }));
     appendLabeled(grid, 'Min chaos', createTextInput(tier.minChaos ?? '', { economyTierField: 'minChaos' }, 'number'));
     appendLabeled(grid, 'Min divines', createTextInput(tier.minDivines ?? '', { economyTierField: 'minDivines' }, 'number'));
-    appendLabeled(grid, 'Style', createStyleSelect(tier.style || 'highValue', { economyTierField: 'style' }));
-    appendLabeled(grid, 'Color tier', createSelect(tier.tier || fallback.tier || 'baseline', TIER_OPTIONS, { economyTierField: 'tier' }));
     appendLabeled(grid, 'Cache cap', createTextInput(tier.maxItems || fallback.maxItems || 500, { economyTierField: 'maxItems' }, 'number'));
     row.appendChild(grid);
+    const styleGrid = document.createElement('div');
+    styleGrid.className = 'inline-style-grid';
+    appendInlineStyleControls(styleGrid, fallbackStyle);
+    row.appendChild(styleGrid);
     economyTierList.appendChild(row);
   });
+}
+
+function getEconomyTierFallback(index, tier = {}) {
+  if (DEFAULT_ECONOMY_TIERS[index]) {
+    return DEFAULT_ECONOMY_TIERS[index];
+  }
+
+  return {
+    id: tier.id || `economy-rule-${index + 1}`,
+    label: `Economy rule ${index + 1}`,
+    minChaos: 50,
+    style: 'highValue',
+    tier: 'baseline',
+    maxItems: 500
+  };
+}
+
+function getEconomyTierStyleConfig(tier = {}, fallback = {}) {
+  return tier.styleConfig
+    || lootFilterState?.profile?.styles?.[tier.style || fallback.style || 'highValue']
+    || lootFilterState?.profile?.styles?.highValue
+    || {};
 }
 
 function renderEconomyTypes(selectedTypes = []) {
@@ -1372,6 +1805,7 @@ function addChanceBaseFromInput() {
   }
 
   const base = resolveKnownBaseName(raw) || raw;
+  lootFilterState.profile.chanceBases = collectChanceBases();
   const current = lootFilterState?.profile?.chanceBases?.bases || [];
   const exists = current.some((entry) => normalizeBaseKey(entry) === normalizeBaseKey(base));
   if (exists) {
@@ -1396,6 +1830,7 @@ function addSpecialItemFromInput() {
     return;
   }
 
+  lootFilterState.profile.specialItems = collectSpecialItems();
   const current = lootFilterState?.profile?.specialItems?.entries || [];
   const entry = {
     id: `special-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -1405,6 +1840,7 @@ function addSpecialItemFromInput() {
     source: 'special-item',
     style: 'specialItems',
     tier: 'high',
+    styleConfig: structuredClone(lootFilterState?.profile?.styles?.specialItems || {}),
     createdAt: new Date().toISOString(),
     conditions: [{ key: 'BaseType', value: base }]
   };
@@ -1472,17 +1908,27 @@ function renderCurrencyTiers(tiers) {
     const row = document.createElement('article');
     row.className = 'tier-row';
     row.dataset.currencyTierIndex = String(index);
-    appendTierHeader(row, tier.label || `Currency tier ${index + 1}`, 'currency', index);
+    appendTierHeader(row, tier.label || `Currency rule ${index + 1}`, 'currency', index);
     const grid = document.createElement('div');
     grid.className = 'editor-grid';
     appendLabeled(grid, 'Label', createTextInput(tier.label, { currencyTierIndex: index, tierField: 'label' }));
     appendLabeled(grid, 'Action', createSelect(tier.action || 'Show', SPECIAL_ACTION_OPTIONS, { currencyTierIndex: index, tierField: 'action' }));
-    appendLabeled(grid, 'Tier', createSelect(tier.tier || 'baseline', TIER_OPTIONS, { currencyTierIndex: index, tierField: 'tier' }));
-    appendLabeled(grid, 'Style', createStyleSelect(tier.style || 'currency', { currencyTierIndex: index, tierField: 'style' }));
+    const override = document.createElement('input');
+    override.type = 'checkbox';
+    override.checked = Boolean(tier.overrideCategoryStyle);
+    override.dataset.tierField = 'overrideCategoryStyle';
+    appendLabeled(grid, 'Override category', override);
     row.appendChild(grid);
+    row.appendChild(createStyleOverridePanel(
+      tier.overrideCategoryStyle
+        ? mergeInlineStyleConfig(lootFilterState?.profile?.currencyStyle?.styleConfig, tier.styleOverride || tier.styleConfig)
+        : (lootFilterState?.profile?.currencyStyle?.styleConfig || tier.styleConfig),
+      !tier.overrideCategoryStyle
+    ));
     const bases = document.createElement('textarea');
     bases.dataset.currencyTierIndex = String(index);
     bases.dataset.tierField = 'bases';
+    bases.placeholder = 'Currency names, one per line';
     bases.value = (tier.bases || []).join('\n');
     row.appendChild(bases);
     currencyTierList.appendChild(row);
@@ -1506,8 +1952,11 @@ function renderRareTiers(tiers) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(tier.label, { rareTierIndex: index, tierField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(tier.action || 'Show', SPECIAL_ACTION_OPTIONS, { rareTierIndex: index, tierField: 'action' }));
-    appendLabeled(editGrid, 'Style', createStyleSelect(tier.style || 'rare', { rareTierIndex: index, tierField: 'style' }));
-    appendLabeled(editGrid, 'Tier', createSelect(tier.tier || 'baseline', TIER_OPTIONS, { rareTierIndex: index, tierField: 'tier' }));
+    const override = document.createElement('input');
+    override.type = 'checkbox';
+    override.checked = Boolean(tier.overrideCategoryStyle);
+    override.dataset.tierField = 'overrideCategoryStyle';
+    appendLabeled(editGrid, 'Override category', override);
 
     const conditionsGrid = document.createElement('div');
     conditionsGrid.className = 'special-item-row__conditions';
@@ -1523,6 +1972,12 @@ function renderRareTiers(tiers) {
     }
 
     row.appendChild(editGrid);
+    row.appendChild(createStyleOverridePanel(
+      tier.overrideCategoryStyle
+        ? mergeInlineStyleConfig(lootFilterState?.profile?.rareStyle?.styleConfig, tier.styleOverride || tier.styleConfig)
+        : (lootFilterState?.profile?.rareStyle?.styleConfig || tier.styleConfig),
+      !tier.overrideCategoryStyle
+    ));
     row.appendChild(conditionsGrid);
     row.appendChild(conditionSummary);
     rareTierList.appendChild(row);
@@ -1578,7 +2033,7 @@ function renderSpecialItems(profile) {
   if (entries.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'No special items yet. Add a base or item name above, then tune its conditions.';
+    empty.textContent = 'No custom rules yet. Add a base or item name above, then tune its conditions.';
     specialItemList.appendChild(empty);
     return;
   }
@@ -1610,8 +2065,6 @@ function renderSpecialItems(profile) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(entry.label, { specialField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(entry.action || 'Show', SPECIAL_ACTION_OPTIONS, { specialField: 'action' }));
-    appendLabeled(editGrid, 'Style', createStyleSelect(entry.style || 'specialItems', { specialField: 'style' }));
-    appendLabeled(editGrid, 'Tier', createSelect(entry.tier || 'high', TIER_OPTIONS, { specialField: 'tier' }));
 
     const conditionsGrid = document.createElement('div');
     conditionsGrid.className = 'special-item-row__conditions';
@@ -1631,6 +2084,10 @@ function renderSpecialItems(profile) {
 
     row.appendChild(header);
     row.appendChild(editGrid);
+    const styleGrid = document.createElement('div');
+    styleGrid.className = 'inline-style-grid';
+    appendInlineStyleControls(styleGrid, entry.styleConfig || lootFilterState?.profile?.styles?.[entry.style || 'specialItems'] || lootFilterState?.profile?.styles?.specialItems);
+    row.appendChild(styleGrid);
     row.appendChild(conditionsGrid);
     specialItemList.appendChild(row);
   });
@@ -1654,13 +2111,13 @@ function getConditionText(rule, key, operator) {
 function renderLootFilterState(state) {
   lootFilterRefreshToken += 1;
   lootFilterState = state;
+  lootFilterSoundFiles = state.soundFiles || [];
   const profile = state.profile || {};
   renderProfileControls(state);
   filterOutputPathInput.value = state.outputPath || filterOutputPathInput.value;
   filterQuickActionInput.value = state.quickAction || filterQuickActionInput.value || 'Show';
   filterPreviewOutput.textContent = state.preview || 'No generated filter preview available.';
   renderCaptureDefaults(profile);
-  renderStyleList(profile);
   renderTierLists(profile);
   renderCategoryRules(profile);
   renderRareEquipment(profile, state.rareEquipmentGroups);
@@ -1681,6 +2138,7 @@ function renderLootFilterState(state) {
   for (const rule of rules) {
     const row = document.createElement('article');
     row.className = 'filter-rule-row';
+    row.dataset.ruleIndex = String(rules.indexOf(rule));
 
     const header = document.createElement('div');
     header.className = 'filter-rule-row__header';
@@ -1712,22 +2170,32 @@ function renderLootFilterState(state) {
     appendLabeled(editGrid, 'Enabled', enabled);
     appendLabeled(editGrid, 'Label', createTextInput(rule.label, { ruleIndex: rules.indexOf(rule), ruleField: 'label' }));
     appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', ['Show', 'Hide'], { ruleIndex: rules.indexOf(rule), ruleField: 'action' }));
-    appendLabeled(editGrid, 'Style', createStyleSelect(rule.style || 'default', { ruleIndex: rules.indexOf(rule), ruleField: 'style' }));
-    appendLabeled(editGrid, 'Tier', createSelect(rule.tier || '', ['', ...TIER_OPTIONS], { ruleIndex: rules.indexOf(rule), ruleField: 'tier' }));
 
-    const conditions = document.createElement('div');
-    conditions.className = 'filter-rule-row__conditions';
-    for (const condition of rule.conditions || []) {
-      const pill = document.createElement('span');
-      pill.className = 'condition-pill';
-      pill.textContent = formatCondition(condition);
-      conditions.appendChild(pill);
+    const styleGrid = document.createElement('div');
+    styleGrid.className = 'inline-style-grid';
+    appendInlineStyleControls(styleGrid, rule.styleConfig || lootFilterState?.profile?.styles?.[rule.style || 'default'] || lootFilterState?.profile?.styles?.default);
+
+    const conditionsGrid = document.createElement('div');
+    conditionsGrid.className = 'special-item-row__conditions';
+    appendLabeled(conditionsGrid, 'Rarity', createSelect(getConditionText(rule, 'Rarity'), SPECIAL_RARITY_OPTIONS, { ruleIndex: rules.indexOf(rule), ruleField: 'rarity' }));
+
+    for (const [field, label, key] of SPECIAL_TEXT_FIELDS) {
+      appendLabeled(conditionsGrid, label, createTextInput(getConditionText(rule, key), { ruleIndex: rules.indexOf(rule), ruleField: field }));
+    }
+
+    for (const [field, label, key, operator] of SPECIAL_NUMBER_FIELDS) {
+      appendLabeled(conditionsGrid, label, createTextInput(getConditionText(rule, key, operator), { ruleIndex: rules.indexOf(rule), ruleField: field }, 'number'));
+    }
+
+    for (const [field, label, key] of SPECIAL_BOOLEAN_FIELDS) {
+      appendLabeled(conditionsGrid, label, createSelect(getConditionText(rule, key), SPECIAL_BOOLEAN_OPTIONS, { ruleIndex: rules.indexOf(rule), ruleField: field }));
     }
 
     row.appendChild(header);
     row.appendChild(meta);
     row.appendChild(editGrid);
-    row.appendChild(conditions);
+    row.appendChild(styleGrid);
+    row.appendChild(conditionsGrid);
     filterRuleList.appendChild(row);
   }
 
@@ -1749,6 +2217,9 @@ async function refreshLootFilterState(updateStatus = true) {
 }
 
 function collectCaptureDefaults() {
+  if (!filterCaptureDefaults) {
+    return Object.fromEntries(Object.keys(CAPTURE_DEFAULT_LABELS).map((key) => [key, true]));
+  }
   const defaults = {};
   for (const input of filterCaptureDefaults.querySelectorAll('[data-capture-default]')) {
     defaults[input.dataset.captureDefault] = input.checked;
@@ -1757,8 +2228,11 @@ function collectCaptureDefaults() {
 }
 
 function collectStyles() {
-  const styles = structuredClone(lootFilterState?.profile?.styles || {});
+  if (!filterStyleList) {
+    return structuredClone(lootFilterState?.profile?.styles || {});
+  }
 
+  const styles = structuredClone(lootFilterState?.profile?.styles || {});
   for (const styleName of getStyleOptions()) {
     const style = styles[styleName] || {};
     const controls = [...filterStyleList.querySelectorAll(`[data-style-name="${styleName}"]`)];
@@ -1827,15 +2301,46 @@ function collectCurrencyTiers() {
     .filter((row) => row.classList.contains('tier-row'))
     .map((row, index) => {
       const get = (field) => row.querySelector(`[data-tier-field="${field}"]`)?.value;
+      const overrideCategoryStyle = row.querySelector('[data-tier-field="overrideCategoryStyle"]')?.checked === true;
+      const categoryStyle = lootFilterState?.profile?.currencyStyle?.styleConfig || {};
       return {
         id: lootFilterState?.profile?.currencyTiers?.[index]?.id || `currency-${Date.now()}-${index}`,
-        label: get('label') || `Currency tier ${index + 1}`,
+        label: get('label') || `Currency rule ${index + 1}`,
         action: get('action') || 'Show',
         bases: String(get('bases') || '').split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean),
-        tier: get('tier') || 'baseline',
-        style: get('style') || 'currency'
+        style: INHERIT_STYLE,
+        tier: 'baseline',
+        overrideCategoryStyle,
+        styleOverride: overrideCategoryStyle ? collectInlineStyleConfig(row, categoryStyle) : undefined
       };
     });
+}
+
+function collectCurrencyStyle() {
+  const row = currencyBaselineStyle.querySelector('[data-currency-baseline-style]');
+  if (!row) {
+    return { style: 'currency', tier: 'baseline' };
+  }
+
+  const get = (field) => row.querySelector(`[data-currency-baseline-field="${field}"]`);
+  return {
+    style: 'currency',
+    tier: 'baseline',
+    styleConfig: collectInlineStyleConfig(row, lootFilterState?.profile?.currencyStyle?.styleConfig)
+  };
+}
+
+function collectRareStyle() {
+  const row = rareBaselineStyle.querySelector('[data-rare-baseline-style]');
+  if (!row) {
+    return { style: 'rare', tier: 'baseline' };
+  }
+
+  return {
+    style: 'rare',
+    tier: 'baseline',
+    styleConfig: collectInlineStyleConfig(row, lootFilterState?.profile?.rareStyle?.styleConfig)
+  };
 }
 
 function collectRareTiers() {
@@ -1844,6 +2349,8 @@ function collectRareTiers() {
     .map((row, index) => {
       const existing = lootFilterState?.profile?.rareTiers?.[index] || {};
       const get = (field) => row.querySelector(`[data-tier-field="${field}"]`);
+      const overrideCategoryStyle = get('overrideCategoryStyle')?.checked === true;
+      const categoryStyle = lootFilterState?.profile?.rareStyle?.styleConfig || {};
       const minItemLevel = Number(get('minItemLevel')?.value);
       const conditions = [{ key: 'Rarity', value: 'Rare' }];
       const attributeGroup = get('attributeGroup')?.value || '';
@@ -1865,8 +2372,10 @@ function collectRareTiers() {
         label: get('label')?.value || `Rare rule ${index + 1}`,
         minItemLevel: Number.isFinite(minItemLevel) && minItemLevel > 0 ? minItemLevel : undefined,
         attributeGroup: attributeGroup || undefined,
-        tier: get('tier')?.value || 'baseline',
-        style: get('style')?.value || 'rare',
+        tier: 'baseline',
+        style: INHERIT_STYLE,
+        overrideCategoryStyle,
+        styleOverride: overrideCategoryStyle ? collectInlineStyleConfig(row, categoryStyle) : undefined,
         source: 'rare-item-rule',
         conditions
       };
@@ -1890,8 +2399,13 @@ function getRareAttributeBases(attributeGroup) {
 function collectCategoryRules() {
   const output = {};
   for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
+    const baselineRow = definition.list.querySelector(`[data-category-baseline-category="${categoryId}"]`);
+    const existingCategory = lootFilterState?.profile?.categoryRules?.[categoryId] || {};
     output[categoryId] = {
       enabled: definition.enabledInput.checked,
+      style: definition.defaultStyle,
+      tier: 'baseline',
+      styleConfig: baselineRow ? collectInlineStyleConfig(baselineRow, existingCategory.styleConfig) : existingCategory.styleConfig,
       rules: [...definition.list.querySelectorAll(`[data-category-rule-category="${categoryId}"]`)]
         .map((row) => collectCategoryRuleRow(categoryId, row))
         .filter((rule) => rule.conditions.length > 0)
@@ -1905,6 +2419,8 @@ function collectCategoryRuleRow(categoryId, row) {
   const index = Number(row.dataset.categoryRuleIndex);
   const existing = lootFilterState?.profile?.categoryRules?.[categoryId]?.rules?.[index] || {};
   const get = (field) => row.querySelector(`[data-category-rule-field="${field}"]`);
+  const categoryStyle = lootFilterState?.profile?.categoryRules?.[categoryId]?.styleConfig || {};
+  const overrideCategoryStyle = get('overrideCategoryStyle')?.checked === true;
   const conditions = structuredClone(definition.baseConditions || []);
 
   if (definition.fields.includes('itemClass')) {
@@ -1945,8 +2461,10 @@ function collectCategoryRuleRow(categoryId, row) {
     enabled: get('enabled')?.checked !== false,
     label: get('label')?.value?.trim() || existing.label || `${definition.label} rule`,
     action: get('action')?.value || existing.action || 'Show',
-    style: get('style')?.value || existing.style || definition.defaultStyle,
-    tier: get('tier')?.value || existing.tier || definition.defaultTier,
+    style: INHERIT_STYLE,
+    tier: 'baseline',
+    overrideCategoryStyle,
+    styleOverride: overrideCategoryStyle ? collectInlineStyleConfig(row, categoryStyle) : undefined,
     source: 'category-rule',
     conditions
   };
@@ -1961,21 +2479,26 @@ function removeConditions(conditions, key) {
 }
 
 function collectUserRules() {
-  const rules = structuredClone(lootFilterState?.profile?.userRules || []);
-  for (const control of filterRuleList.querySelectorAll('[data-rule-index]')) {
-    const index = Number(control.dataset.ruleIndex);
-    const field = control.dataset.ruleField;
-    if (!rules[index] || !field) continue;
+  return [...filterRuleList.querySelectorAll('.filter-rule-row[data-rule-index]')]
+    .map((row) => collectUserRuleRow(row))
+    .filter((rule) => rule.conditions.length > 0);
+}
 
-    if (field === 'enabled') {
-      rules[index].enabled = control.checked;
-    } else if (field === 'tier') {
-      rules[index].tier = control.value || undefined;
-    } else {
-      rules[index][field] = control.value;
-    }
-  }
-  return rules;
+function collectUserRuleRow(row) {
+  const index = Number(row.dataset.ruleIndex);
+  const existing = lootFilterState?.profile?.userRules?.[index] || {};
+  const get = (field) => row.querySelector(`[data-rule-field="${field}"]`);
+  return {
+    ...existing,
+    enabled: get('enabled')?.checked !== false,
+    label: get('label')?.value?.trim() || existing.label || 'Custom rule',
+    action: get('action')?.value || existing.action || 'Show',
+    style: existing.style || 'default',
+    tier: 'baseline',
+    styleConfig: collectInlineStyleConfig(row, existing.styleConfig || lootFilterState?.profile?.styles?.[existing.style || 'default'] || lootFilterState?.profile?.styles?.default),
+    source: existing.source || 'manual',
+    conditions: collectCustomRuleConditions(get)
+  };
 }
 
 function collectRareEquipment() {
@@ -2021,13 +2544,17 @@ function collectEquipmentBaseSelections(container, field) {
 }
 
 function collectChanceBases() {
+  const baselineRow = chanceBaselineStyle.querySelector('[data-chance-baseline-style]');
   return {
     enabled: chanceBasesEnabledInput.checked,
     bases: [...chanceBaseList.querySelectorAll('[data-chance-base]')]
       .map((entry) => entry.dataset.chanceBase)
       .filter(Boolean),
-    style: lootFilterState?.profile?.chanceBases?.style || 'chance',
-    tier: lootFilterState?.profile?.chanceBases?.tier || 'valuable'
+    style: 'chance',
+    tier: 'baseline',
+    styleConfig: baselineRow
+      ? collectInlineStyleConfig(baselineRow, lootFilterState?.profile?.chanceBases?.styleConfig)
+      : lootFilterState?.profile?.chanceBases?.styleConfig
   };
 }
 
@@ -2045,8 +2572,9 @@ function collectMiscRules() {
           enabled: get('enabled')?.checked !== false,
           label: get('label')?.value?.trim() || existing.label || 'Misc rule',
           action: get('action')?.value || existing.action || 'Show',
-          style: get('style')?.value || existing.style || 'misc',
-          tier: get('tier')?.value || existing.tier || 'baseline',
+          style: existing.style || 'misc',
+          tier: 'baseline',
+          styleConfig: collectInlineStyleConfig(row, existing.styleConfig || lootFilterState?.profile?.styles?.[existing.style || 'misc'] || lootFilterState?.profile?.styles?.misc),
           source: 'misc-rule'
         };
       })
@@ -2074,17 +2602,22 @@ function collectEconomyTiers() {
   return [...economyTierList.querySelectorAll('.economy-tier-row[data-economy-tier-index]')]
     .map((row) => {
       const index = Number(row.dataset.economyTierIndex);
-      const fallback = DEFAULT_ECONOMY_TIERS[index] || DEFAULT_ECONOMY_TIERS[0];
+      const existing = lootFilterState?.profile?.economyHighlights?.tiers?.[index] || {};
+      const fallback = getEconomyTierFallback(index, existing);
       const get = (field) => row.querySelector(`[data-economy-tier-field="${field}"]`)?.value;
       const minChaos = Number(get('minChaos'));
       const minDivines = Number(get('minDivines'));
       return {
-        id: fallback.id,
-        label: get('label') || fallback.label,
+        id: existing.id || fallback.id || `economy-rule-${Date.now()}-${index}`,
+        label: get('label') || existing.label || fallback.label,
         minChaos: Number.isFinite(minChaos) && minChaos > 0 ? minChaos : undefined,
         minDivines: Number.isFinite(minDivines) && minDivines > 0 ? minDivines : undefined,
-        style: get('style') || fallback.style,
-        tier: get('tier') || fallback.tier,
+        style: fallback.style,
+        tier: 'baseline',
+        styleConfig: collectInlineStyleConfig(row, getEconomyTierStyleConfig(
+          lootFilterState?.profile?.economyHighlights?.tiers?.[index],
+          fallback
+        )),
         maxItems: Number(get('maxItems')) || fallback.maxItems
       };
     });
@@ -2103,6 +2636,22 @@ function collectSpecialItemRow(row) {
   const index = Number(row.dataset.specialItemIndex);
   const existing = lootFilterState?.profile?.specialItems?.entries?.[index] || {};
   const get = (field) => row.querySelector(`[data-special-field="${field}"]`);
+  const conditions = collectCustomRuleConditions(get);
+
+  return {
+    ...existing,
+    enabled: get('enabled')?.checked !== false,
+    label: get('label')?.value?.trim() || existing.label || 'Special item',
+    action: get('action')?.value || 'Show',
+    style: existing.style || 'specialItems',
+    tier: 'baseline',
+    styleConfig: collectInlineStyleConfig(row, existing.styleConfig || lootFilterState?.profile?.styles?.[existing.style || 'specialItems'] || lootFilterState?.profile?.styles?.specialItems),
+    source: 'special-item',
+    conditions
+  };
+}
+
+function collectCustomRuleConditions(get) {
   const conditions = [];
 
   pushTextCondition(conditions, 'BaseType', get('baseType')?.value, true);
@@ -2119,16 +2668,7 @@ function collectSpecialItemRow(row) {
     pushBooleanCondition(conditions, key, get(field)?.value);
   }
 
-  return {
-    ...existing,
-    enabled: get('enabled')?.checked !== false,
-    label: get('label')?.value?.trim() || existing.label || 'Special item',
-    action: get('action')?.value || 'Show',
-    style: get('style')?.value || 'specialItems',
-    tier: get('tier')?.value || 'high',
-    source: 'special-item',
-    conditions
-  };
+  return conditions;
 }
 
 function pushTextCondition(conditions, key, rawValue, splitValues = false) {
@@ -2184,7 +2724,9 @@ function collectProfilePatch() {
     quickAction: filterQuickActionInput.value,
     quickRuleDefaults: collectCaptureDefaults(),
     styles: collectStyles(),
+    currencyStyle: collectCurrencyStyle(),
     currencyTiers: collectCurrencyTiers(),
+    rareStyle: collectRareStyle(),
     rareTiers: collectRareTiers(),
     categoryRules: collectCategoryRules(),
     rareEquipment: collectRareEquipment(),
@@ -2408,31 +2950,39 @@ captureFilterRuleButton.addEventListener('click', () => {
 });
 
 addCurrencyTierButton.addEventListener('click', () => {
+  lootFilterState.profile.currencyStyle = collectCurrencyStyle();
+  lootFilterState.profile.currencyTiers = collectCurrencyTiers();
   lootFilterState.profile.currencyTiers = [
     ...(lootFilterState.profile.currencyTiers || []),
     {
       id: `currency-${Date.now()}`,
       action: 'Show',
-      label: 'New currency tier',
-      bases: ['Chaos Orb'],
-      style: 'currency',
+      label: 'New currency rule',
+      bases: [],
+      style: INHERIT_STYLE,
       tier: 'baseline'
     }
   ];
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Currency tier added. Save Workbench to keep it.');
+  setStatus(filterStatus, 'Currency rule added. Save Workbench to keep it.');
 });
 
-addCustomStyleButton.addEventListener('click', addCustomStyleFromInput);
+if (addCustomStyleButton) {
+  addCustomStyleButton.addEventListener('click', addCustomStyleFromInput);
+}
 
-customStyleNameInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    addCustomStyleFromInput();
-  }
-});
+if (customStyleNameInput) {
+  customStyleNameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addCustomStyleFromInput();
+    }
+  });
+}
 
 addRareTierButton.addEventListener('click', () => {
+  lootFilterState.profile.rareStyle = collectRareStyle();
+  lootFilterState.profile.rareTiers = collectRareTiers();
   lootFilterState.profile.rareTiers = [
     ...(lootFilterState.profile.rareTiers || []),
     {
@@ -2465,7 +3015,8 @@ function addCategoryRule(categoryId) {
       ...(category.rules || []),
       {
         ...structuredClone(definition.defaultRule),
-        id: `${categoryId}-${Date.now()}`
+        id: `${categoryId}-${Date.now()}`,
+        style: INHERIT_STYLE
       }
     ]
   };
@@ -2516,6 +3067,42 @@ refreshEconomyButton.addEventListener('click', () => {
   });
 });
 
+addEconomyTierButton.addEventListener('click', () => {
+  const current = collectEconomyHighlights();
+  lootFilterState.profile.economyHighlights = {
+    ...current,
+    tiers: [
+      ...(current.tiers || []),
+      {
+        id: `economy-rule-${Date.now()}`,
+        label: 'New economy rule',
+        minChaos: 50,
+        style: 'highValue',
+        tier: 'baseline',
+        maxItems: 500,
+        styleConfig: getEconomyTierStyleConfig({}, DEFAULT_ECONOMY_TIERS[0])
+      }
+    ]
+  };
+  renderEconomyHighlights(lootFilterState.profile);
+  setStatus(economyStatus, 'Economy rule added. Save Workbench to keep it.');
+});
+
+economyTierList.addEventListener('click', (event) => {
+  const index = Number(event.target?.dataset?.removeEconomyTierIndex);
+  if (!Number.isFinite(index)) {
+    return;
+  }
+
+  const current = collectEconomyHighlights();
+  lootFilterState.profile.economyHighlights = {
+    ...current,
+    tiers: (current.tiers || []).filter((_, tierIndex) => tierIndex !== index)
+  };
+  renderEconomyHighlights(lootFilterState.profile);
+  setStatus(economyStatus, 'Economy rule removed. Save Workbench to keep this change.');
+});
+
 specialItemBaseInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
@@ -2538,9 +3125,10 @@ chanceBaseList.addEventListener('click', (event) => {
     return;
   }
 
+  const current = collectChanceBases();
   lootFilterState.profile.chanceBases = {
-    ...(lootFilterState.profile.chanceBases || {}),
-    bases: (lootFilterState.profile.chanceBases?.bases || [])
+    ...current,
+    bases: (current.bases || [])
       .filter((entry) => normalizeBaseKey(entry) !== normalizeBaseKey(base))
   };
   renderChanceBases(lootFilterState.profile, lootFilterState.chanceBaseOptions);
@@ -2553,9 +3141,10 @@ specialItemList.addEventListener('click', (event) => {
     return;
   }
 
+  const current = collectSpecialItems();
   lootFilterState.profile.specialItems = {
-    ...(lootFilterState.profile.specialItems || {}),
-    entries: (lootFilterState.profile.specialItems?.entries || [])
+    ...current,
+    entries: (current.entries || [])
       .filter((_, entryIndex) => entryIndex !== index)
   };
   renderSpecialItems(lootFilterState.profile);
@@ -2582,7 +3171,73 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
     renderCategoryRuleList(categoryId, lootFilterState.profile.categoryRules[categoryId]);
     setStatus(definition.status, `${definition.label} rule removed. Save Workbench to keep this change.`);
   });
+
+  definition.list.addEventListener('change', (event) => {
+    if (event.target?.dataset?.categoryRuleField === 'overrideCategoryStyle') {
+      toggleInlineStylePanel(event.target);
+    } else if (event.target?.dataset?.styleConfigField === 'sound') {
+      previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+    }
+  });
 }
+
+currencyTierList.addEventListener('change', (event) => {
+  if (event.target?.dataset?.tierField === 'overrideCategoryStyle') {
+    toggleInlineStylePanel(event.target);
+  } else if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+currencyBaselineStyle.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+rareBaselineStyle.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+rareTierList.addEventListener('change', (event) => {
+  if (event.target?.dataset?.tierField === 'overrideCategoryStyle') {
+    toggleInlineStylePanel(event.target);
+  } else if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+chanceBaselineStyle.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+economyTierList.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+miscRuleList.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+specialItemList.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
+
+filterRuleList.addEventListener('change', (event) => {
+  if (event.target?.dataset?.styleConfigField === 'sound') {
+    previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
+  }
+});
 
 filterRuleList.addEventListener('click', (event) => {
   const ruleId = event.target?.dataset?.ruleId;
@@ -2591,6 +3246,7 @@ filterRuleList.addEventListener('click', (event) => {
   }
 
   runButton(event.target, filterStatus, 'Deleting...', async () => {
+    await saveLootFilterWorkbenchState();
     const state = await window.poehelper.removeLootFilterRule(ruleId);
     renderLootFilterState(state);
     setStatus(filterStatus, 'Captured rule deleted.');
@@ -2603,9 +3259,10 @@ currencyTierList.addEventListener('click', (event) => {
   }
 
   const index = Number(event.target.dataset.removeTierIndex);
-  lootFilterState.profile.currencyTiers = (lootFilterState.profile.currencyTiers || []).filter((_, entryIndex) => entryIndex !== index);
+  lootFilterState.profile.currencyStyle = collectCurrencyStyle();
+  lootFilterState.profile.currencyTiers = collectCurrencyTiers().filter((_, entryIndex) => entryIndex !== index);
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Currency tier removed. Save Workbench to keep this change.');
+  setStatus(filterStatus, 'Currency rule removed. Save Workbench to keep this change.');
 });
 
 rareTierList.addEventListener('click', (event) => {
@@ -2614,7 +3271,8 @@ rareTierList.addEventListener('click', (event) => {
   }
 
   const index = Number(event.target.dataset.removeTierIndex);
-  lootFilterState.profile.rareTiers = (lootFilterState.profile.rareTiers || []).filter((_, entryIndex) => entryIndex !== index);
+  lootFilterState.profile.rareStyle = collectRareStyle();
+  lootFilterState.profile.rareTiers = collectRareTiers().filter((_, entryIndex) => entryIndex !== index);
   renderLootFilterState(lootFilterState);
   setStatus(filterStatus, 'Rare item rule removed. Save Workbench to keep this change.');
 });

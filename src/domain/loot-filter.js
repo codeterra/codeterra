@@ -8,6 +8,9 @@ const {
 
 const LOOT_FILTER_PROFILE_SCHEMA_VERSION = 1;
 const ECONOMY_HIGHLIGHT_CACHE_VERSION = 3;
+const INHERIT_STYLE = '__inherit';
+const FILTER_FONT_SIZE_MIN = 18;
+const FILTER_FONT_SIZE_MAX = 45;
 
 const OIL_BASE_TYPES = [
   'Golden Oil',
@@ -43,8 +46,8 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     includeRarity: true,
     includeItemLevel: true,
     includeMapTier: true,
-    includeQuality: false,
-    includeCorrupted: false
+    includeQuality: true,
+    includeCorrupted: true
   },
   styles: {
     default: {
@@ -257,6 +260,10 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
       }
     }
   },
+  currencyStyle: {
+    style: 'currency',
+    tier: 'baseline'
+  },
   currencyTiers: [
     {
       id: 'high',
@@ -275,6 +282,10 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
       tier: 'valuable'
     }
   ],
+  rareStyle: {
+    style: 'rare',
+    tier: 'baseline'
+  },
   rareTiers: [
     {
       id: 'rare-ilvl-86',
@@ -628,7 +639,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     enabled: true,
     bases: [],
     style: 'chance',
-    tier: 'valuable'
+    tier: 'baseline'
   },
   miscRules: {
     enabled: true,
@@ -779,6 +790,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
 
 function normalizeLootFilterProfile(profile) {
   const source = profile && typeof profile === 'object' ? profile : {};
+  const styles = normalizeStyles(source.styles);
   return {
     ...DEFAULT_LOOT_FILTER_PROFILE,
     ...source,
@@ -788,32 +800,45 @@ function normalizeLootFilterProfile(profile) {
       ...DEFAULT_LOOT_FILTER_PROFILE.quickRuleDefaults,
       ...(source.quickRuleDefaults && typeof source.quickRuleDefaults === 'object' ? source.quickRuleDefaults : {})
     },
-    styles: normalizeStyles(source.styles),
-    currencyTiers: Array.isArray(source.currencyTiers) ? source.currencyTiers : DEFAULT_LOOT_FILTER_PROFILE.currencyTiers,
+    styles,
+    currencyStyle: normalizeStyleReference(source.currencyStyle, DEFAULT_LOOT_FILTER_PROFILE.currencyStyle, styles),
+    currencyTiers: normalizeCurrencyTiers(source.currencyTiers, styles),
+    rareStyle: normalizeStyleReference(source.rareStyle, DEFAULT_LOOT_FILTER_PROFILE.rareStyle, styles),
     rareTiers: normalizeRareItemRules(source.rareTiers),
     rareEquipment: normalizeRareEquipment(source.rareEquipment),
-    categoryRules: normalizeCategoryRules(source.categoryRules),
-    chanceBases: normalizeChanceBases(source.chanceBases),
+    categoryRules: normalizeCategoryRules(source.categoryRules, styles),
+    chanceBases: normalizeChanceBases(source.chanceBases, styles),
     miscRules: normalizeMiscRules(source.miscRules),
     specialItems: normalizeSpecialItems(source.specialItems),
-    economyHighlights: normalizeEconomyHighlights(source.economyHighlights),
+    economyHighlights: normalizeEconomyHighlights(source.economyHighlights, styles),
     rarityVisibility: normalizeRarityVisibility(source.rarityVisibility),
     userRules: Array.isArray(source.userRules) ? source.userRules.map(normalizeRule).filter(Boolean) : []
   };
 }
 
-function normalizeCategoryRules(categoryRules) {
+function normalizeCategoryRules(categoryRules, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
   const source = categoryRules && typeof categoryRules === 'object' ? categoryRules : {};
   const output = {};
 
   for (const [categoryId, fallback] of Object.entries(DEFAULT_LOOT_FILTER_PROFILE.categoryRules)) {
     const category = source[categoryId] && typeof source[categoryId] === 'object' ? source[categoryId] : {};
+    const fallbackStyle = getFallbackCategoryStyle(categoryId);
     const rules = Array.isArray(category.rules)
       ? category.rules.map(normalizeCategoryRule).filter(Boolean)
       : (fallback.rules || []).map(normalizeCategoryRule).filter(Boolean);
+    for (const rule of rules) {
+      if (rule.style === fallbackStyle) {
+        rule.style = INHERIT_STYLE;
+      }
+    }
 
     output[categoryId] = {
       enabled: category.enabled === undefined ? fallback.enabled !== false : category.enabled !== false,
+      ...normalizeStyleReference(category, {
+        style: fallback.style || getFallbackCategoryStyle(categoryId),
+        tier: fallback.tier || 'baseline',
+        styleOverride: fallback.styleOverride
+      }, styles),
       rules
     };
   }
@@ -836,6 +861,74 @@ function normalizeCategoryRule(entry) {
   }
 
   return rule;
+}
+
+function getFallbackCategoryStyle(categoryId) {
+  const fallbackRule = DEFAULT_LOOT_FILTER_PROFILE.categoryRules[categoryId]?.rules?.[0];
+  return fallbackRule?.style || 'default';
+}
+
+function normalizeStyleReference(source, fallback = {}, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
+  const entry = source && typeof source === 'object' ? source : {};
+  const styleName = String(entry.style || fallback.style || 'default');
+  const tier = entry.tier ? String(entry.tier) : (fallback.tier ? String(fallback.tier) : undefined);
+  const fallbackStyleConfig = getStyleConfigFromReference(styles, styleName, tier);
+  const output = {
+    style: styleName,
+    tier,
+    styleConfig: normalizeInlineStyle(
+      Object.prototype.hasOwnProperty.call(entry, 'styleConfig') ? entry.styleConfig : fallback.styleConfig,
+      fallbackStyleConfig
+    )
+  };
+  const styleOverride = normalizeStyleOverride(
+    Object.prototype.hasOwnProperty.call(entry, 'styleOverride') ? entry.styleOverride : fallback.styleOverride
+  );
+  if (styleOverride) {
+    output.styleOverride = styleOverride;
+  }
+  return output;
+}
+
+function getStyleConfigFromReference(styles, styleName, tier) {
+  const style = styles?.[styleName] || styles?.default || DEFAULT_LOOT_FILTER_PROFILE.styles.default;
+  const tierSound = tier && style.tierSounds && Object.prototype.hasOwnProperty.call(style.tierSounds, tier)
+    ? style.tierSounds[tier]
+    : undefined;
+  return normalizeInlineStyle({
+    ...style,
+    customAlertSound: tierSound === undefined ? style.customAlertSound : tierSound
+  }, DEFAULT_LOOT_FILTER_PROFILE.styles.default);
+}
+
+function normalizeCurrencyTiers(currencyTiers, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
+  const source = Array.isArray(currencyTiers) ? currencyTiers : DEFAULT_LOOT_FILTER_PROFILE.currencyTiers;
+  return source.map((entry) => normalizeCurrencyTier(entry, styles)).filter(Boolean);
+}
+
+function normalizeCurrencyTier(entry, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
+  if (!entry || typeof entry !== 'object') {
+    return undefined;
+  }
+
+  const styleName = String(entry.style || 'currency');
+  const tier = entry.tier ? String(entry.tier) : 'baseline';
+  const styleOverride = normalizeStyleOverride(
+    Object.prototype.hasOwnProperty.call(entry, 'styleOverride')
+      ? entry.styleOverride
+      : entry.styleConfig
+  );
+  return {
+    id: String(entry.id || `currency-${Date.now()}`),
+    action: entry.action === 'Hide' ? 'Hide' : 'Show',
+    label: String(entry.label || 'Currency tier'),
+    bases: normalizeBaseNames(entry.bases),
+    style: styleName === 'currency' ? INHERIT_STYLE : styleName,
+    tier,
+    overrideCategoryStyle: Boolean(entry.overrideCategoryStyle || styleOverride),
+    styleOverride,
+    styleConfig: normalizeInlineStyle(entry.styleConfig, getStyleConfigFromReference(styles, styleName, tier))
+  };
 }
 
 function normalizeStyles(styles) {
@@ -864,6 +957,11 @@ function normalizeRule(rule) {
     source: String(rule.source || 'manual'),
     style: String(rule.style || 'default'),
     tier: rule.tier ? String(rule.tier) : undefined,
+    styleOverride: normalizeStyleOverride(rule.styleOverride),
+    overrideCategoryStyle: Boolean(rule.overrideCategoryStyle || rule.styleOverride),
+    styleConfig: rule.styleConfig && typeof rule.styleConfig === 'object'
+      ? normalizeInlineStyle(rule.styleConfig, DEFAULT_LOOT_FILTER_PROFILE.styles[rule.style] || DEFAULT_LOOT_FILTER_PROFILE.styles.default)
+      : undefined,
     conditions: Array.isArray(rule.conditions) ? rule.conditions.map(normalizeCondition).filter(Boolean) : [],
     createdAt: rule.createdAt || new Date().toISOString(),
     itemSnapshot: rule.itemSnapshot && typeof rule.itemSnapshot === 'object' ? rule.itemSnapshot : undefined
@@ -894,6 +992,42 @@ function normalizeRule(rule) {
   }
 
   return output;
+}
+
+function normalizeStyleOverride(styleOverride) {
+  if (!styleOverride || typeof styleOverride !== 'object') {
+    return undefined;
+  }
+
+  const source = styleOverride;
+  const output = {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(source, key);
+
+  if (has('textColor')) output.textColor = normalizeColor(source.textColor);
+  if (has('backgroundColor')) output.backgroundColor = normalizeColor(source.backgroundColor);
+  if (has('borderColor')) output.borderColor = normalizeColor(source.borderColor);
+  if (has('fontSize')) output.fontSize = normalizeFontSize(source.fontSize);
+  if (has('alertSound')) output.alertSound = normalizeAlertSound(source.alertSound);
+  if (has('customAlertSound')) output.customAlertSound = normalizeCustomAlertSound(source.customAlertSound);
+  if (has('minimapIcon')) output.minimapIcon = normalizeMinimapIcon(source.minimapIcon);
+  if (has('beam')) output.beam = normalizeBeam(source.beam);
+
+  return Object.keys(output).length ? output : undefined;
+}
+
+function normalizeInlineStyle(style, fallback = DEFAULT_LOOT_FILTER_PROFILE.styles.default) {
+  const source = style && typeof style === 'object' ? style : {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(source, key);
+  return {
+    textColor: normalizeColor(has('textColor') ? source.textColor : fallback.textColor),
+    backgroundColor: normalizeColor(has('backgroundColor') ? source.backgroundColor : fallback.backgroundColor),
+    borderColor: normalizeColor(has('borderColor') ? source.borderColor : fallback.borderColor),
+    fontSize: normalizeFontSize(has('fontSize') ? source.fontSize : fallback.fontSize),
+    alertSound: normalizeAlertSound(has('alertSound') ? source.alertSound : fallback.alertSound),
+    customAlertSound: normalizeCustomAlertSound(has('customAlertSound') ? source.customAlertSound : fallback.customAlertSound),
+    minimapIcon: normalizeMinimapIcon(has('minimapIcon') ? source.minimapIcon : fallback.minimapIcon),
+    beam: normalizeBeam(has('beam') ? source.beam : fallback.beam)
+  };
 }
 
 function normalizeRareItemRules(rareTiers) {
@@ -963,7 +1097,7 @@ function normalizeColor(color) {
 }
 
 function normalizeFontSize(value) {
-  return Math.max(1, Math.min(45, Math.round(Number(value) || 32)));
+  return Math.max(FILTER_FONT_SIZE_MIN, Math.min(FILTER_FONT_SIZE_MAX, Math.round(Number(value) || 32)));
 }
 
 function normalizeAlertSound(alertSound) {
@@ -1087,13 +1221,16 @@ function normalizeIdList(ids, availableGroups) {
   return source.map(String).filter((id) => allowed.has(id));
 }
 
-function normalizeChanceBases(chanceBases) {
+function normalizeChanceBases(chanceBases, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
   const source = chanceBases && typeof chanceBases === 'object' ? chanceBases : {};
+  const style = normalizeChanceBaseStyle(source.style);
+  const tier = source.tier ? String(source.tier) : DEFAULT_LOOT_FILTER_PROFILE.chanceBases.tier;
   return {
     enabled: source.enabled !== false,
     bases: normalizeBaseNames(source.bases),
-    style: normalizeChanceBaseStyle(source.style),
-    tier: source.tier ? String(source.tier) : DEFAULT_LOOT_FILTER_PROFILE.chanceBases.tier
+    style,
+    tier,
+    styleConfig: normalizeInlineStyle(source.styleConfig, getStyleConfigFromReference(styles, style, tier))
   };
 }
 
@@ -1170,12 +1307,12 @@ function normalizeSpecialItem(entry) {
   return rule;
 }
 
-function normalizeEconomyHighlights(economyHighlights) {
+function normalizeEconomyHighlights(economyHighlights, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
   const source = economyHighlights && typeof economyHighlights === 'object' ? economyHighlights : {};
   const defaults = DEFAULT_LOOT_FILTER_PROFILE.economyHighlights;
   return {
     enabled: source.enabled !== false,
-    tiers: normalizeEconomyTiers(source.tiers, source),
+    tiers: normalizeEconomyTiers(source.tiers, source, styles),
     types: normalizeTextList(source.types, defaults.types),
     style: String(source.style || defaults.style),
     entries: Array.isArray(source.entries) ? source.entries.map(normalizeEconomyRule).filter(Boolean) : [],
@@ -1236,7 +1373,7 @@ function normalizeEconomyRule(rule) {
   return output;
 }
 
-function normalizeEconomyTiers(tiers, legacySource = {}) {
+function normalizeEconomyTiers(tiers, legacySource = {}, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {
   const defaults = DEFAULT_LOOT_FILTER_PROFILE.economyHighlights.tiers;
   const source = Array.isArray(tiers) && tiers.length > 0
     ? tiers
@@ -1246,8 +1383,14 @@ function normalizeEconomyTiers(tiers, legacySource = {}) {
         defaults[2]
       ];
 
-  return defaults.map((fallback, index) => {
-    const tier = source[index] && typeof source[index] === 'object' ? source[index] : {};
+  return source.map((sourceTier, index) => {
+    const fallback = defaults[index] || {
+      ...defaults[0],
+      id: `economy-rule-${index + 1}`,
+      label: `Economy rule ${index + 1}`,
+      tier: 'baseline'
+    };
+    const tier = sourceTier && typeof sourceTier === 'object' ? sourceTier : {};
     return {
       ...fallback,
       ...tier,
@@ -1257,6 +1400,10 @@ function normalizeEconomyTiers(tiers, legacySource = {}) {
       minDivines: tier.minDivines === undefined ? fallback.minDivines : normalizePositiveNumber(tier.minDivines, fallback.minDivines),
       style: String(tier.style || fallback.style),
       tier: String(tier.tier || fallback.tier),
+      styleConfig: normalizeInlineStyle(
+        tier.styleConfig,
+        getStyleConfigFromReference(styles, tier.style || fallback.style, tier.tier || fallback.tier)
+      ),
       maxItems: Math.max(1, Math.min(2000, Math.round(Number(tier.maxItems) || fallback.maxItems)))
     };
   });
@@ -1370,10 +1517,9 @@ function createRuleFromItem(item, options = {}) {
     throw new Error('Clipboard does not look like a Path of Exile item.');
   }
 
-  const defaults = {
-    ...DEFAULT_LOOT_FILTER_PROFILE.quickRuleDefaults,
-    ...(options.defaults || {})
-  };
+  const defaults = Object.fromEntries(
+    Object.keys(DEFAULT_LOOT_FILTER_PROFILE.quickRuleDefaults).map((key) => [key, true])
+  );
   const action = options.action === 'Hide' ? 'Hide' : 'Show';
   const conditions = [];
 

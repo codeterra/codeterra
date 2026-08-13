@@ -18,6 +18,7 @@ const {
   exportLootFilterProfile,
   getLootFilterSummary,
   getLootFilterState,
+  getLootFilterSoundPreview,
   importLootFilterProfile,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
@@ -1150,6 +1151,8 @@ ipcMain.handle('set-loot-filter-config', (_event, config) => {
 });
 
 ipcMain.handle('get-loot-filter-state', () => getLootFilterState(settings));
+
+ipcMain.handle('preview-loot-filter-sound', (_event, fileName) => getLootFilterSoundPreview(settings, fileName));
 
 ipcMain.handle('set-active-loot-filter-profile', async (_event, profileId) => {
   settings = writeSettings({

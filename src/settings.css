@@ -295,6 +295,8 @@ button:hover {
 .style-visual-grid label,
 .style-sound-grid label,
 .style-tier-sound-row label,
+.inline-style-grid label,
+.inline-style-panel label,
 .editor-grid label,
 .economy-tier-row__grid label,
 .rule-edit-grid label,
@@ -511,6 +513,7 @@ button:hover {
 }
 
 .equipment-group,
+.category-baseline-row,
 .economy-tier-row,
 .filter-style-card,
 .tier-row,
@@ -526,6 +529,7 @@ button:hover {
 }
 
 .equipment-group__header,
+.category-baseline-row__title,
 .economy-tier-row__header,
 .filter-style-card__title,
 .tier-row__title,
@@ -609,6 +613,7 @@ button:hover {
 }
 
 .filter-style-list,
+.category-baseline-list,
 .tier-list,
 .category-rule-list,
 .economy-tier-list,
@@ -624,10 +629,36 @@ button:hover {
   grid-template-columns: 1fr;
 }
 
+.category-baseline-row {
+  grid-column: 1 / -1;
+}
+
+.category-baseline-row__title {
+  color: #dbe5ef;
+}
+
 .style-visual-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 7px;
+}
+
+.inline-style-grid,
+.inline-style-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 7px;
+  min-width: 0;
+}
+
+.inline-style-panel {
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.inline-style-panel[hidden] {
+  display: none !important;
 }
 
 .style-sound-grid {

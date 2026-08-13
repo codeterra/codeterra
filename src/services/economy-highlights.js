@@ -106,15 +106,23 @@ function normalizeTierConfig(tiers, legacyOptions = {}) {
         ]
       : DEFAULT_ECONOMY_TIERS;
 
-  return source.slice(0, 3).map((tier, index) => ({
-    ...DEFAULT_ECONOMY_TIERS[index],
-    ...(tier && typeof tier === 'object' ? tier : {}),
-    id: String(tier?.id || DEFAULT_ECONOMY_TIERS[index].id),
-    label: String(tier?.label || DEFAULT_ECONOMY_TIERS[index].label),
-    style: String(tier?.style || DEFAULT_ECONOMY_TIERS[index].style),
-    tier: String(tier?.tier || DEFAULT_ECONOMY_TIERS[index].tier),
-    maxItems: Math.max(1, Math.min(2000, Math.round(Number(tier?.maxItems) || DEFAULT_ECONOMY_TIERS[index].maxItems)))
-  }));
+  return source.map((tier, index) => {
+    const fallback = DEFAULT_ECONOMY_TIERS[index] || {
+      ...DEFAULT_ECONOMY_TIERS[0],
+      id: `economy-rule-${index + 1}`,
+      label: `Economy rule ${index + 1}`,
+      tier: 'baseline'
+    };
+    return {
+      ...fallback,
+      ...(tier && typeof tier === 'object' ? tier : {}),
+      id: String(tier?.id || fallback.id),
+      label: String(tier?.label || fallback.label),
+      style: String(tier?.style || fallback.style),
+      tier: String(tier?.tier || fallback.tier),
+      maxItems: Math.max(1, Math.min(2000, Math.round(Number(tier?.maxItems) || fallback.maxItems)))
+    };
+  });
 }
 
 function findDivineChaosValue(overviews) {

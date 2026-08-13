@@ -15,6 +15,14 @@ function fixture(name) {
   return fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'copied-items', name), 'utf8');
 }
 
+function getRuleBlock(output, label) {
+  const marker = `# ${label}\n`;
+  const start = output.indexOf(marker);
+  assert.notEqual(start, -1, `Missing rule block: ${label}`);
+  const next = output.indexOf('\n\n', start);
+  return output.slice(start, next === -1 ? output.length : next);
+}
+
 const currency = parseCopiedItem(fixture('currency-chaos-orb.txt'));
 const currencyRule = createRuleFromItem(currency, { action: 'Show' });
 assert.equal(currencyRule.style, 'currency');
@@ -56,7 +64,19 @@ const profile = normalizeLootFilterProfile({
     tiers: [
       { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 500 },
       { id: 'divine-1', label: '1 divine+', minDivines: 1, style: 'highValue', tier: 'valuable', maxItems: 500 },
-      { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 500 }
+      {
+        id: 'divine-10',
+        label: '10 divines+',
+        minDivines: 10,
+        style: 'highValue',
+        tier: 'high',
+        maxItems: 500,
+        styleConfig: {
+          ...DEFAULT_LOOT_FILTER_PROFILE.styles.highValue,
+          borderColor: [12, 34, 56, 255],
+          alertSound: null
+        }
+      }
     ],
     style: 'highValue',
     source: 'poe.ninja',
@@ -113,6 +133,17 @@ const profile = normalizeLootFilterProfile({
 });
 assert.deepEqual(profile.economyHighlights.tiers.map((tier) => tier.label), ['50c+', '1 divine+', '10 divines+']);
 assert.equal(profile.economyHighlights.cacheVersion, undefined);
+const extraEconomyTierProfile = normalizeLootFilterProfile({
+  economyHighlights: {
+    tiers: [
+      { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 500 },
+      { id: 'divine-1', label: '1 divine+', minDivines: 1, style: 'highValue', tier: 'valuable', maxItems: 500 },
+      { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 500 },
+      { id: 'divine-25', label: '25 divines+', minDivines: 25, style: 'highValue', tier: 'baseline', maxItems: 250 }
+    ]
+  }
+});
+assert.deepEqual(extraEconomyTierProfile.economyHighlights.tiers.map((tier) => tier.id), ['chaos-50', 'divine-1', 'divine-10', 'divine-25']);
 const renamedEconomyProfile = normalizeLootFilterProfile({
   ...DEFAULT_LOOT_FILTER_PROFILE,
   economyHighlights: {
@@ -141,6 +172,7 @@ assert.match(output, /# Hand-picked special items\n# Special Gold Ring\nShow\n  
 assert.ok(output.indexOf('# Hand-picked special items') < output.indexOf('# Personal captured-item rules'));
 assert.match(output, /Hide\n    Class Wands/);
 assert.match(output, /# Economy high-value items\n# Source: poe\.ninja \/ Mercenaries \/ 2026-08-10T12:00:00\.000Z\n# Economy 10 divines\+\n# Foulborn Mageblood \(9000c\)\nShow\n    Rarity Unique\n    BaseType "Heavy Belt"\n    Foulborn True/);
+assert.match(getRuleBlock(output, 'Foulborn Mageblood (9000c)'), /SetBorderColor 12 34 56 255/);
 assert.ok(output.indexOf('# Economy high-value items') < output.indexOf('# Currency tiers'));
 assert.match(output, /BaseType "Omen Wand"/);
 assert.match(output, /SetBackgroundColor 255 215 65 240/);
@@ -158,7 +190,7 @@ assert.match(output, /# Premium oils\nShow\n    Class "Stackable Currency"\n    
 assert.match(output, /# All oils\nShow\n    Class "Stackable Currency"\n    BaseType .*"Clear Oil"/);
 assert.ok(output.indexOf('# Category rules') < output.indexOf('# Currency tiers'));
 assert.match(output, /# Fragments and invitations\nShow\n    Class "Map Fragments" "Misc Map Items"/);
-assert.match(output, /SetBorderColor 75 95 170 255/);
+assert.match(output, /SetBorderColor 130 110 255 255/);
 assert.match(output, /# Blueprints ilvl 83\+\nShow\n    Class Blueprints\n    ItemLevel >= 83/);
 assert.match(output, /# Blueprints\nShow\n    Class Blueprints/);
 assert.match(output, /SetTextColor 185 235 255 255/);
@@ -168,7 +200,7 @@ assert.match(output, /# Divination cards\nShow\n    Class "Divination Cards"/);
 assert.match(output, /SetBackgroundColor 210 235 255 235/);
 assert.match(output, /# Scarabs\nShow\n    BaseType Scarab/);
 assert.doesNotMatch(output, /Class Scarabs/);
-assert.match(output, /SetBorderColor 130 95 40 255/);
+assert.match(output, /SetBorderColor 220 170 70 255/);
 assert.doesNotMatch(output, /# Jewels by rarity/);
 assert.match(output, /# Normal jewels\nShow\n    Class Jewels\n    Rarity Normal/);
 assert.match(output, /# Rare jewels\nShow\n    Class Jewels\n    Rarity Rare/);
@@ -197,13 +229,13 @@ const hiddenCurrencyOutput = generateLootFilter(hiddenCurrencyProfile);
 assert.match(hiddenCurrencyOutput, /# Hide scrolls\nHide\n    Class "Stackable Currency"\n    BaseType "Scroll of Wisdom"/);
 
 const customSoundProfile = normalizeLootFilterProfile({
-  styles: {
-    currency: {
+  currencyStyle: {
+    style: 'currency',
+    tier: 'baseline',
+    styleConfig: {
       ...DEFAULT_LOOT_FILTER_PROFILE.styles.currency,
-      tierSounds: {
-        baseline: { file: 'currency-base.mp3', volume: 70 },
-        high: { file: 'currency-high.mp3', volume: 110 }
-      }
+      alertSound: null,
+      customAlertSound: { file: 'currency-base.mp3', volume: 70 }
     }
   },
   currencyTiers: [
@@ -212,14 +244,71 @@ const customSoundProfile = normalizeLootFilterProfile({
       action: 'Show',
       label: 'Sound chaos',
       bases: ['Chaos Orb'],
-      style: 'currency',
-      tier: 'high'
+      style: '__inherit',
+      overrideCategoryStyle: true,
+      styleOverride: {
+        ...DEFAULT_LOOT_FILTER_PROFILE.styles.currency,
+        alertSound: null,
+        customAlertSound: { file: 'currency-high.mp3', volume: 110 }
+      }
     }
   ]
 });
 const customSoundOutput = generateLootFilter(customSoundProfile);
 assert.match(customSoundOutput, /# Sound chaos\nShow\n    Class "Stackable Currency"\n    BaseType "Chaos Orb"[\s\S]*CustomAlertSound "currency-high\.mp3" 110\n    DisableDropSoundIfAlertSound/);
 assert.match(customSoundOutput, /# Currency baseline\nShow\n    Class "Stackable Currency"[\s\S]*CustomAlertSound "currency-base\.mp3" 70\n    DisableDropSoundIfAlertSound/);
+
+const lowCurrencyNoSoundProfile = normalizeLootFilterProfile({
+  currencyStyle: {
+    style: 'currency',
+    tier: 'baseline'
+  },
+  currencyTiers: [
+    {
+      id: 'quiet-low',
+      action: 'Show',
+      label: 'Quiet low currency',
+      bases: ['Orb of Transmutation'],
+      style: '__inherit',
+      tier: 'baseline',
+      styleOverride: {
+        alertSound: null,
+        customAlertSound: null
+      }
+    }
+  ]
+});
+const lowCurrencyNoSoundOutput = generateLootFilter(lowCurrencyNoSoundProfile);
+const quietLowCurrencyBlock = getRuleBlock(lowCurrencyNoSoundOutput, 'Quiet low currency');
+assert.doesNotMatch(quietLowCurrencyBlock, /PlayAlertSound|CustomAlertSound|DisableDropSoundIfAlertSound/);
+assert.match(getRuleBlock(lowCurrencyNoSoundOutput, 'Currency baseline'), /PlayAlertSound 2 80/);
+
+const quietFragmentCategoryProfile = normalizeLootFilterProfile({
+  categoryRules: {
+    fragments: {
+      enabled: true,
+      style: 'fragments',
+      tier: 'baseline',
+      styleOverride: {
+        alertSound: null,
+        customAlertSound: null
+      },
+      rules: [
+        {
+          id: 'quiet-fragments',
+          enabled: true,
+          action: 'Show',
+          label: 'Quiet fragments',
+          style: '__inherit',
+          tier: 'baseline',
+          conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+        }
+      ]
+    }
+  }
+});
+const quietFragmentBlock = getRuleBlock(generateLootFilter(quietFragmentCategoryProfile), 'Quiet fragments');
+assert.doesNotMatch(quietFragmentBlock, /PlayAlertSound|CustomAlertSound|DisableDropSoundIfAlertSound/);
 
 const economyRules = createEconomyRulesFromOverviews([
   {

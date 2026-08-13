@@ -155,14 +155,12 @@
                 <button id="refresh-filter-preview-button" type="button">Refresh Preview</button>
                 <button id="clear-filter-rules-button" type="button">Clear Rules</button>
               </div>
-              <p id="filter-status" class="status-line">Fresh-slate filter defaults show all items, with configurable style tiers above the default rule.</p>
+              <p id="filter-status" class="status-line">Fresh-slate filter defaults show all items, with category styles and optional rule overrides above the default rule.</p>
             </section>
 
             <div class="loot-workbench">
               <nav class="loot-workbench-tabs" aria-label="Loot filter editors">
-                <button class="is-active" type="button" data-loot-tab="capture">Capture</button>
-                <button type="button" data-loot-tab="styles">Styles</button>
-                <button type="button" data-loot-tab="currency">Currency</button>
+                <button class="is-active" type="button" data-loot-tab="currency">Currency</button>
                 <button type="button" data-loot-tab="uniques">Uniques</button>
                 <button type="button" data-loot-tab="maps">Maps</button>
                 <button type="button" data-loot-tab="fragments">Fragments</button>
@@ -176,32 +174,17 @@
                 <button type="button" data-loot-tab="chance">Chancing</button>
                 <button type="button" data-loot-tab="misc">Misc</button>
                 <button type="button" data-loot-tab="economy">Economy</button>
-                <button type="button" data-loot-tab="special">Special</button>
-                <button type="button" data-loot-tab="rules">Rules</button>
+                <button type="button" data-loot-tab="custom">Custom Rules</button>
                 <button type="button" data-loot-tab="preview">Preview</button>
               </nav>
 
               <div class="loot-workbench-stage">
-                <section class="loot-workbench-section is-active" data-loot-section="capture">
-                  <h3>Capture Defaults</h3>
-                  <div id="filter-capture-defaults" class="toggle-grid"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="styles">
+                <section class="loot-workbench-section is-active" data-loot-section="currency">
                   <div class="section-heading-row">
-                    <h3>Style Groups</h3>
-                    <div class="style-group-entry">
-                      <input id="custom-style-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="Custom style name">
-                      <button id="add-custom-style-button" type="button">Add Style</button>
-                    </div>
+                    <h3>Currency Rules</h3>
+                    <button id="add-currency-tier-button" type="button">Add Currency Rule</button>
                   </div>
-                  <p id="custom-style-status" class="status-line">Create reusable style groups, then assign them to category and item rules.</p>
-                  <div id="filter-style-list" class="filter-style-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="currency">
-                  <div class="section-heading-row">
-                    <h3>Currency Tiers</h3>
-                    <button id="add-currency-tier-button" type="button">Add Currency Tier</button>
-                  </div>
+                  <div id="currency-baseline-style" class="category-baseline-list"></div>
                   <div id="currency-tier-list" class="tier-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="uniques">
@@ -317,6 +300,7 @@
                     <h3>Rare Item Rules</h3>
                     <button id="add-rare-tier-button" type="button">Add Rare Rule</button>
                   </div>
+                  <div id="rare-baseline-style" class="category-baseline-list"></div>
                   <div id="rare-tier-list" class="tier-list"></div>
                   <h3>Equipment Visibility</h3>
                   <div class="toolbar-strip">
@@ -354,6 +338,7 @@
                 </section>
                 <section class="loot-workbench-section" data-loot-section="chance">
                   <h3>Chance Bases</h3>
+                  <div id="chance-baseline-style" class="category-baseline-list"></div>
                   <div class="toolbar-strip">
                     <label class="inline-toggle">
                       <input id="chance-bases-enabled-input" type="checkbox">
@@ -388,7 +373,10 @@
                   <div id="flask-rule-list" class="category-rule-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="economy">
-                  <h3>Economy High Value</h3>
+                  <div class="section-heading-row">
+                    <h3>Economy High Value</h3>
+                    <button id="add-economy-tier-button" type="button">Add Economy Rule</button>
+                  </div>
                   <div class="toolbar-strip">
                     <label class="inline-toggle">
                       <input id="economy-highlights-enabled-input" type="checkbox">
@@ -401,22 +389,19 @@
                   <p id="economy-status" class="status-line">Refresh pulls poe.ninja economy data into cached high-value filter rules.</p>
                   <div id="economy-highlight-list" class="token-list"></div>
                 </section>
-                <section class="loot-workbench-section" data-loot-section="special">
-                  <h3>Hand-Picked Special Items</h3>
+                <section class="loot-workbench-section" data-loot-section="custom">
+                  <h3>Custom Rules</h3>
                   <label class="inline-toggle">
                     <input id="special-items-enabled-input" type="checkbox">
-                    Show hand-picked special item rules
+                    Show custom rules
                   </label>
                   <div class="special-item-entry">
                     <input id="special-item-label-input" type="text" autocomplete="off" spellcheck="false" placeholder="Rule label">
                     <input id="special-item-base-input" type="text" autocomplete="off" spellcheck="false" placeholder="Base or item name">
-                    <button id="add-special-item-button" type="button">Add Item</button>
+                    <button id="add-special-item-button" type="button">Add Rule</button>
                   </div>
-                  <p id="special-item-status" class="status-line">Add one special item at a time, then tune the matching options below.</p>
+                  <p id="special-item-status" class="status-line">Create or capture custom rules, then tune matching criteria and styling below.</p>
                   <div id="special-item-list" class="special-item-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="rules">
-                  <h3>Captured Rules</h3>
                   <div id="filter-rule-list" class="filter-rule-list">
                     <div class="empty-state">No captured rules yet.</div>
                   </div>

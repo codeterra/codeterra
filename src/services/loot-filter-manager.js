@@ -314,6 +314,28 @@ function getLootFilterSoundFiles(lootFilter) {
   }
 }
 
+function getLootFilterSoundPreview(settings, fileName) {
+  const lootFilter = normalizeLootFilterSettings(settings?.lootFilter);
+  const requested = String(fileName || '').trim();
+  if (!requested || path.basename(requested) !== requested || !/\.mp3$/i.test(requested)) {
+    return { status: 'missing' };
+  }
+
+  const available = new Set(getLootFilterSoundFiles(lootFilter));
+  if (!available.has(requested)) {
+    return { status: 'missing' };
+  }
+
+  const filePath = path.join(path.dirname(lootFilter.outputPath), requested);
+  const data = fs.readFileSync(filePath);
+  return {
+    status: 'ok',
+    fileName: requested,
+    mimeType: 'audio/mpeg',
+    dataUrl: `data:audio/mpeg;base64,${data.toString('base64')}`
+  };
+}
+
 function normalizeProfileEntries(source) {
   const entries = Array.isArray(source.profiles) ? source.profiles : [];
   const migrated = entries.length > 0
@@ -488,6 +510,7 @@ module.exports = {
   getLootFilterSummary,
   getLootFilterState,
   getLootFilterSoundFiles,
+  getLootFilterSoundPreview,
   importLootFilterProfile,
   normalizeLootFilterSettings,
   removeLootFilterRule,

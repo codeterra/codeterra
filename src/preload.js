@@ -73,6 +73,9 @@ contextBridge.exposeInMainWorld('poehelper', {
   getLootFilterState() {
     return ipcRenderer.invoke('get-loot-filter-state');
   },
+  previewLootFilterSound(fileName) {
+    return ipcRenderer.invoke('preview-loot-filter-sound', fileName);
+  },
   setActiveLootFilterProfile(profileId) {
     return ipcRenderer.invoke('set-active-loot-filter-profile', profileId);
   },

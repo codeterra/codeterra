@@ -19,6 +19,7 @@ const RARITY_VISIBILITY_EQUIPMENT_CLASSES = [
       .flatMap((group) => group.classes || [])
   )
 ];
+const INHERIT_STYLE = '__inherit';
 
 function generateLootFilter(profileLike) {
   const profile = normalizeLootFilterProfile(profileLike);
@@ -43,27 +44,29 @@ function generateLootFilter(profileLike) {
   renderCategoryRuleFilters(lines, profile);
 
   lines.push('# Currency tiers');
+  const currencyStyle = profile.currencyStyle || { style: 'currency', tier: 'baseline' };
   for (const tier of profile.currencyTiers || []) {
     lines.push(...renderRule({
       action: tier.action || 'Show',
       label: tier.label,
-      style: tier.style || 'currency',
+      style: tier.style || INHERIT_STYLE,
       tier: tier.tier,
+      overrideCategoryStyle: tier.overrideCategoryStyle,
+      styleOverride: tier.styleOverride,
       conditions: [
         { key: 'Class', value: 'Stackable Currency' },
         { key: 'BaseType', value: tier.bases || [] }
       ]
-    }, profile));
+    }, profile, currencyStyle));
     lines.push('');
   }
 
   lines.push(...renderRule({
     action: 'Show',
     label: 'Currency baseline',
-    style: 'currency',
-    tier: 'baseline',
+    style: INHERIT_STYLE,
     conditions: [{ key: 'Class', value: 'Stackable Currency' }]
-  }, profile));
+  }, profile, currencyStyle));
   lines.push('');
 
   renderChanceBaseFilters(lines, profile);
@@ -170,12 +173,11 @@ function renderRareItemRuleFilters(lines, profile, placement = 'specific') {
   lines.push(placement === 'baseline' ? '# Rare baseline rules' : '# Rare item rules');
   for (const rule of entries) {
     lines.push(...renderRule({
+      ...rule,
       action: rule.action || 'Show',
       label: rule.label,
-      style: rule.style || 'rare',
-      tier: rule.tier,
-      conditions: rule.conditions
-    }, profile));
+      style: rule.style === 'rare' ? INHERIT_STYLE : (rule.style || INHERIT_STYLE)
+    }, profile, profile.rareStyle || { style: 'rare', tier: 'baseline' }));
     lines.push('');
   }
 }
@@ -210,10 +212,11 @@ function renderCategoryRuleFilters(lines, profile) {
 
   lines.push('# Category rules');
   for (const { categoryId, rule } of entries) {
+    const category = categoryRules[categoryId] || {};
     lines.push(...renderRule({
       ...rule,
       label: rule.label || `${categoryId} rule`
-    }, profile));
+    }, profile, category));
     lines.push('');
   }
 }
@@ -254,8 +257,8 @@ function renderEconomyHighlightFilters(lines, profile) {
     for (const entry of entries) {
       lines.push(...renderRule({
         ...entry,
-        style: entry.style || economy.style || 'highValue'
-      }, profile));
+        style: INHERIT_STYLE
+      }, profile, tier));
       lines.push('');
     }
   }
@@ -357,14 +360,13 @@ function renderChanceBaseFilters(lines, profile) {
     lines.push(...renderRule({
       action: 'Show',
       label: 'Selected chance bases',
-      style: chanceBases.style || 'chance',
-      tier: chanceBases.tier || 'valuable',
+      style: INHERIT_STYLE,
       conditions: [
         { key: 'Rarity', value: 'Normal' },
         { key: 'Corrupted', value: false },
         { key: 'BaseType', value: chunk }
       ]
-    }, profile));
+    }, profile, chanceBases));
     lines.push('');
   }
 }
@@ -473,7 +475,7 @@ function chunkValues(values, size) {
   return chunks;
 }
 
-function renderRule(rule, profile) {
+function renderRule(rule, profile, inheritedStyle) {
   const lines = [
     `# ${rule.label || 'POEHelper rule'}`,
     rule.action === 'Hide' ? 'Hide' : 'Show'
@@ -483,24 +485,60 @@ function renderRule(rule, profile) {
     lines.push(`    ${renderCondition(condition)}`);
   }
 
-  for (const action of renderStyleActions(getEffectiveStyle(profile, rule.style, rule.tier))) {
+  const styleRef = resolveRuleStyleReference(rule, inheritedStyle);
+  const effectiveStyle = styleRef.styleConfig
+    ? applyStyleOverride(styleRef.styleConfig, styleRef.styleOverride)
+    : getEffectiveStyle(profile, styleRef.style, styleRef.tier, styleRef.styleOverride);
+  for (const action of renderStyleActions(effectiveStyle)) {
     lines.push(`    ${action}`);
   }
 
   return lines;
 }
 
-function getEffectiveStyle(profile, styleName, tier) {
+function resolveRuleStyleReference(rule, inheritedStyle = {}) {
+  const inherited = inheritedStyle && typeof inheritedStyle === 'object' ? inheritedStyle : {};
+  const usesInheritedStyle = !rule.style || rule.style === INHERIT_STYLE;
+  const styleOverride = rule.overrideCategoryStyle ? rule.styleOverride : undefined;
+  return {
+    style: usesInheritedStyle ? (inherited.style || 'default') : rule.style,
+    tier: rule.tier || inherited.tier,
+    styleConfig: rule.styleConfig || (usesInheritedStyle ? inherited.styleConfig : undefined),
+    styleOverride: mergeStyleOverrides(inherited.styleOverride, styleOverride)
+  };
+}
+
+function mergeStyleOverrides(...overrides) {
+  const output = {};
+  for (const override of overrides) {
+    if (!override || typeof override !== 'object') {
+      continue;
+    }
+    Object.assign(output, override);
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+function getEffectiveStyle(profile, styleName, tier, styleOverride) {
   const style = profile.styles?.[styleName] || profile.styles?.default || {};
-  const tierBorder = tier && style.tierBorders?.[tier] ? style.tierBorders[tier] : undefined;
   const soundTier = tier || 'baseline';
   const tierSound = style.tierSounds && Object.prototype.hasOwnProperty.call(style.tierSounds, soundTier)
     ? style.tierSounds[soundTier]
     : undefined;
+  return applyStyleOverride({
+    ...style,
+    customAlertSound: tierSound === undefined ? style.customAlertSound : tierSound
+  }, styleOverride);
+}
+
+function applyStyleOverride(style, styleOverride) {
+  if (!styleOverride || typeof styleOverride !== 'object') {
+    return style;
+  }
+
   return {
     ...style,
-    borderColor: tierBorder || style.borderColor,
-    customAlertSound: tierSound === undefined ? style.customAlertSound : tierSound
+    ...styleOverride
   };
 }
 
@@ -509,11 +547,12 @@ function renderStyleActions(style) {
   if (style.textColor) actions.push(`SetTextColor ${renderColor(style.textColor)}`);
   if (style.backgroundColor) actions.push(`SetBackgroundColor ${renderColor(style.backgroundColor)}`);
   if (style.borderColor) actions.push(`SetBorderColor ${renderColor(style.borderColor)}`);
-  if (style.fontSize) actions.push(`SetFontSize ${Math.max(1, Math.min(45, Number(style.fontSize) || 32))}`);
-  if (style.alertSound?.id) actions.push(`PlayAlertSound ${style.alertSound.id} ${style.alertSound.volume || 80}`);
+  if (style.fontSize) actions.push(`SetFontSize ${Math.max(18, Math.min(45, Number(style.fontSize) || 32))}`);
   if (style.customAlertSound?.file) {
     actions.push(`CustomAlertSound "${escapeFilterString(style.customAlertSound.file)}" ${style.customAlertSound.volume || 100}`);
     actions.push('DisableDropSoundIfAlertSound');
+  } else if (style.alertSound?.id) {
+    actions.push(`PlayAlertSound ${style.alertSound.id} ${style.alertSound.volume || 80}`);
   }
   if (style.minimapIcon) {
     actions.push(`MinimapIcon ${style.minimapIcon.size ?? 1} ${style.minimapIcon.color || 'White'} ${style.minimapIcon.shape || 'Circle'}`);
