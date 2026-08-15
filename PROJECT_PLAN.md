@@ -193,14 +193,14 @@ Goal: turn the current powerful-but-growing settings workbench into a coherent p
 
 Work:
 
-- Finish the equipment UI rework across armour, shields, weapons, jewelry, flasks, and chance bases.
-- Add sample item previews for every category and rule.
-- Add visual/sound preview rows for generated rules.
-- Add rule ordering controls where order matters.
-- Add enable/disable and show/hide behavior consistently across every category.
-- Add filter write preview: count of Show/Hide blocks, top hidden classes, economy entries, and chance bases.
-- Add rollback/version history for written filters.
-- Add a raw generated filter viewer with search.
+- ~~Finish the equipment UI rework across armour, shields, weapons, jewelry, flasks, and chance bases.~~
+- ~~Add sample item previews for every category and rule.~~
+- ~~Add visual/sound preview rows for generated rules.~~
+- ~~Add rule ordering controls where order matters.~~
+- ~~Add enable/disable and show/hide behavior consistently across every category.~~
+- ~~Add filter write preview: count of Show/Hide blocks, top hidden classes, economy entries, and chance bases.~~
+- ~~Add rollback/version history for written filters.~~
+- ~~Add a raw generated filter viewer with search.~~
 
 Exit criteria:
 

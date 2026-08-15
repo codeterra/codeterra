@@ -100,6 +100,9 @@ contextBridge.exposeInMainWorld('poehelper', {
   writeLootFilter() {
     return ipcRenderer.invoke('write-loot-filter');
   },
+  restoreLootFilterHistory(historyId) {
+    return ipcRenderer.invoke('restore-loot-filter-history', historyId);
+  },
   captureLootFilterRule() {
     return ipcRenderer.invoke('capture-loot-filter-rule');
   },

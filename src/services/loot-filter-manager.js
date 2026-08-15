@@ -19,6 +19,8 @@ const { summarizeGeneratedFilter } = require('./loot-filter-summary');
 
 const LOOT_FILTER_LIBRARY_SCHEMA_VERSION = 1;
 const DEFAULT_PROFILE_ID = 'profile-default';
+const HISTORY_DIR_NAME = '.poehelper-history';
+const HISTORY_LIMIT = 20;
 
 function sanitizeFilterFileName(name) {
   const safe = String(name || 'POEHelper')
@@ -72,7 +74,8 @@ async function getLootFilterState(settings) {
     preview,
     previewBytes: previewSummary.bytes,
     previewSummary,
-    previewDiff
+    previewDiff,
+    history: getLootFilterHistoryEntries(lootFilter)
   };
 }
 
@@ -305,6 +308,8 @@ function writeLootFilter(settings) {
   const previousDiff = summarizeFilterFileDiff(lootFilter.outputPath, output);
   fs.mkdirSync(path.dirname(lootFilter.outputPath), { recursive: true });
   fs.writeFileSync(lootFilter.outputPath, output, 'utf8');
+  const historyEntry = writeLootFilterHistoryEntry(lootFilter, output, summary);
+  pruneLootFilterHistory(lootFilter);
   return {
     status: 'written',
     outputPath: lootFilter.outputPath,
@@ -313,8 +318,105 @@ function writeLootFilter(settings) {
     userRuleCount: lootFilter.profile.userRules.length,
     summary,
     previousDiff,
-    catalogMetadata: getCatalogMetadata()
+    catalogMetadata: getCatalogMetadata(),
+    historyEntry
   };
+}
+
+function getLootFilterHistoryEntries(lootFilter, options = {}) {
+  const historyDir = getLootFilterHistoryDir(lootFilter.outputPath);
+  try {
+    const entries = fs.readdirSync(historyDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+      .map((entry) => readHistoryMetadata(path.join(historyDir, entry.name)))
+      .filter(Boolean)
+      .sort((left, right) => String(right.writtenAt).localeCompare(String(left.writtenAt)));
+    return options.limit === false ? entries : entries.slice(0, HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeLootFilterHistoryEntry(lootFilter, output, summary) {
+  const writtenAt = new Date().toISOString();
+  const historyDir = getLootFilterHistoryDir(lootFilter.outputPath);
+  fs.mkdirSync(historyDir, { recursive: true });
+  const id = `${writtenAt.replace(/[:.]/g, '-')}-${sanitizeFilterFileName(lootFilter.profile.name).replace(/\s+/g, '-')}`;
+  const filterFile = `${id}.filter`;
+  const metadataFile = `${id}.json`;
+  fs.writeFileSync(path.join(historyDir, filterFile), output, 'utf8');
+  const metadata = {
+    id,
+    writtenAt,
+    profileName: lootFilter.profile.name,
+    outputPath: lootFilter.outputPath,
+    filterFile,
+    bytes: summary.bytes,
+    showBlocks: summary.showBlocks,
+    hideBlocks: summary.hideBlocks,
+    economyEntries: summary.economyEntries,
+    chanceBases: summary.chanceBases
+  };
+  fs.writeFileSync(path.join(historyDir, metadataFile), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  return metadata;
+}
+
+function restoreLootFilterHistory(settings, historyId) {
+  const lootFilter = normalizeLootFilterSettings(settings.lootFilter);
+  const entry = getLootFilterHistoryEntries(lootFilter).find((candidate) => candidate.id === String(historyId || ''));
+  if (!entry) {
+    return {
+      status: 'missing',
+      message: 'Selected filter history entry was not found.'
+    };
+  }
+
+  const historyFile = path.join(getLootFilterHistoryDir(lootFilter.outputPath), entry.filterFile);
+  const output = fs.readFileSync(historyFile, 'utf8');
+  const previousDiff = summarizeFilterFileDiff(lootFilter.outputPath, output);
+  fs.mkdirSync(path.dirname(lootFilter.outputPath), { recursive: true });
+  fs.writeFileSync(lootFilter.outputPath, output, 'utf8');
+  return {
+    status: 'restored',
+    outputPath: lootFilter.outputPath,
+    restoredAt: new Date().toISOString(),
+    historyEntry: entry,
+    summary: summarizeGeneratedFilter(output, lootFilter.profile),
+    previousDiff
+  };
+}
+
+function getLootFilterHistoryDir(outputPath) {
+  return path.join(path.dirname(outputPath || getDefaultFilterPath()), HISTORY_DIR_NAME);
+}
+
+function readHistoryMetadata(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+function pruneLootFilterHistory(lootFilter) {
+  const historyDir = getLootFilterHistoryDir(lootFilter.outputPath);
+  const entries = getLootFilterHistoryEntries(lootFilter, { limit: false });
+  for (const entry of entries.slice(HISTORY_LIMIT)) {
+    removeHistoryFile(historyDir, entry.filterFile);
+    removeHistoryFile(historyDir, `${entry.id}.json`);
+  }
+}
+
+function removeHistoryFile(historyDir, fileName) {
+  if (!fileName || path.basename(fileName) !== fileName) {
+    return;
+  }
+
+  try {
+    fs.unlinkSync(path.join(historyDir, fileName));
+  } catch {
+    // History pruning is best-effort.
+  }
 }
 
 function getLootFilterSoundFiles(lootFilter) {
@@ -530,6 +632,7 @@ module.exports = {
   normalizeLootFilterSettings,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
+  restoreLootFilterHistory,
   sanitizeFilterFileName,
   setActiveLootFilterProfile,
   setLootFilterConfig,

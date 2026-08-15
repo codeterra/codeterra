@@ -67,7 +67,8 @@ function summarizeEquipmentVisibility(rareEquipment = {}) {
       hiddenWeaponBases: 0,
       hiddenMiscBases: 0,
       hiddenWeaponClasses: 0,
-      hiddenMiscClasses: 0
+      hiddenMiscClasses: 0,
+      hiddenSamples: []
     };
   }
 
@@ -77,14 +78,29 @@ function summarizeEquipmentVisibility(rareEquipment = {}) {
   const selectedMisc = new Set(rareEquipment.miscGroups || []);
   const baseSelections = rareEquipment.baseSelections || {};
 
+  const hiddenArmorBases = getDisabledBases(RARE_ARMOR_GROUPS, selectedArmor, baseSelections.armor);
+  const hiddenShieldBases = getDisabledBases(RARE_SHIELD_GROUPS, selectedShields, baseSelections.shields);
+  const hiddenWeaponBases = getDisabledBases(RARE_WEAPON_GROUPS, selectedWeapons, baseSelections.weapons);
+  const hiddenMiscBases = getDisabledBases(EQUIPMENT_MISC_VISIBILITY_GROUPS, selectedMisc, baseSelections.misc);
+  const hiddenWeaponClasses = getDisabledClasses(RARE_WEAPON_GROUPS, selectedWeapons);
+  const hiddenMiscClasses = getDisabledClasses(EQUIPMENT_MISC_VISIBILITY_GROUPS, selectedMisc);
+
   return {
     enabled: true,
-    hiddenArmorBases: getDisabledBases(RARE_ARMOR_GROUPS, selectedArmor, baseSelections.armor).length,
-    hiddenShieldBases: getDisabledBases(RARE_SHIELD_GROUPS, selectedShields, baseSelections.shields).length,
-    hiddenWeaponBases: getDisabledBases(RARE_WEAPON_GROUPS, selectedWeapons, baseSelections.weapons).length,
-    hiddenMiscBases: getDisabledBases(EQUIPMENT_MISC_VISIBILITY_GROUPS, selectedMisc, baseSelections.misc).length,
-    hiddenWeaponClasses: getDisabledClasses(RARE_WEAPON_GROUPS, selectedWeapons).length,
-    hiddenMiscClasses: getDisabledClasses(EQUIPMENT_MISC_VISIBILITY_GROUPS, selectedMisc).length
+    hiddenArmorBases: hiddenArmorBases.length,
+    hiddenShieldBases: hiddenShieldBases.length,
+    hiddenWeaponBases: hiddenWeaponBases.length,
+    hiddenMiscBases: hiddenMiscBases.length,
+    hiddenWeaponClasses: hiddenWeaponClasses.length,
+    hiddenMiscClasses: hiddenMiscClasses.length,
+    hiddenSamples: [
+      ...hiddenWeaponClasses.slice(0, 3),
+      ...hiddenMiscClasses.slice(0, 3),
+      ...hiddenArmorBases.slice(0, 3),
+      ...hiddenShieldBases.slice(0, 3),
+      ...hiddenWeaponBases.slice(0, 3),
+      ...hiddenMiscBases.slice(0, 3)
+    ].slice(0, 8)
   };
 }
 

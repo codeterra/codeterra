@@ -437,8 +437,22 @@
                   </div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="preview">
-                  <h3>Generated Filter Preview</h3>
+                  <div class="section-heading-row">
+                    <h3>Generated Filter Preview</h3>
+                    <label class="preview-search">
+                      Search
+                      <input id="filter-preview-search-input" type="search" autocomplete="off" spellcheck="false" placeholder="BaseType, Hide, 6-linked">
+                    </label>
+                  </div>
+                  <p id="filter-preview-search-status" class="status-line">Raw generated filter output is shown below.</p>
                   <pre id="filter-preview-output" class="filter-preview-output">No preview loaded.</pre>
+                  <section class="filter-history-panel">
+                    <div class="section-heading-row">
+                      <h3>Write History</h3>
+                      <span id="filter-history-status" class="status-line">No write history loaded.</span>
+                    </div>
+                    <div id="filter-history-list" class="filter-history-list"></div>
+                  </section>
                 </section>
               </div>
             </div>

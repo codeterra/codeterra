@@ -106,6 +106,10 @@ const rareWeaponGroupList = document.querySelector('#rare-weapon-group-list');
 const miscEquipmentGroupList = document.querySelector('#misc-equipment-group-list');
 const filterRuleList = document.querySelector('#filter-rule-list');
 const filterPreviewOutput = document.querySelector('#filter-preview-output');
+const filterPreviewSearchInput = document.querySelector('#filter-preview-search-input');
+const filterPreviewSearchStatus = document.querySelector('#filter-preview-search-status');
+const filterHistoryList = document.querySelector('#filter-history-list');
+const filterHistoryStatus = document.querySelector('#filter-history-status');
 const refreshDiagnosticsButton = document.querySelector('#refresh-diagnostics-button');
 const clearDiagnosticsButton = document.querySelector('#clear-diagnostics-button');
 const diagnosticsOutput = document.querySelector('#diagnostics-output');
@@ -1018,6 +1022,52 @@ function appendInlineStyleControls(container, style = {}) {
   appendLabeled(container, 'Volume', createTextInput(getInlineStyleSoundVolume(style), { styleConfigField: 'soundVolume' }, 'number'));
 }
 
+function appendRulePreview(container, labelText, style = {}, rule = {}) {
+  const preview = document.createElement('div');
+  preview.className = 'rule-preview-row';
+
+  const sample = document.createElement('div');
+  sample.className = 'rule-preview-sample';
+  sample.textContent = labelText || rule.label || 'Sample item label';
+  applyRulePreviewStyle(sample, style);
+
+  const meta = document.createElement('div');
+  meta.className = 'rule-preview-meta';
+  const parts = [
+    rule.action || 'Show',
+    formatRulePreviewSound(style),
+    style.minimapIcon ? `${style.minimapIcon.color || 'White'} ${style.minimapIcon.shape || 'Circle'} icon` : undefined,
+    style.beam ? `${style.beam.color || 'White'} beam` : undefined
+  ].filter(Boolean);
+  meta.textContent = parts.join(' - ');
+
+  preview.appendChild(sample);
+  preview.appendChild(meta);
+  container.appendChild(preview);
+}
+
+function applyRulePreviewStyle(node, style = {}) {
+  node.style.color = colorToCss(style.textColor || [220, 228, 236, 255]);
+  node.style.backgroundColor = colorToCss(style.backgroundColor || [0, 0, 0, 180]);
+  node.style.borderColor = colorToCss(style.borderColor || [90, 90, 90, 220]);
+  node.style.fontSize = `${Math.max(12, Math.min(28, clampFilterFontSize(style.fontSize || 32) - 12))}px`;
+}
+
+function colorToCss(color = []) {
+  const [r = 0, g = 0, b = 0, a = 255] = Array.isArray(color) ? color : [];
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, a / 255))})`;
+}
+
+function formatRulePreviewSound(style = {}) {
+  if (style.customAlertSound?.file) {
+    return `MP3 ${style.customAlertSound.file}`;
+  }
+  if (style.alertSound?.id) {
+    return `sound ${style.alertSound.id}`;
+  }
+  return 'no sound';
+}
+
 function getInlineStyleSoundOptions(style = {}) {
   const options = [
     { value: 'none', label: 'None' },
@@ -1283,6 +1333,7 @@ function renderStyleList(profile) {
     card.appendChild(visualGrid);
     soundGrid.appendChild(tierSoundGrid);
     card.appendChild(soundGrid);
+    appendRulePreview(card, `${getStyleLabel(styleName)} sample`, style, { action: 'Show' });
     filterStyleList.appendChild(card);
   }
 }
@@ -1309,6 +1360,7 @@ function renderCurrencyBaselineStyle(currencyStyle = {}) {
   grid.className = 'inline-style-grid';
   appendInlineStyleControls(grid, currencyStyle.styleConfig);
   row.appendChild(grid);
+  appendRulePreview(row, 'Chaos Orb', currencyStyle.styleConfig, { action: 'Show' });
 
   currencyBaselineStyle.appendChild(row);
 }
@@ -1328,6 +1380,7 @@ function renderRareBaselineStyle(rareStyle = {}) {
   grid.className = 'inline-style-grid';
   appendInlineStyleControls(grid, rareStyle.styleConfig);
   row.appendChild(grid);
+  appendRulePreview(row, 'Rare Astral Plate', rareStyle.styleConfig, { action: 'Show' });
 
   rareBaselineStyle.appendChild(row);
 }
@@ -1373,6 +1426,7 @@ function renderCategoryRuleList(categoryId, category = {}) {
     remove.dataset.removeCategoryRuleIndex = String(index);
     remove.textContent = 'Delete';
     header.appendChild(title);
+    header.appendChild(createRuleOrderControls('category', index, { categoryId }));
     header.appendChild(remove);
 
     const editGrid = document.createElement('div');
@@ -1405,12 +1459,14 @@ function renderCategoryRuleList(categoryId, category = {}) {
 
     row.appendChild(header);
     row.appendChild(editGrid);
+    const previewStyle = rule.overrideCategoryStyle
+      ? mergeInlineStyleConfig(category.styleConfig, rule.styleOverride || rule.styleConfig)
+      : category.styleConfig;
     row.appendChild(createStyleOverridePanel(
-      rule.overrideCategoryStyle
-        ? mergeInlineStyleConfig(category.styleConfig, rule.styleOverride || rule.styleConfig)
-        : category.styleConfig,
+      previewStyle,
       !rule.overrideCategoryStyle
     ));
+    appendRulePreview(row, getSampleLabelForCategory(categoryId, rule), previewStyle, rule);
     row.appendChild(conditionsGrid);
     row.appendChild(conditionSummary);
     definition.list.appendChild(row);
@@ -1431,8 +1487,27 @@ function createCategoryBaselineRow(categoryId, definition, category = {}) {
   grid.className = 'inline-style-grid';
   appendInlineStyleControls(grid, category.styleConfig);
   row.appendChild(grid);
+  appendRulePreview(row, getSampleLabelForCategory(categoryId), category.styleConfig, { action: 'Show' });
 
   return row;
+}
+
+function getSampleLabelForCategory(categoryId, rule = {}) {
+  const typedBase = (rule.conditions || []).find((condition) => condition.key === 'BaseType')?.value;
+  const firstBase = Array.isArray(typedBase) ? typedBase[0] : typedBase;
+  const samples = {
+    uniques: firstBase || 'Unique Heavy Belt',
+    maps: firstBase || 'Tier 16 Map',
+    fragments: firstBase || 'Screaming Invitation',
+    blueprints: firstBase || 'Blueprint',
+    gems: firstBase || 'Vaal Lightning Strike',
+    divinationCards: firstBase || 'The Doctor',
+    scarabs: firstBase || 'Cartography Scarab',
+    oils: firstBase || 'Golden Oil',
+    flasks: firstBase || 'Diamond Flask',
+    jewels: firstBase || 'Cobalt Jewel'
+  };
+  return samples[categoryId] || firstBase || 'Sample item';
 }
 
 function appendCategoryConditionControls(container, categoryId, definition, rule) {
@@ -1571,6 +1646,7 @@ function renderChanceBaselineStyle(chanceBases = {}) {
   grid.className = 'inline-style-grid';
   appendInlineStyleControls(grid, chanceBases.styleConfig);
   row.appendChild(grid);
+  appendRulePreview(row, chanceBases.bases?.[0] || 'Leather Belt', chanceBases.styleConfig, { action: 'Show' });
 
   chanceBaselineStyle.appendChild(row);
 }
@@ -1609,6 +1685,7 @@ function renderMiscRules(profile) {
     title.className = 'filter-rule-row__title';
     title.textContent = rule.label;
     header.appendChild(title);
+    header.appendChild(createRuleOrderControls('misc', index));
 
     const editGrid = document.createElement('div');
     editGrid.className = 'rule-edit-grid';
@@ -1633,8 +1710,10 @@ function renderMiscRules(profile) {
     row.appendChild(editGrid);
     const styleGrid = document.createElement('div');
     styleGrid.className = 'inline-style-grid';
-    appendInlineStyleControls(styleGrid, rule.styleConfig || lootFilterState?.profile?.styles?.[rule.style || 'misc'] || lootFilterState?.profile?.styles?.misc);
+    const previewStyle = rule.styleConfig || lootFilterState?.profile?.styles?.[rule.style || 'misc'] || lootFilterState?.profile?.styles?.misc;
+    appendInlineStyleControls(styleGrid, previewStyle);
     row.appendChild(styleGrid);
+    appendRulePreview(row, rule.label || 'Misc rule', previewStyle, rule);
     row.appendChild(conditions);
     miscRuleList.appendChild(row);
   });
@@ -1671,6 +1750,7 @@ function renderEconomyTiers(tiers) {
     remove.dataset.removeEconomyTierIndex = String(index);
     remove.textContent = 'Delete';
     header.appendChild(title);
+    header.appendChild(createRuleOrderControls('economy', index));
     header.appendChild(remove);
     row.appendChild(header);
 
@@ -1685,6 +1765,7 @@ function renderEconomyTiers(tiers) {
     styleGrid.className = 'inline-style-grid';
     appendInlineStyleControls(styleGrid, fallbackStyle);
     row.appendChild(styleGrid);
+    appendRulePreview(row, tier.label || fallback.label, fallbackStyle, { action: 'Show' });
     economyTierList.appendChild(row);
   });
 }
@@ -2252,6 +2333,9 @@ function renderCurrencyTiers(tiers) {
         : (lootFilterState?.profile?.currencyStyle?.styleConfig || tier.styleConfig),
       !tier.overrideCategoryStyle
     ));
+    appendRulePreview(row, tier.bases?.[0] || tier.label || 'Currency item', tier.overrideCategoryStyle
+      ? mergeInlineStyleConfig(lootFilterState?.profile?.currencyStyle?.styleConfig, tier.styleOverride || tier.styleConfig)
+      : (lootFilterState?.profile?.currencyStyle?.styleConfig || tier.styleConfig), tier);
     const bases = document.createElement('textarea');
     bases.dataset.currencyTierIndex = String(index);
     bases.dataset.tierField = 'bases';
@@ -2305,6 +2389,9 @@ function renderRareTiers(tiers) {
         : (lootFilterState?.profile?.rareStyle?.styleConfig || tier.styleConfig),
       !tier.overrideCategoryStyle
     ));
+    appendRulePreview(row, getConditionText(tier, 'BaseType').split(',')[0] || tier.label || 'Rare item', tier.overrideCategoryStyle
+      ? mergeInlineStyleConfig(lootFilterState?.profile?.rareStyle?.styleConfig, tier.styleOverride || tier.styleConfig)
+      : (lootFilterState?.profile?.rareStyle?.styleConfig || tier.styleConfig), tier);
     row.appendChild(conditionsGrid);
     row.appendChild(conditionSummary);
     rareTierList.appendChild(row);
@@ -2347,8 +2434,27 @@ function appendTierHeader(row, titleText, type, index) {
   button.dataset.removeTierIndex = String(index);
   button.textContent = 'Delete';
   header.appendChild(title);
+  header.appendChild(createRuleOrderControls(type, index));
   header.appendChild(button);
   row.appendChild(header);
+}
+
+function createRuleOrderControls(kind, index, extra = {}) {
+  const controls = document.createElement('div');
+  controls.className = 'rule-order-controls';
+  for (const [direction, label] of [['up', 'Up'], ['down', 'Down']]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.moveRuleKind = kind;
+    button.dataset.moveRuleIndex = String(index);
+    button.dataset.moveRuleDirection = direction;
+    if (extra.categoryId) {
+      button.dataset.moveRuleCategory = extra.categoryId;
+    }
+    button.textContent = label;
+    controls.appendChild(button);
+  }
+  return controls;
 }
 
 function renderSpecialItems(profile) {
@@ -2381,6 +2487,7 @@ function renderSpecialItems(profile) {
     remove.dataset.removeSpecialItemIndex = String(index);
     remove.textContent = 'Delete';
     header.appendChild(title);
+    header.appendChild(createRuleOrderControls('special', index));
     header.appendChild(remove);
 
     const editGrid = document.createElement('div');
@@ -2413,8 +2520,10 @@ function renderSpecialItems(profile) {
     row.appendChild(editGrid);
     const styleGrid = document.createElement('div');
     styleGrid.className = 'inline-style-grid';
-    appendInlineStyleControls(styleGrid, entry.styleConfig || lootFilterState?.profile?.styles?.[entry.style || 'specialItems'] || lootFilterState?.profile?.styles?.specialItems);
+    const previewStyle = entry.styleConfig || lootFilterState?.profile?.styles?.[entry.style || 'specialItems'] || lootFilterState?.profile?.styles?.specialItems;
+    appendInlineStyleControls(styleGrid, previewStyle);
     row.appendChild(styleGrid);
+    appendRulePreview(row, entry.label || 'Custom rule', previewStyle, entry);
     row.appendChild(conditionsGrid);
     specialItemList.appendChild(row);
   });
@@ -2463,6 +2572,7 @@ function renderFilterSummaryPanel(summary = lootFilterState?.previewSummary, dif
     [`${summary.skippedEconomyEntries || 0} skipped economy rows`, (summary.skippedEconomyEntries || 0) > 0],
     [`${summary.chanceBases || 0} chance bases`, (summary.chanceBases || 0) > 0],
     [equipment.enabled ? `${hiddenEquipment} equipment hides` : 'equipment narrowing off', equipment.enabled && hiddenEquipment > 0],
+    [equipment.hiddenSamples?.length ? `hidden: ${equipment.hiddenSamples.join(', ')}` : 'no hidden samples', false],
     [`${summary.lines || 0} lines`, false],
     [`${summary.bytes || 0} bytes`, false]
   ];
@@ -2507,6 +2617,84 @@ function markLootFilterDirty() {
   }
 }
 
+function renderFilterPreviewOutput() {
+  if (!filterPreviewOutput) {
+    return;
+  }
+
+  const preview = lootFilterState?.preview || '';
+  const query = String(filterPreviewSearchInput?.value || '').trim().toLowerCase();
+  if (!query) {
+    filterPreviewOutput.textContent = preview || 'No generated filter preview available.';
+    setStatus(filterPreviewSearchStatus, 'Raw generated filter output is shown below.');
+    return;
+  }
+
+  const lines = preview.split(/\r?\n/);
+  const included = new Set();
+  lines.forEach((line, index) => {
+    if (!line.toLowerCase().includes(query)) {
+      return;
+    }
+    for (let offset = -2; offset <= 3; offset += 1) {
+      const nextIndex = index + offset;
+      if (nextIndex >= 0 && nextIndex < lines.length) {
+        included.add(nextIndex);
+      }
+    }
+  });
+
+  if (included.size === 0) {
+    filterPreviewOutput.textContent = `No generated filter lines matched "${filterPreviewSearchInput.value}".`;
+    setStatus(filterPreviewSearchStatus, 'No preview matches found.', true);
+    return;
+  }
+
+  const output = [];
+  let previous = -1;
+  for (const index of [...included].sort((left, right) => left - right)) {
+    if (previous !== -1 && index > previous + 1) {
+      output.push('...');
+    }
+    output.push(`${String(index + 1).padStart(5)}  ${lines[index]}`);
+    previous = index;
+  }
+  filterPreviewOutput.textContent = output.join('\n');
+  setStatus(filterPreviewSearchStatus, `${included.size} context lines match "${filterPreviewSearchInput.value}".`);
+}
+
+function renderFilterHistory(history = lootFilterState?.history || []) {
+  if (!filterHistoryList) {
+    return;
+  }
+
+  filterHistoryList.innerHTML = '';
+  setStatus(filterHistoryStatus, history.length ? `${history.length} written snapshots available.` : 'No write history yet.');
+  if (!history.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Write the filter file to create a restorable snapshot.';
+    filterHistoryList.appendChild(empty);
+    return;
+  }
+
+  for (const entry of history) {
+    const row = document.createElement('div');
+    row.className = 'filter-history-row';
+    const text = document.createElement('div');
+    text.className = 'filter-history-row__text';
+    const date = entry.writtenAt ? new Date(entry.writtenAt).toLocaleString() : 'Unknown date';
+    text.textContent = `${date} - ${entry.showBlocks || 0} Show / ${entry.hideBlocks || 0} Hide - ${entry.bytes || 0} bytes`;
+    const restore = document.createElement('button');
+    restore.type = 'button';
+    restore.dataset.restoreFilterHistory = entry.id;
+    restore.textContent = 'Restore';
+    row.appendChild(text);
+    row.appendChild(restore);
+    filterHistoryList.appendChild(row);
+  }
+}
+
 function renderLootFilterState(state) {
   renderingLootFilter = true;
   lootFilterRefreshToken += 1;
@@ -2516,8 +2704,9 @@ function renderLootFilterState(state) {
   renderProfileControls(state);
   filterOutputPathInput.value = state.outputPath || filterOutputPathInput.value;
   filterQuickActionInput.value = state.quickAction || filterQuickActionInput.value || 'Show';
-  filterPreviewOutput.textContent = state.preview || 'No generated filter preview available.';
+  renderFilterPreviewOutput();
   renderFilterSummaryPanel(state.previewSummary, state.previewDiff);
+  renderFilterHistory(state.history || []);
   renderCaptureDefaults(profile);
   renderTierLists(profile);
   renderCategoryRules(profile);
@@ -2536,10 +2725,10 @@ function renderLootFilterState(state) {
     filterRuleList.appendChild(empty);
   }
 
-  for (const rule of rules) {
+  rules.forEach((rule, index) => {
     const row = document.createElement('article');
     row.className = 'filter-rule-row';
-    row.dataset.ruleIndex = String(rules.indexOf(rule));
+    row.dataset.ruleIndex = String(index);
 
     const header = document.createElement('div');
     header.className = 'filter-rule-row__header';
@@ -2555,6 +2744,7 @@ function renderLootFilterState(state) {
     removeButton.textContent = 'Delete';
 
     header.appendChild(title);
+    header.appendChild(createRuleOrderControls('user', index));
     header.appendChild(removeButton);
 
     const meta = document.createElement('div');
@@ -2566,39 +2756,41 @@ function renderLootFilterState(state) {
     const enabled = document.createElement('input');
     enabled.type = 'checkbox';
     enabled.checked = rule.enabled !== false;
-    enabled.dataset.ruleIndex = String(rules.indexOf(rule));
+    enabled.dataset.ruleIndex = String(index);
     enabled.dataset.ruleField = 'enabled';
     appendLabeled(editGrid, 'Enabled', enabled);
-    appendLabeled(editGrid, 'Label', createTextInput(rule.label, { ruleIndex: rules.indexOf(rule), ruleField: 'label' }));
-    appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', ['Show', 'Hide'], { ruleIndex: rules.indexOf(rule), ruleField: 'action' }));
+    appendLabeled(editGrid, 'Label', createTextInput(rule.label, { ruleIndex: index, ruleField: 'label' }));
+    appendLabeled(editGrid, 'Action', createSelect(rule.action || 'Show', ['Show', 'Hide'], { ruleIndex: index, ruleField: 'action' }));
 
     const styleGrid = document.createElement('div');
     styleGrid.className = 'inline-style-grid';
-    appendInlineStyleControls(styleGrid, rule.styleConfig || lootFilterState?.profile?.styles?.[rule.style || 'default'] || lootFilterState?.profile?.styles?.default);
+    const previewStyle = rule.styleConfig || lootFilterState?.profile?.styles?.[rule.style || 'default'] || lootFilterState?.profile?.styles?.default;
+    appendInlineStyleControls(styleGrid, previewStyle);
 
     const conditionsGrid = document.createElement('div');
     conditionsGrid.className = 'special-item-row__conditions';
-    appendLabeled(conditionsGrid, 'Rarity', createSelect(getConditionText(rule, 'Rarity'), SPECIAL_RARITY_OPTIONS, { ruleIndex: rules.indexOf(rule), ruleField: 'rarity' }));
+    appendLabeled(conditionsGrid, 'Rarity', createSelect(getConditionText(rule, 'Rarity'), SPECIAL_RARITY_OPTIONS, { ruleIndex: index, ruleField: 'rarity' }));
 
     for (const [field, label, key] of SPECIAL_TEXT_FIELDS) {
-      appendLabeled(conditionsGrid, label, createTextInput(getConditionText(rule, key), { ruleIndex: rules.indexOf(rule), ruleField: field }));
+      appendLabeled(conditionsGrid, label, createTextInput(getConditionText(rule, key), { ruleIndex: index, ruleField: field }));
     }
 
     for (const [field, label, key, operator] of SPECIAL_NUMBER_FIELDS) {
-      appendLabeled(conditionsGrid, label, createTextInput(getConditionText(rule, key, operator), { ruleIndex: rules.indexOf(rule), ruleField: field }, 'number'));
+      appendLabeled(conditionsGrid, label, createTextInput(getConditionText(rule, key, operator), { ruleIndex: index, ruleField: field }, 'number'));
     }
 
     for (const [field, label, key] of SPECIAL_BOOLEAN_FIELDS) {
-      appendLabeled(conditionsGrid, label, createSelect(getConditionText(rule, key), SPECIAL_BOOLEAN_OPTIONS, { ruleIndex: rules.indexOf(rule), ruleField: field }));
+      appendLabeled(conditionsGrid, label, createSelect(getConditionText(rule, key), SPECIAL_BOOLEAN_OPTIONS, { ruleIndex: index, ruleField: field }));
     }
 
     row.appendChild(header);
     row.appendChild(meta);
     row.appendChild(editGrid);
     row.appendChild(styleGrid);
+    appendRulePreview(row, rule.label || 'Captured item', previewStyle, rule);
     row.appendChild(conditionsGrid);
     filterRuleList.appendChild(row);
-  }
+  });
 
   renderingLootFilter = false;
   setLootFilterDirty(false);
@@ -3158,6 +3350,66 @@ async function saveLootFilterWorkbenchState() {
   return state;
 }
 
+function moveArrayEntry(items = [], index, direction) {
+  const nextIndex = direction === 'up' ? index - 1 : index + 1;
+  if (!Number.isFinite(index) || nextIndex < 0 || nextIndex >= items.length) {
+    return items;
+  }
+
+  const copy = [...items];
+  [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
+  return copy;
+}
+
+function moveWorkbenchRule(button) {
+  if (!lootFilterState?.profile) {
+    return;
+  }
+
+  const kind = button.dataset.moveRuleKind;
+  const index = Number(button.dataset.moveRuleIndex);
+  const direction = button.dataset.moveRuleDirection;
+  const profile = {
+    ...lootFilterState.profile,
+    ...collectProfilePatch()
+  };
+
+  if (kind === 'currency') {
+    profile.currencyTiers = moveArrayEntry(profile.currencyTiers || [], index, direction);
+  } else if (kind === 'rare') {
+    profile.rareTiers = moveArrayEntry(profile.rareTiers || [], index, direction);
+  } else if (kind === 'category') {
+    const categoryId = button.dataset.moveRuleCategory;
+    profile.categoryRules ||= {};
+    const category = profile.categoryRules[categoryId] || { enabled: true, rules: [] };
+    profile.categoryRules[categoryId] = {
+      ...category,
+      rules: moveArrayEntry(category.rules || [], index, direction)
+    };
+  } else if (kind === 'misc') {
+    profile.miscRules = {
+      ...(profile.miscRules || {}),
+      entries: moveArrayEntry(profile.miscRules?.entries || [], index, direction)
+    };
+  } else if (kind === 'economy') {
+    profile.economyHighlights = {
+      ...(profile.economyHighlights || {}),
+      tiers: moveArrayEntry(profile.economyHighlights?.tiers || [], index, direction)
+    };
+  } else if (kind === 'special') {
+    profile.specialItems = {
+      ...(profile.specialItems || {}),
+      entries: moveArrayEntry(profile.specialItems?.entries || [], index, direction)
+    };
+  } else if (kind === 'user') {
+    profile.userRules = moveArrayEntry(profile.userRules || [], index, direction);
+  }
+
+  lootFilterState.profile = profile;
+  renderLootFilterState(lootFilterState);
+  setLootFilterDirty(true);
+}
+
 function formatDiagnostics(diagnostics) {
   const lines = [];
   if (diagnostics.lastLookup) {
@@ -3286,6 +3538,14 @@ if (lootFilterPanel) {
       markLootFilterDirty();
     });
   }
+
+  lootFilterPanel.addEventListener('click', (event) => {
+    const moveButton = event.target?.closest?.('[data-move-rule-kind]');
+    if (moveButton) {
+      event.preventDefault();
+      moveWorkbenchRule(moveButton);
+    }
+  });
 }
 
 saveLeagueButton.addEventListener('click', async () => {
@@ -3495,6 +3755,31 @@ function addCategoryRule(categoryId) {
 refreshFilterPreviewButton.addEventListener('click', () => {
   runButton(refreshFilterPreviewButton, filterStatus, 'Refreshing...', () => refreshLootFilterState(true));
 });
+
+if (filterPreviewSearchInput) {
+  filterPreviewSearchInput.addEventListener('input', renderFilterPreviewOutput);
+}
+
+if (filterHistoryList) {
+  filterHistoryList.addEventListener('click', (event) => {
+    const historyId = event.target?.dataset?.restoreFilterHistory;
+    if (!historyId) {
+      return;
+    }
+
+    runButton(event.target, filterHistoryStatus, 'Restoring...', async () => {
+      const result = await window.poehelper.restoreLootFilterHistory(historyId);
+      if (result.status !== 'restored') {
+        setStatus(filterHistoryStatus, result.message || 'Could not restore selected history entry.', true);
+        return;
+      }
+
+      await refreshLootFilterState(false);
+      renderFilterSummaryPanel(result.summary, result.previousDiff);
+      setStatus(filterHistoryStatus, `Restored ${result.historyEntry?.writtenAt || 'selected snapshot'} to ${result.outputPath}.`);
+    });
+  });
+}
 
 clearFilterRulesButton.addEventListener('click', () => {
   runButton(clearFilterRulesButton, filterStatus, 'Clearing...', async () => {

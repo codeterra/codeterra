@@ -25,6 +25,7 @@ const {
   sanitizeFilterFileName,
   setActiveLootFilterProfile,
   setLootFilterConfig,
+  restoreLootFilterHistory,
   updateLootFilterProfile,
   writeLootFilter
 } = require('./services/loot-filter-manager');
@@ -1293,6 +1294,17 @@ ipcMain.handle('update-loot-filter-profile', async (_event, profilePatch) => {
 ipcMain.handle('write-loot-filter', () => {
   const result = writeLootFilter(settings);
   recordLootFilterWrite(result);
+  return result;
+});
+
+ipcMain.handle('restore-loot-filter-history', (_event, historyId) => {
+  const result = restoreLootFilterHistory(settings, historyId);
+  if (result.status === 'restored') {
+    recordLootFilterWrite({
+      ...result,
+      restoredFromHistory: result.historyEntry?.id
+    });
+  }
   return result;
 });
 

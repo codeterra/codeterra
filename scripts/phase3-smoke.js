@@ -286,6 +286,7 @@ assert.equal(outputSummary.enabledCustomRules, 2);
 assert.equal(outputSummary.economyEntries, 1);
 assert.equal(outputSummary.skippedEconomyEntries, 0);
 assert.equal(outputSummary.chanceBases, DEFAULT_LOOT_FILTER_PROFILE.chanceBases.bases.length);
+assert.equal(Array.isArray(outputSummary.equipment.hiddenSamples), true);
 assert.match(formatFilterSummary(outputSummary), /Show \| \d+ Hide \| \d+ category rules/);
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'poehelper-filter-'));
 const tempFilterPath = path.join(tempDir, 'Golden.filter');
