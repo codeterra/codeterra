@@ -158,6 +158,7 @@ const specialItemBaseInput = document.querySelector('#special-item-base-input');
 const addSpecialItemButton = document.querySelector('#add-special-item-button');
 const specialItemStatus = document.querySelector('#special-item-status');
 const specialItemList = document.querySelector('#special-item-list');
+const settingsWorkbench = globalThis.poehelperSettingsWorkbench || {};
 
 const DEFAULT_SHORTCUTS = {
   lookup: 'CommandOrControl+D',
@@ -749,7 +750,9 @@ function renderProfileControls(state) {
   for (const profile of profiles) {
     const option = document.createElement('option');
     option.value = profile.id;
-    option.textContent = `${profile.name} (${profile.userRuleCount || 0} rules)`;
+    option.textContent = settingsWorkbench.formatProfileOptionLabel
+      ? settingsWorkbench.formatProfileOptionLabel(profile)
+      : `${profile.name} (${profile.userRuleCount || 0} rules)`;
     filterProfileSelect.appendChild(option);
   }
 
@@ -770,31 +773,13 @@ function renderFilterImportReview(preview) {
     return;
   }
 
-  const summary = pendingFilterImportPreview.importedSummary || {};
-  filterImportReviewTitle.textContent = `Import ${pendingFilterImportPreview.profileName || 'profile'}`;
-  filterImportReviewSummary.textContent = [
-    `${summary.type || 'Profile'} from ${pendingFilterImportPreview.filePath || 'selected file'}.`,
-    pendingFilterImportPreview.migration
-      ? `Version ${pendingFilterImportPreview.migration.fromVersion || '?'} -> ${pendingFilterImportPreview.migration.toVersion || '?'}.`
-      : undefined,
-    summary.preservesOriginalText ? 'Raw filter text will be preserved exactly.' : undefined
-  ].filter(Boolean).join(' ');
-
-  appendImportReviewRow('Output path', pendingFilterImportPreview.outputPath || 'default filter path');
-  if (summary.type === 'Raw .filter') {
-    appendImportReviewRow('Filter blocks', `${summary.blocks || 0} total, ${summary.showBlocks || 0} Show, ${summary.hideBlocks || 0} Hide`);
-    appendImportReviewRow('Filter size', `${summary.lines || 0} lines, ${summary.bytes || 0} bytes`);
-  } else {
-    appendImportReviewRow('Imported content', `${summary.capturedRules || 0} captured, ${summary.customRules || 0} custom, ${summary.economyEntries || 0} economy, ${summary.chanceBases || 0} chance bases`);
-  }
-
-  const warnings = pendingFilterImportPreview.migration?.warnings || [];
-  for (const warning of warnings) {
-    appendImportReviewRow('Warning', warning, true);
-  }
-
-  for (const change of pendingFilterImportPreview.diff?.changes || []) {
-    appendImportReviewRow(change.label, `${change.before} -> ${change.after}`);
+  const model = settingsWorkbench.buildFilterImportReviewModel
+    ? settingsWorkbench.buildFilterImportReviewModel(pendingFilterImportPreview)
+    : undefined;
+  filterImportReviewTitle.textContent = model?.title || `Import ${pendingFilterImportPreview.profileName || 'profile'}`;
+  filterImportReviewSummary.textContent = model?.summary || 'Review the incoming profile before adding it locally.';
+  for (const row of model?.rows || []) {
+    appendImportReviewRow(row.label, row.value, row.warn);
   }
 }
 

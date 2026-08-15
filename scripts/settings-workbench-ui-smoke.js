@@ -26,9 +26,14 @@ assertContains(html, 'Write Filter File');
 assertContains(html, 'Capture Hovered Item');
 assertContains(html, 'Clear Captured Rules');
 assertContains(html, '<script src="./shared/equipment-selection.js"></script>', 'shared equipment selection script');
+assertContains(html, '<script src="./shared/settings-workbench.js"></script>', 'shared settings workbench script');
 assert.ok(
   html.indexOf('./shared/equipment-selection.js') < html.indexOf('./settings-renderer.js'),
   'Shared equipment selection helper must load before settings-renderer.js.'
+);
+assert.ok(
+  html.indexOf('./shared/settings-workbench.js') < html.indexOf('./settings-renderer.js'),
+  'Shared settings workbench helper must load before settings-renderer.js.'
 );
 
 assertContains(css, '.filter-summary-panel');
@@ -61,6 +66,7 @@ assertContains(renderer, 'previewLootFilterProfileImport');
 assertContains(renderer, 'confirmLootFilterProfileImport');
 assertContains(renderer, 'Catalog metadata refreshed');
 assertContains(renderer, 'poehelperEquipmentSelection');
+assertContains(renderer, 'poehelperSettingsWorkbench');
 assertContains(css, '.rule-preview-row');
 assertContains(css, '.rule-order-controls');
 assertContains(css, '.filter-history-row');

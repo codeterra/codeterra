@@ -245,28 +245,23 @@ Exit criteria:
 - ~~A user can import/share profiles safely.~~
 - ~~Imported filter text is not corrupted by a no-op import/export cycle.~~
 
-### Milestone 7: Architecture Upgrade
+### ~~Milestone 7: Architecture Upgrade~~
 
-Goal: reduce complexity and make future features cheaper.
+Goal: ~~reduce complexity and make future features cheaper.~~
 
 Work:
 
-- Decide whether to migrate renderer code to React + TypeScript.
-- Move domain logic to typed modules.
-- Introduce a local database if JSON settings become too heavy:
-  - price cache
-  - economy snapshots
-  - filter write history
-  - profile versions
-  - diagnostics events
-- Add Vitest for domain tests.
-- Add Playwright or Electron-oriented UI smoke tests.
-- Split `settings-renderer.js` into modules even before a full framework migration.
+- ~~Decide whether to migrate renderer code to React + TypeScript.~~
+- ~~Move domain logic to typed modules.~~
+- ~~Decide whether to introduce a local database if JSON settings become too heavy: defer until data volume/query needs justify it.~~
+- ~~Add Vitest for domain tests.~~
+- ~~Add Electron-oriented UI smoke tests.~~
+- ~~Split `settings-renderer.js` into modules even before a full framework migration.~~
 
 Exit criteria:
 
-- The workbench is no longer bottlenecked by one large renderer file.
-- Domain behavior is easier to test than UI behavior.
+- ~~The workbench is no longer bottlenecked by one large renderer file.~~
+- ~~Domain behavior is easier to test than UI behavior.~~
 
 ### Milestone 8: Companion Suite
 

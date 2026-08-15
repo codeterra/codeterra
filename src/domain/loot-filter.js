@@ -5,12 +5,14 @@ const {
   RARE_SHIELD_GROUPS,
   RARE_WEAPON_GROUPS
 } = require('../data/rare-equipment-groups');
+const {
+  ECONOMY_HIGHLIGHT_CACHE_VERSION,
+  FILTER_FONT_SIZE_MAX,
+  FILTER_FONT_SIZE_MIN,
+  LOOT_FILTER_PROFILE_SCHEMA_VERSION
+} = require('./loot-filter-schema');
 
-const LOOT_FILTER_PROFILE_SCHEMA_VERSION = 1;
-const ECONOMY_HIGHLIGHT_CACHE_VERSION = 4;
 const INHERIT_STYLE = '__inherit';
-const FILTER_FONT_SIZE_MIN = 18;
-const FILTER_FONT_SIZE_MAX = 45;
 
 const OIL_BASE_TYPES = [
   'Golden Oil',
