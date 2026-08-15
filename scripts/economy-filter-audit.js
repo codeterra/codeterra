@@ -68,12 +68,12 @@ async function main() {
   let skillGemRulesWithLevel = 0;
   let skillGemRulesWithQuality = 0;
   let skillGemRulesWithCorrupted = 0;
-  let approximateUniqueBaseRules = 0;
+  let variantUniqueBaseRules = 0;
 
   for (const rule of rules) {
     const conditions = rule.conditions || [];
-    if (rule.economyMatchPrecision === 'approximate-unique-base') {
-      approximateUniqueBaseRules += 1;
+    if (rule.economyMatchPrecision === 'variant-unique-base') {
+      variantUniqueBaseRules += 1;
     }
 
     if (conditions.some((condition) => condition.key === 'Class' && conditionValues(condition).includes('Skill Gems'))
@@ -108,12 +108,16 @@ async function main() {
   console.log(`Economy candidates: ${snapshot.candidateCount}`);
   console.log(`Economy selected: ${snapshot.selectedCount}`);
   console.log(`Skipped rows: ${JSON.stringify(snapshot.skippedEntries)}`);
+  console.log(`Selected by category: ${JSON.stringify(snapshot.audit?.selectedByCategory || {})}`);
+  console.log(`Candidates by category: ${JSON.stringify(snapshot.audit?.candidateByCategory || {})}`);
+  console.log(`Match precision: ${JSON.stringify(snapshot.audit?.precisionCounts || {})}`);
+  console.log(`Skipped by category: ${JSON.stringify(snapshot.audit?.skippedByCategory || {})}`);
   console.log(`Transfigured gem rules: ${transfigured}`);
   console.log(`Skill gem rules: ${skillGemRules}`);
   console.log(`Skill gem rules with GemLevel: ${skillGemRulesWithLevel}`);
   console.log(`Skill gem rules with Quality: ${skillGemRulesWithQuality}`);
   console.log(`Skill gem rules with Corrupted: ${skillGemRulesWithCorrupted}`);
-  console.log(`Approximate unique-base rules: ${approximateUniqueBaseRules}`);
+  console.log(`Variant unique-base rules: ${variantUniqueBaseRules}`);
   console.log(`Invalid BaseType values: ${invalidBaseTypes.length}`);
 
   if (invalidBaseTypes.length) {

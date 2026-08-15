@@ -1052,6 +1052,51 @@ button:hover {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 }
 
+.economy-audit-output {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.economy-audit-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(227, 200, 117, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.economy-audit-card__title {
+  color: #f0d98e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.economy-audit-metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: #b8c4d2;
+  font-size: 12px;
+}
+
+.economy-audit-metric span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.economy-audit-metric strong {
+  color: #f4f7fb;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .filter-style-card__header,
 .tier-row__header,
 .filter-rule-row__header {

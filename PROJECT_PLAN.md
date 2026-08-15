@@ -208,24 +208,24 @@ Exit criteria:
 - The workbench fits comfortably on a 1080p monitor.
 - Category pages feel consistent and predictable.
 
-### Milestone 5: Economy-Aware Filters V1
+### ~~Milestone 5: Economy-Aware Filters V1~~
 
-Goal: make economy rules useful without causing misleading loot highlights.
+Goal: ~~make economy rules useful without causing misleading loot highlights.~~
 
 Work:
 
-- Split economy normalization by category: stackables, uniques, gems, maps/fragments, jewels, and special bases.
-- Store economy snapshots with league and timestamp.
-- Add cache age warnings and refresh prompts.
-- Add per-category matching precision: exact item, base-only, variant-sensitive, skipped.
-- Do not generate economy rules for variant-sensitive items unless the filter conditions can represent the valuable variant.
-- Add user-facing economy audit output.
-- Preserve user styles and rule thresholds when refreshing market data.
+- ~~Split economy normalization by category: stackables, uniques, gems, maps/fragments, jewels, and special bases.~~
+- ~~Store economy snapshots with league and timestamp.~~
+- ~~Add cache age warnings and refresh prompts.~~
+- ~~Add per-category matching precision: exact item, base-only, variant-sensitive, skipped.~~
+- ~~Do not generate economy rules for variant-sensitive items unless the filter conditions can represent the valuable variant.~~
+- ~~Add user-facing economy audit output.~~
+- ~~Preserve user styles and rule thresholds when refreshing market data.~~
 
 Exit criteria:
 
-- Economy highlights are explainable and conservative.
-- Low-value variants do not trigger high-value rules merely because a different variant is expensive.
+- ~~Economy highlights are explainable and conservative.~~
+- ~~Low-value variants do not trigger high-value rules merely because a different variant is expensive.~~
 
 ### Milestone 6: Import, Migration, And Interop
 

@@ -6,6 +6,8 @@ const {
   UNSUPPORTED_FILTER_ECONOMY_TYPES,
   createEconomyItemKey,
   formatChaos,
+  getEconomyPrecisionCategory,
+  getEconomyProviderCategory,
   normalizeName,
   normalizePoeNinjaEconomyRow
 } = require('./economy-item-adapter');
@@ -21,7 +23,9 @@ const DEFAULT_ECONOMY_TYPES = [
   'SkillGem'
 ];
 
-const ECONOMY_CACHE_VERSION = 3;
+const ECONOMY_CACHE_VERSION = 4;
+const ECONOMY_CACHE_STALE_HOURS = 12;
+const ECONOMY_SNAPSHOT_HISTORY_LIMIT = 10;
 
 const DEFAULT_ECONOMY_TIERS = [
   {
@@ -81,9 +85,11 @@ function createEconomyRule({ item, tier }) {
     economyTierId: tier.id,
     economyTierLabel: tier.label,
     economyChaosValue: item.formattedChaosValue,
+    economyCategory: item.economyCategory,
     economyProviderType: item.providerType,
     economyProviderBaseType: item.providerBaseType || undefined,
     economyMatchPrecision: item.matchPrecision,
+    economyPrecisionCategory: item.precisionCategory || getEconomyPrecisionCategory(item.matchPrecision),
     conditions: item.conditions
   };
 }
@@ -153,10 +159,14 @@ function createEconomyRuleSnapshotFromOverviews(overviews, options = {}) {
   const seen = new Set();
   const candidates = [];
   const skippedEntries = createSkippedEconomyCounters();
+  const audit = createEconomyAudit();
 
   for (const { type, endpoint, overview } of overviews) {
+    const economyCategory = getEconomyProviderCategory(type);
     if (UNSUPPORTED_FILTER_ECONOMY_TYPES.has(type)) {
-      incrementSkippedEconomyCounter(skippedEntries, 'unsupportedType', overview?.lines?.length || 0);
+      const amount = overview?.lines?.length || 0;
+      incrementSkippedEconomyCounter(skippedEntries, 'unsupportedType', amount);
+      incrementSkippedEconomyCategory(audit, economyCategory, 'unsupportedType', amount);
       continue;
     }
 
@@ -164,21 +174,25 @@ function createEconomyRuleSnapshotFromOverviews(overviews, options = {}) {
       const item = normalizePoeNinjaEconomyRow({ type, endpoint, overview, row: line });
       if (!item.supported) {
         incrementSkippedEconomyCounter(skippedEntries, 'unsupportedRow');
+        incrementSkippedEconomyCategory(audit, item.economyCategory || economyCategory, 'unsupportedRow');
         continue;
       }
 
       if (item.chaosValue < minChaos) {
         incrementSkippedEconomyCounter(skippedEntries, 'belowThreshold');
+        incrementSkippedEconomyCategory(audit, item.economyCategory, 'belowThreshold');
         continue;
       }
 
       const key = createEconomyItemKey(item);
       if (seen.has(key)) {
         incrementSkippedEconomyCounter(skippedEntries, 'duplicate');
+        incrementSkippedEconomyCategory(audit, item.economyCategory, 'duplicate');
         continue;
       }
       seen.add(key);
       candidates.push(item);
+      incrementCountMap(audit.candidateByCategory, item.economyCategory);
     }
   }
 
@@ -191,6 +205,7 @@ function createEconomyRuleSnapshotFromOverviews(overviews, options = {}) {
     .flatMap((entry) => {
       if (!entry.tier) {
         incrementSkippedEconomyCounter(skippedEntries, 'noTier');
+        incrementSkippedEconomyCategory(audit, entry.item.economyCategory, 'noTier');
         return [];
       }
       return [entry];
@@ -200,10 +215,13 @@ function createEconomyRuleSnapshotFromOverviews(overviews, options = {}) {
       const count = byTierCount.get(item.tier.id) || 0;
       if (count >= item.tier.maxItems) {
         incrementSkippedEconomyCounter(skippedEntries, 'overTierCap');
+        incrementSkippedEconomyCategory(audit, item.item.economyCategory, 'overTierCap');
         return [];
       }
 
       byTierCount.set(item.tier.id, count + 1);
+      incrementCountMap(audit.selectedByCategory, item.item.economyCategory);
+      incrementCountMap(audit.precisionCounts, item.item.precisionCategory || getEconomyPrecisionCategory(item.item.matchPrecision));
       return [item];
     });
 
@@ -214,6 +232,7 @@ function createEconomyRuleSnapshotFromOverviews(overviews, options = {}) {
   return {
     entries,
     skippedEntries,
+    audit: finalizeEconomyAudit(audit, skippedEntries),
     candidateCount: candidates.length,
     selectedCount: entries.length
   };
@@ -234,8 +253,76 @@ function createSkippedEconomyCounters() {
   };
 }
 
+function createEconomyAudit() {
+  return {
+    candidateByCategory: {},
+    selectedByCategory: {},
+    skippedByCategory: {},
+    precisionCounts: {}
+  };
+}
+
 function incrementSkippedEconomyCounter(counters, key, amount = 1) {
   counters[key] = (counters[key] || 0) + Math.max(0, Number(amount) || 0);
+}
+
+function incrementCountMap(map, key, amount = 1) {
+  const normalizedKey = String(key || 'unknown');
+  map[normalizedKey] = (map[normalizedKey] || 0) + Math.max(0, Number(amount) || 0);
+}
+
+function incrementSkippedEconomyCategory(audit, category, reason, amount = 1) {
+  const normalizedCategory = String(category || 'unknown');
+  audit.skippedByCategory[normalizedCategory] = audit.skippedByCategory[normalizedCategory] || createSkippedEconomyCounters();
+  incrementSkippedEconomyCounter(audit.skippedByCategory[normalizedCategory], reason, amount);
+}
+
+function sumSkippedEconomyCounters(counters = {}) {
+  return Object.keys(createSkippedEconomyCounters())
+    .reduce((sum, key) => sum + (Number(counters[key]) || 0), 0);
+}
+
+function finalizeEconomyAudit(audit, skippedEntries) {
+  return {
+    ...audit,
+    skippedCount: sumSkippedEconomyCounters(skippedEntries),
+    skippedEntries: { ...skippedEntries }
+  };
+}
+
+function createEconomyCacheSnapshot(snapshot, metadata = {}) {
+  return {
+    id: `economy-${slugify(metadata.league || 'league')}-${metadata.refreshedAt || new Date().toISOString()}`,
+    source: metadata.source || 'poe.ninja',
+    league: metadata.league,
+    refreshedAt: metadata.refreshedAt,
+    cacheVersion: metadata.cacheVersion || ECONOMY_CACHE_VERSION,
+    types: Array.isArray(metadata.types) ? metadata.types : [],
+    divineChaosValue: Number.isFinite(Number(metadata.divineChaosValue)) ? Number(metadata.divineChaosValue) : undefined,
+    candidateCount: snapshot.candidateCount,
+    selectedCount: snapshot.selectedCount,
+    skippedEntries: snapshot.skippedEntries,
+    audit: snapshot.audit
+  };
+}
+
+function mergeEconomyCacheSnapshots(nextSnapshot, previousSnapshots) {
+  const snapshots = [nextSnapshot, ...(Array.isArray(previousSnapshots) ? previousSnapshots : [])]
+    .filter((snapshot) => snapshot && typeof snapshot === 'object');
+  const seen = new Set();
+  const output = [];
+  for (const snapshot of snapshots) {
+    const key = `${snapshot.league || ''}:${snapshot.refreshedAt || ''}:${snapshot.cacheVersion || ''}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    output.push(snapshot);
+    if (output.length >= ECONOMY_SNAPSHOT_HISTORY_LIMIT) {
+      break;
+    }
+  }
+  return output;
 }
 
 function compareEconomySelectionEntries(a, b) {
@@ -277,10 +364,21 @@ async function refreshEconomyHighlightRules(league, config = {}) {
   }
 
   const snapshot = createEconomyRuleSnapshotFromOverviews(overviews, config);
+  const refreshedAt = new Date().toISOString();
+  const divineChaosValue = findDivineChaosValue(overviews);
+  const snapshotMetadata = createEconomyCacheSnapshot(snapshot, {
+    source: 'poe.ninja',
+    league,
+    refreshedAt,
+    cacheVersion: ECONOMY_CACHE_VERSION,
+    types,
+    divineChaosValue
+  });
 
   return {
     entries: snapshot.entries,
     skippedEntries: snapshot.skippedEntries,
+    audit: snapshot.audit,
     candidateCount: snapshot.candidateCount,
     selectedCount: snapshot.selectedCount,
     cacheVersion: ECONOMY_CACHE_VERSION,
@@ -288,14 +386,16 @@ async function refreshEconomyHighlightRules(league, config = {}) {
     league,
     types,
     tiers: normalizeTierConfig(config.tiers, config),
-    divineChaosValue: findDivineChaosValue(overviews),
-    refreshedAt: new Date().toISOString(),
+    divineChaosValue,
+    refreshedAt,
+    snapshots: mergeEconomyCacheSnapshots(snapshotMetadata, config.snapshots),
     errors
   };
 }
 
 module.exports = {
   ECONOMY_CACHE_VERSION,
+  ECONOMY_CACHE_STALE_HOURS,
   DEFAULT_ECONOMY_TYPES,
   DEFAULT_ECONOMY_TIERS,
   createEconomyRuleSnapshotFromOverviews,

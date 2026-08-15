@@ -538,6 +538,13 @@ assert.deepEqual(economySnapshot.skippedEntries, {
   noTier: 0,
   overTierCap: 0
 });
+assert.deepEqual(economySnapshot.audit.selectedByCategory, { stackables: 2 });
+assert.deepEqual(economySnapshot.audit.candidateByCategory, { stackables: 2 });
+assert.deepEqual(economySnapshot.audit.precisionCounts, { 'base-only': 2 });
+assert.equal(economySnapshot.audit.skippedByCategory.stackables.belowThreshold, 1);
+assert.equal(economySnapshot.audit.skippedByCategory.uniques.unsupportedRow, 3);
+assert.equal(economySnapshot.audit.skippedByCategory.jewels.unsupportedType, 1);
+assert.equal(economySnapshot.audit.skippedCount, 5);
 assert.equal(summarizeGeneratedFilter('', {
   economyHighlights: {
     skippedEntries: economySnapshot.skippedEntries
@@ -546,6 +553,8 @@ assert.equal(summarizeGeneratedFilter('', {
 assert.deepEqual(economyRules.map((rule) => rule.label), ['Divine Orb (150c)', 'Orb of Annulment (60c)']);
 assert.deepEqual(economyRules.map((rule) => rule.tier), ['valuable', 'baseline']);
 assert.deepEqual(economyRules.map((rule) => rule.economyTierId), ['divine-1', 'chaos-50']);
+assert.deepEqual(economyRules.map((rule) => rule.economyCategory), ['stackables', 'stackables']);
+assert.deepEqual(economyRules.map((rule) => rule.economyPrecisionCategory), ['base-only', 'base-only']);
 assert.deepEqual(economyRules.find((rule) => rule.label === 'Divine Orb (150c)').conditions, [
   { key: 'Class', value: 'Stackable Currency' },
   { key: 'BaseType', value: 'Divine Orb' }
@@ -640,6 +649,31 @@ const legacyApproximateUniqueProfile = normalizeLootFilterProfile({
 });
 assert.deepEqual(legacyApproximateUniqueProfile.economyHighlights.entries.map((rule) => rule.label), ['Foulborn Mageblood (243799c)']);
 assert.equal(legacyApproximateUniqueProfile.economyHighlights.entries[0].economyMatchPrecision, 'variant-unique-base');
+assert.equal(legacyApproximateUniqueProfile.economyHighlights.entries[0].economyCategory, 'uniques');
+assert.equal(legacyApproximateUniqueProfile.economyHighlights.entries[0].economyPrecisionCategory, 'variant-sensitive');
+const economyAuditProfile = normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  economyHighlights: {
+    entries: economyRules,
+    audit: economySnapshot.audit,
+    snapshots: [
+      {
+        id: 'economy-test',
+        source: 'poe.ninja',
+        league: 'Mercenaries',
+        refreshedAt: '2026-08-10T12:00:00.000Z',
+        cacheVersion: ECONOMY_HIGHLIGHT_CACHE_VERSION,
+        candidateCount: economySnapshot.candidateCount,
+        selectedCount: economySnapshot.selectedCount,
+        skippedEntries: economySnapshot.skippedEntries,
+        audit: economySnapshot.audit
+      }
+    ]
+  }
+});
+assert.equal(economyAuditProfile.economyHighlights.audit.skippedCount, 5);
+assert.equal(economyAuditProfile.economyHighlights.snapshots[0].league, 'Mercenaries');
+assert.equal(economyAuditProfile.economyHighlights.snapshots[0].selectedCount, 2);
 const cappedCurrencyPriorityRules = createEconomyRulesFromOverviews([
   {
     type: 'Currency',

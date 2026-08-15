@@ -3,6 +3,17 @@ const UNSUPPORTED_FILTER_ECONOMY_TYPES = new Set([
   'UniqueMap'
 ]);
 
+const ECONOMY_PROVIDER_CATEGORY_BY_TYPE = {
+  Currency: 'stackables',
+  DivinationCard: 'stackables',
+  Scarab: 'stackables',
+  Fragment: 'maps-fragments',
+  Map: 'maps-fragments',
+  UniqueMap: 'maps-fragments',
+  SkillGem: 'gems',
+  UniqueJewel: 'jewels'
+};
+
 function normalizeName(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
@@ -22,6 +33,34 @@ function normalizePositiveInteger(value) {
 
 function formatChaos(value) {
   return Number.isFinite(value) ? Math.round(value * 10) / 10 : 0;
+}
+
+function getEconomyProviderCategory(type) {
+  if (ECONOMY_PROVIDER_CATEGORY_BY_TYPE[type]) {
+    return ECONOMY_PROVIDER_CATEGORY_BY_TYPE[type];
+  }
+
+  if (String(type || '').startsWith('Unique')) {
+    return 'uniques';
+  }
+
+  return 'special-bases';
+}
+
+function getEconomyPrecisionCategory(matchPrecision) {
+  if (matchPrecision === 'variant-unique-base') {
+    return 'variant-sensitive';
+  }
+
+  if (matchPrecision === 'exact-gem' || matchPrecision === 'exact-transfigured-gem') {
+    return 'exact-item';
+  }
+
+  if (matchPrecision === 'exact-base-type') {
+    return 'base-only';
+  }
+
+  return 'skipped';
 }
 
 function hasAlternateGemDiscriminator(row) {
@@ -173,11 +212,14 @@ function getDefaultConditions(type, displayName) {
 }
 
 function normalizePoeNinjaEconomyRow({ type, endpoint, overview, row }) {
+  const economyCategory = getEconomyProviderCategory(type);
   const displayName = getProviderDisplayName(overview, row, endpoint);
   const chaosValue = getProviderChaosValue(row, endpoint);
   if (!displayName || !Number.isFinite(chaosValue)) {
     return {
       supported: false,
+      providerType: type,
+      economyCategory,
       unsupportedReason: 'Provider row has no display name or numeric chaos value.'
     };
   }
@@ -195,15 +237,19 @@ function normalizePoeNinjaEconomyRow({ type, endpoint, overview, row }) {
     return {
       supported: false,
       providerType: type,
+      economyCategory,
       displayName,
       chaosValue,
+      precisionCategory: 'skipped',
       unsupportedReason: filter.unsupportedReason
     };
   }
 
+  const precisionCategory = getEconomyPrecisionCategory(filter.matchPrecision);
   return {
     supported: true,
     providerType: type,
+    economyCategory,
     providerId: row.detailsId || row.id,
     displayName,
     providerBaseType: normalizeName(row.baseType),
@@ -211,7 +257,8 @@ function normalizePoeNinjaEconomyRow({ type, endpoint, overview, row }) {
     chaosValue,
     formattedChaosValue: formatChaos(chaosValue),
     conditions: filter.conditions,
-    matchPrecision: filter.matchPrecision
+    matchPrecision: filter.matchPrecision,
+    precisionCategory
   };
 }
 
@@ -226,6 +273,8 @@ module.exports = {
   UNSUPPORTED_FILTER_ECONOMY_TYPES,
   createEconomyItemKey,
   formatChaos,
+  getEconomyPrecisionCategory,
+  getEconomyProviderCategory,
   normalizeName,
   normalizePoeNinjaEconomyRow
 };

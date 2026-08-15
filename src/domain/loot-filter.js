@@ -7,7 +7,7 @@ const {
 } = require('../data/rare-equipment-groups');
 
 const LOOT_FILTER_PROFILE_SCHEMA_VERSION = 1;
-const ECONOMY_HIGHLIGHT_CACHE_VERSION = 3;
+const ECONOMY_HIGHLIGHT_CACHE_VERSION = 4;
 const INHERIT_STYLE = '__inherit';
 const FILTER_FONT_SIZE_MIN = 18;
 const FILTER_FONT_SIZE_MAX = 45;
@@ -782,6 +782,11 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     league: undefined,
     source: undefined,
     divineChaosValue: undefined,
+    candidateCount: undefined,
+    selectedCount: undefined,
+    skippedEntries: undefined,
+    audit: undefined,
+    snapshots: [],
     errors: []
   },
   rarityVisibility: {
@@ -986,12 +991,20 @@ function normalizeRule(rule) {
     output.economyProviderType = String(rule.economyProviderType);
   }
 
+  if (rule.economyCategory) {
+    output.economyCategory = String(rule.economyCategory);
+  }
+
   if (rule.economyProviderBaseType) {
     output.economyProviderBaseType = String(rule.economyProviderBaseType);
   }
 
   if (rule.economyMatchPrecision) {
     output.economyMatchPrecision = String(rule.economyMatchPrecision);
+  }
+
+  if (rule.economyPrecisionCategory) {
+    output.economyPrecisionCategory = String(rule.economyPrecisionCategory);
   }
 
   return output;
@@ -1327,6 +1340,8 @@ function normalizeEconomyHighlights(economyHighlights, styles = DEFAULT_LOOT_FIL
     candidateCount: normalizeOptionalCount(source.candidateCount),
     selectedCount: normalizeOptionalCount(source.selectedCount),
     skippedEntries: normalizeSkippedEconomyEntries(source.skippedEntries),
+    audit: normalizeEconomyAudit(source.audit),
+    snapshots: normalizeEconomySnapshots(source.snapshots),
     errors: Array.isArray(source.errors) ? source.errors.map(String) : []
   };
 }
@@ -1341,6 +1356,73 @@ function normalizeSkippedEconomyEntries(skippedEntries) {
   const output = {};
   for (const key of ['unsupportedType', 'unsupportedRow', 'belowThreshold', 'duplicate', 'noTier', 'overTierCap']) {
     output[key] = Math.max(0, Math.round(Number(source[key]) || 0));
+  }
+  return output;
+}
+
+function normalizeEconomyAudit(audit) {
+  if (!audit || typeof audit !== 'object') {
+    return undefined;
+  }
+
+  return {
+    candidateByCategory: normalizeCountMap(audit.candidateByCategory),
+    selectedByCategory: normalizeCountMap(audit.selectedByCategory),
+    skippedByCategory: normalizeSkippedEconomyCategoryMap(audit.skippedByCategory),
+    precisionCounts: normalizeCountMap(audit.precisionCounts),
+    skippedCount: normalizeOptionalCount(audit.skippedCount),
+    skippedEntries: normalizeSkippedEconomyEntries(audit.skippedEntries)
+  };
+}
+
+function normalizeEconomySnapshots(snapshots) {
+  if (!Array.isArray(snapshots)) {
+    return [];
+  }
+
+  return snapshots
+    .map(normalizeEconomySnapshot)
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function normalizeEconomySnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return undefined;
+  }
+
+  return {
+    id: String(snapshot.id || `economy-snapshot-${snapshot.refreshedAt || Date.now()}`),
+    source: snapshot.source ? String(snapshot.source) : undefined,
+    league: snapshot.league ? String(snapshot.league) : undefined,
+    refreshedAt: snapshot.refreshedAt ? String(snapshot.refreshedAt) : undefined,
+    cacheVersion: Number.isFinite(Number(snapshot.cacheVersion)) ? Number(snapshot.cacheVersion) : undefined,
+    types: normalizeTextList(snapshot.types),
+    divineChaosValue: Number.isFinite(Number(snapshot.divineChaosValue)) ? Number(snapshot.divineChaosValue) : undefined,
+    candidateCount: normalizeOptionalCount(snapshot.candidateCount),
+    selectedCount: normalizeOptionalCount(snapshot.selectedCount),
+    skippedEntries: normalizeSkippedEconomyEntries(snapshot.skippedEntries),
+    audit: normalizeEconomyAudit(snapshot.audit)
+  };
+}
+
+function normalizeCountMap(map) {
+  const source = map && typeof map === 'object' ? map : {};
+  const output = {};
+  for (const [key, value] of Object.entries(source)) {
+    const count = normalizeOptionalCount(value);
+    if (count !== undefined) {
+      output[String(key)] = count;
+    }
+  }
+  return output;
+}
+
+function normalizeSkippedEconomyCategoryMap(map) {
+  const source = map && typeof map === 'object' ? map : {};
+  const output = {};
+  for (const [category, counters] of Object.entries(source)) {
+    output[String(category)] = normalizeSkippedEconomyEntries(counters);
   }
   return output;
 }
@@ -1372,6 +1454,14 @@ function normalizeEconomyRule(rule) {
     output.economyMatchPrecision = 'variant-unique-base';
   }
 
+  if (!output.economyCategory) {
+    output.economyCategory = getEconomyCategoryForProviderType(output.economyProviderType);
+  }
+
+  if (!output.economyPrecisionCategory && output.economyMatchPrecision) {
+    output.economyPrecisionCategory = getEconomyPrecisionCategory(output.economyMatchPrecision);
+  }
+
   const classByType = {
     Currency: 'Stackable Currency',
     DivinationCard: 'Divination Cards',
@@ -1391,6 +1481,41 @@ function normalizeEconomyRule(rule) {
   }
 
   return output;
+}
+
+function getEconomyCategoryForProviderType(type) {
+  const categories = {
+    Currency: 'stackables',
+    DivinationCard: 'stackables',
+    Scarab: 'stackables',
+    Fragment: 'maps-fragments',
+    Map: 'maps-fragments',
+    UniqueMap: 'maps-fragments',
+    SkillGem: 'gems',
+    UniqueJewel: 'jewels'
+  };
+
+  if (categories[type]) {
+    return categories[type];
+  }
+
+  return String(type || '').startsWith('Unique') ? 'uniques' : 'special-bases';
+}
+
+function getEconomyPrecisionCategory(matchPrecision) {
+  if (matchPrecision === 'variant-unique-base') {
+    return 'variant-sensitive';
+  }
+
+  if (matchPrecision === 'exact-gem' || matchPrecision === 'exact-transfigured-gem') {
+    return 'exact-item';
+  }
+
+  if (matchPrecision === 'exact-base-type') {
+    return 'base-only';
+  }
+
+  return 'skipped';
 }
 
 function normalizeEconomyTiers(tiers, legacySource = {}, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {

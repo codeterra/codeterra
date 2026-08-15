@@ -144,6 +144,7 @@ const economyTypeList = document.querySelector('#economy-type-list');
 const refreshEconomyButton = document.querySelector('#refresh-economy-button');
 const addEconomyTierButton = document.querySelector('#add-economy-tier-button');
 const economyStatus = document.querySelector('#economy-status');
+const economyAuditOutput = document.querySelector('#economy-audit-output');
 const economyHighlightList = document.querySelector('#economy-highlight-list');
 const specialItemsEnabledInput = document.querySelector('#special-items-enabled-input');
 const specialItemLabelInput = document.querySelector('#special-item-label-input');
@@ -161,7 +162,8 @@ const DEFAULT_SHORTCUTS = {
   hideOverlay: 'Escape'
 };
 
-const ECONOMY_CACHE_VERSION = 3;
+const ECONOMY_CACHE_VERSION = 4;
+const ECONOMY_CACHE_STALE_HOURS = 12;
 
 const shortcutInputs = {
   lookup: lookupShortcutInput,
@@ -481,6 +483,21 @@ const ECONOMY_TYPE_LABELS = {
   UniqueArmour: 'Unique Armour',
   UniqueWeapon: 'Unique Weapons',
   SkillGem: 'Skill Gems'
+};
+const ECONOMY_CATEGORY_LABELS = {
+  stackables: 'Stackables',
+  uniques: 'Uniques',
+  gems: 'Gems',
+  'maps-fragments': 'Maps/Fragments',
+  jewels: 'Jewels',
+  'special-bases': 'Special Bases',
+  unknown: 'Unknown'
+};
+const ECONOMY_PRECISION_LABELS = {
+  'exact-item': 'Exact item',
+  'base-only': 'Base only',
+  'variant-sensitive': 'Variant sensitive',
+  skipped: 'Skipped'
 };
 const DEFAULT_ECONOMY_TIERS = [
   { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 500 },
@@ -1809,17 +1826,24 @@ function renderEconomyTypes(selectedTypes = []) {
 
 function renderEconomyEntries(economy) {
   economyHighlightList.innerHTML = '';
+  renderEconomyAudit(economy);
   const entries = economy.entries || [];
   const tiers = economy.tiers || DEFAULT_ECONOMY_TIERS;
   const updated = economy.refreshedAt ? new Date(economy.refreshedAt).toLocaleString() : 'not refreshed yet';
   const errorText = economy.errors?.length ? ` ${economy.errors.length} source errors.` : '';
   const divineText = economy.divineChaosValue ? ` Divine ${Math.round(economy.divineChaosValue * 10) / 10}c.` : '';
-  const staleCache = entries.length > 0 && economy.cacheVersion !== ECONOMY_CACHE_VERSION;
-  const staleText = staleCache ? ' Cache uses an older selector; refresh economy before writing the filter.' : '';
+  const ageHours = getEconomyCacheAgeHours(economy.refreshedAt);
+  const staleVersion = entries.length > 0 && economy.cacheVersion !== ECONOMY_CACHE_VERSION;
+  const staleAge = entries.length > 0 && ageHours !== undefined && ageHours >= ECONOMY_CACHE_STALE_HOURS;
+  const staleText = staleVersion
+    ? ' Cache uses an older selector; refresh economy before writing the filter.'
+    : staleAge
+      ? ` Cache is ${formatEconomyAge(ageHours)} old; refresh before writing for current prices.`
+      : '';
   setStatus(
     economyStatus,
     `${entries.length} economy items cached for ${economy.league || 'current league'}; updated ${updated}.${divineText}${errorText}${staleText}`,
-    Boolean(economy.errors?.length) || staleCache
+    Boolean(economy.errors?.length) || staleVersion || staleAge
   );
 
   if (entries.length === 0) {
@@ -1840,12 +1864,161 @@ function renderEconomyEntries(economy) {
     for (const entry of tierEntries.slice(0, 80)) {
       const chip = document.createElement('div');
       chip.className = 'token-chip';
+      chip.title = [
+        entry.economyCategory ? `Category: ${formatEconomyCategory(entry.economyCategory)}` : undefined,
+        entry.economyPrecisionCategory ? `Precision: ${formatEconomyPrecision(entry.economyPrecisionCategory)}` : undefined,
+        entry.economyMatchPrecision ? `Matcher: ${entry.economyMatchPrecision}` : undefined
+      ].filter(Boolean).join(' - ');
       const text = document.createElement('span');
       text.textContent = entry.label || 'Economy item';
       chip.appendChild(text);
       economyHighlightList.appendChild(chip);
     }
   }
+}
+
+function renderEconomyAudit(economy = {}) {
+  if (!economyAuditOutput) {
+    return;
+  }
+
+  economyAuditOutput.innerHTML = '';
+  const audit = economy.audit || {};
+  const snapshots = Array.isArray(economy.snapshots) ? economy.snapshots : [];
+  const skippedEntries = audit.skippedEntries || economy.skippedEntries || {};
+  const skippedTotal = countEconomySkippedEntries(skippedEntries);
+  const ageHours = getEconomyCacheAgeHours(economy.refreshedAt);
+  const summaryRows = [
+    ['Candidates', economy.candidateCount ?? auditTotal(audit.candidateByCategory)],
+    ['Selected', economy.selectedCount ?? auditTotal(audit.selectedByCategory)],
+    ['Skipped', skippedTotal],
+    ['Cache age', ageHours === undefined ? 'not refreshed' : formatEconomyAge(ageHours)],
+    ['Snapshots', snapshots.length]
+  ];
+
+  const summary = document.createElement('div');
+  summary.className = 'economy-audit-card';
+  const heading = document.createElement('div');
+  heading.className = 'economy-audit-card__title';
+  heading.textContent = 'Economy audit';
+  summary.appendChild(heading);
+  for (const [label, value] of summaryRows) {
+    summary.appendChild(createEconomyAuditMetric(label, value));
+  }
+  economyAuditOutput.appendChild(summary);
+
+  economyAuditOutput.appendChild(createEconomyAuditList(
+    'Selected by category',
+    audit.selectedByCategory,
+    formatEconomyCategory
+  ));
+  economyAuditOutput.appendChild(createEconomyAuditList(
+    'Match precision',
+    audit.precisionCounts,
+    formatEconomyPrecision
+  ));
+  economyAuditOutput.appendChild(createEconomySkippedAudit(skippedEntries));
+
+  if (snapshots[0]) {
+    const snapshot = document.createElement('div');
+    snapshot.className = 'economy-audit-card';
+    const title = document.createElement('div');
+    title.className = 'economy-audit-card__title';
+    title.textContent = 'Latest snapshot';
+    snapshot.appendChild(title);
+    snapshot.appendChild(createEconomyAuditMetric('League', snapshots[0].league || 'unknown'));
+    snapshot.appendChild(createEconomyAuditMetric('Updated', snapshots[0].refreshedAt ? new Date(snapshots[0].refreshedAt).toLocaleString() : 'unknown'));
+    snapshot.appendChild(createEconomyAuditMetric('Version', snapshots[0].cacheVersion || 'unknown'));
+    economyAuditOutput.appendChild(snapshot);
+  }
+}
+
+function createEconomyAuditMetric(label, value) {
+  const row = document.createElement('div');
+  row.className = 'economy-audit-metric';
+  const name = document.createElement('span');
+  name.textContent = label;
+  const count = document.createElement('strong');
+  count.textContent = String(value ?? 0);
+  row.appendChild(name);
+  row.appendChild(count);
+  return row;
+}
+
+function createEconomyAuditList(titleText, counts = {}, formatter = (value) => value) {
+  const card = document.createElement('div');
+  card.className = 'economy-audit-card';
+  const title = document.createElement('div');
+  title.className = 'economy-audit-card__title';
+  title.textContent = titleText;
+  card.appendChild(title);
+
+  const entries = Object.entries(counts || {}).filter(([, count]) => Number(count) > 0);
+  if (!entries.length) {
+    card.appendChild(createEconomyAuditMetric('None', 0));
+    return card;
+  }
+
+  for (const [key, count] of entries.sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))) {
+    card.appendChild(createEconomyAuditMetric(formatter(key), count));
+  }
+  return card;
+}
+
+function createEconomySkippedAudit(skippedEntries = {}) {
+  return createEconomyAuditList('Skipped rows', skippedEntries, (key) => ({
+    unsupportedType: 'Unsupported type',
+    unsupportedRow: 'Unsafe row',
+    belowThreshold: 'Below threshold',
+    duplicate: 'Duplicate',
+    noTier: 'No tier',
+    overTierCap: 'Over cap'
+  })[key] || key);
+}
+
+function auditTotal(counts = {}) {
+  return Object.values(counts || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+}
+
+function countEconomySkippedEntries(skippedEntries = {}) {
+  return auditTotal(skippedEntries);
+}
+
+function getEconomyCacheAgeHours(refreshedAt) {
+  if (!refreshedAt) {
+    return undefined;
+  }
+
+  const refreshedTime = new Date(refreshedAt).getTime();
+  if (!Number.isFinite(refreshedTime)) {
+    return undefined;
+  }
+
+  return Math.max(0, (Date.now() - refreshedTime) / 36e5);
+}
+
+function formatEconomyAge(hours) {
+  if (!Number.isFinite(hours)) {
+    return 'unknown';
+  }
+
+  if (hours < 1) {
+    return `${Math.max(1, Math.round(hours * 60))}m`;
+  }
+
+  if (hours < 48) {
+    return `${Math.round(hours)}h`;
+  }
+
+  return `${Math.round(hours / 24)}d`;
+}
+
+function formatEconomyCategory(category) {
+  return ECONOMY_CATEGORY_LABELS[category] || category;
+}
+
+function formatEconomyPrecision(precision) {
+  return ECONOMY_PRECISION_LABELS[precision] || precision;
 }
 
 function getEconomyEntryTierId(entry) {
