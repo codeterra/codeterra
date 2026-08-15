@@ -9,6 +9,23 @@ const { createOfficialTradeSearch, createTradeQuery, getInstantBuyoutListings, g
 const { DEFAULT_SETTINGS, readSettings, writeSettings } = require('./services/settings');
 const { matchTradeStats } = require('./services/trade-stats');
 const { beginAuthorization, fetchCurrencyExchange, gggApiFetch, refreshToken } = require('./services/ggg-oauth');
+const {
+  getPublicSessionSummary,
+  normalizeAccountName,
+  protectSessionToken,
+  unprotectSessionToken,
+  validateSessionToken
+} = require('./services/ggg-session');
+const {
+  applyPricingResults,
+  buildStashIndex,
+  compareShoppingList,
+  createPublicStashState,
+  findOwnedItems,
+  getPriceTargets,
+  readStashIndex,
+  writeStashIndex
+} = require('./services/stash-index');
 const { getRelatedOutcomes } = require('./services/related-outcomes');
 const {
   addCapturedItemRule,
@@ -79,13 +96,14 @@ function getPublicSettings() {
     oauth: {
       clientId: settings?.oauth?.clientId || '',
       redirectUri: settings?.oauth?.redirectUri || 'http://127.0.0.1:8585/callback',
-      scopes: settings?.oauth?.scopes || 'account:profile account:item_filter',
+      scopes: settings?.oauth?.scopes || DEFAULT_SETTINGS.oauth.scopes,
       connected: Boolean(token?.access_token),
       scope: token?.scope,
       expiresAt: token?.expires_at,
       tokenType: token?.token_type,
       serviceTokenConfigured: Boolean(serviceToken?.access_token)
     },
+    gggSession: getPublicSessionSummary(settings?.gggSession),
     lootFilter: getLootFilterSummary(settings)
   };
 }
@@ -108,6 +126,171 @@ function getUpdateStatus() {
     ...updateState,
     version: app.getVersion(),
     canCheck: app.isPackaged
+  };
+}
+
+function getAccountCacheUserDataPath() {
+  return app.getPath('userData');
+}
+
+function getCachedStashIndex(league = settings?.league || 'Standard') {
+  return readStashIndex(getAccountCacheUserDataPath(), league);
+}
+
+function saveCachedStashIndex(index) {
+  return writeStashIndex(getAccountCacheUserDataPath(), index);
+}
+
+function getOauthTokenWithScopes(requiredScopes = []) {
+  const token = settings?.oauth?.token;
+  const scopes = String(token?.scope || settings?.oauth?.scopes || '').split(/\s+/).filter(Boolean);
+  const missing = requiredScopes.filter((scope) => !scopes.includes(scope));
+  if (!token?.access_token || missing.length > 0) {
+    throw new Error(
+      `Modern character and stash APIs require OAuth (${requiredScopes.join(', ')}). Exilence CE uses these official OAuth endpoints; POESESSID alone is blocked for this data.`
+    );
+  }
+  return token;
+}
+
+async function refreshOfficialAccountContext() {
+  const token = getOauthTokenWithScopes(['account:profile', 'account:characters']);
+  const [profile, characterPayload] = await Promise.all([
+    gggApiFetch('/profile?realm=pc', token),
+    gggApiFetch('/character', token)
+  ]);
+  const accountName = normalizeAccountName(profile.name || settings.gggSession?.manualAccountName || settings.gggSession?.accountName);
+  const characters = Array.isArray(characterPayload)
+    ? characterPayload
+    : characterPayload?.characters || [];
+  settings = writeSettings({
+    ...settings,
+    gggSession: {
+      ...settings.gggSession,
+      accountName,
+      status: 'connected',
+      validatedAt: new Date().toISOString(),
+      lastError: undefined
+    }
+  });
+  return { accountName, characters, profile };
+}
+
+function getOfficialStashTabId(tab) {
+  if (!tab?.id) {
+    return undefined;
+  }
+  return tab.parent ? `${tab.parent}/${tab.id}` : tab.id;
+}
+
+function flattenOfficialStashTabs(stashes = []) {
+  return stashes.flatMap((tab) => {
+    if (Array.isArray(tab.children) && tab.children.length > 0) {
+      return tab.children.map((child) => ({
+        ...child,
+        parent: child.parent || tab.id
+      }));
+    }
+    return tab;
+  });
+}
+
+async function fetchOfficialStashIndex(league, options = {}) {
+  const token = getOauthTokenWithScopes(['account:stashes']);
+  const account = await refreshOfficialAccountContext();
+  const maxTabs = Math.min(200, Math.max(1, Number(options.maxTabs || 80)));
+  const tabsPayload = await gggApiFetch(`/stash/${encodeURIComponent(league)}`, token);
+  const tabs = flattenOfficialStashTabs(tabsPayload.stashes || tabsPayload.tabs || [])
+    .filter((tab) => !tab.hidden && !tab.folder && !tab.metadata?.folder)
+    .slice(0, maxTabs);
+  const tabPayloads = [];
+  for (const [fallbackIndex, tab] of tabs.entries()) {
+    const tabId = getOfficialStashTabId(tab);
+    if (!tabId) {
+      continue;
+    }
+    const response = await gggApiFetch(`/stash/${encodeURIComponent(league)}/${encodeURIComponent(tabId).replace(/%2F/g, '/')}`, token);
+    const stash = response.stash || response;
+    tabPayloads.push({
+      tabIndex: Number.isFinite(Number(tab.index)) ? Number(tab.index) : fallbackIndex,
+      items: stash.items || []
+    });
+  }
+  const existing = getCachedStashIndex(league);
+  return saveCachedStashIndex(buildStashIndex({
+    accountName: account.accountName,
+    league,
+    tabsPayload,
+    tabPayloads,
+    characters: account.characters,
+    existing
+  }));
+}
+
+function getOwnedSummaryForItem(item, league = settings?.league || 'Standard') {
+  const index = getCachedStashIndex(league);
+  if (!index.indexedAt || !index.items.length) {
+    return {
+      status: 'not-indexed',
+      count: 0,
+      matches: []
+    };
+  }
+
+  const owned = findOwnedItems(index, item);
+  return {
+    status: owned.count > 0 ? 'owned' : 'missing',
+    indexedAt: index.indexedAt,
+    count: owned.count,
+    matches: owned.matches.map((match) => ({
+      name: match.searchLabel || match.name,
+      tabName: match.tabName,
+      stackSize: match.stackSize,
+      chaosValue: match.chaosValue,
+      totalChaosValue: match.totalChaosValue
+    }))
+  };
+}
+
+function createOwnedConfidenceHints(owned) {
+  if (!owned || owned.status === 'not-indexed') {
+    return [];
+  }
+
+  if (owned.count > 0) {
+    const sample = owned.matches?.[0]?.tabName ? ` in ${owned.matches[0].tabName}` : '';
+    return [{ severity: 'info', text: `You own ${owned.count} matching item${owned.count === 1 ? '' : 's'}${sample}.` }];
+  }
+
+  return [{ severity: 'info', text: 'No matching item found in the cached stash index.' }];
+}
+
+function annotateRelatedOwnership(related, league = settings?.league || 'Standard') {
+  if (!related || related.status !== 'ready') {
+    return related;
+  }
+
+  const annotate = (entry) => {
+    const owned = getOwnedSummaryForItem({
+      looksLikePoeItem: true,
+      name: entry.name,
+      baseType: entry.baseType,
+      rarity: entry.rarity,
+      category: entry.type === 'Currency' ? 'currency' : undefined
+    }, league);
+    return owned.count > 0
+      ? {
+          ...entry,
+          ownedCount: owned.count,
+          note: [entry.note, `owned: ${owned.count}`].filter(Boolean).join(' / ')
+        }
+      : entry;
+  };
+
+  return {
+    ...related,
+    required: (related.required || []).map(annotate),
+    entries: (related.entries || []).map(annotate)
   };
 }
 
@@ -719,6 +902,12 @@ async function showLookupOverlay({ copyHighlightedItem = false } = {}) {
     queryOptions: currentLookup.queryOptions
   });
 
+  const owned = getOwnedSummaryForItem(item, lookupLeague);
+  const initialHints = [
+    ...createConfidenceHints(item),
+    ...createOwnedConfidenceHints(owned)
+  ];
+
   overlayWindow.webContents.send('lookup-result', {
     lookupId,
     shortcut: getShortcut('lookup'),
@@ -730,7 +919,8 @@ async function showLookupOverlay({ copyHighlightedItem = false } = {}) {
     shortcuts: getShortcutLabels(),
     captureWarning,
     queryOptions: currentLookup.queryOptions,
-    confidenceHints: createConfidenceHints(item)
+    owned,
+    confidenceHints: initialHints
   });
   getSummaryPrice(item, lookupLeague)
     .then((price) => {
@@ -751,7 +941,11 @@ async function showLookupOverlay({ copyHighlightedItem = false } = {}) {
         lookupId,
         league: lookupLeague,
         price,
-        confidenceHints: createConfidenceHints(item, price)
+        owned,
+        confidenceHints: [
+          ...createConfidenceHints(item, price),
+          ...createOwnedConfidenceHints(owned)
+        ]
       });
     })
     .catch((error) => {
@@ -845,6 +1039,12 @@ async function showRelatedOutcomesOverlay({ copyHighlightedItem = false } = {}) 
     queryOptions: currentLookup.queryOptions
   });
 
+  const owned = getOwnedSummaryForItem(item, lookupLeague);
+  const initialHints = [
+    ...createConfidenceHints(item),
+    ...createOwnedConfidenceHints(owned)
+  ];
+
   overlayWindow.webContents.send('lookup-result', {
     lookupId,
     mode: 'related',
@@ -857,7 +1057,8 @@ async function showRelatedOutcomesOverlay({ copyHighlightedItem = false } = {}) 
     shortcuts: getShortcutLabels(),
     captureWarning,
     queryOptions: currentLookup.queryOptions,
-    confidenceHints: createConfidenceHints(item)
+    owned,
+    confidenceHints: initialHints
   });
 
   getRelatedOutcomes(item, lookupLeague)
@@ -875,10 +1076,11 @@ async function showRelatedOutcomesOverlay({ copyHighlightedItem = false } = {}) 
         required: related.required?.length,
         notes: related.notes?.length
       });
+      const ownedRelated = annotateRelatedOwnership(related, lookupLeague);
       overlayWindow.webContents.send('related-outcomes-result', {
         lookupId,
         league: lookupLeague,
-        related
+        related: ownedRelated
       });
     })
     .catch((error) => {
@@ -1463,6 +1665,172 @@ ipcMain.handle('set-ggg-service-token', (_event, token) => {
   return getPublicSettings();
 });
 
+ipcMain.handle('set-ggg-session-token', (_event, token) => {
+  const rawToken = String(token || '').trim();
+  settings = writeSettings({
+    ...settings,
+    gggSession: rawToken
+      ? {
+          ...protectSessionToken(rawToken),
+          manualAccountName: settings.gggSession?.manualAccountName
+        }
+      : undefined
+  });
+  recordEvent('ggg-session-token-saved', {
+    configured: Boolean(rawToken),
+    tokenHint: settings.gggSession?.tokenHint
+  });
+  publishSettings();
+  return getPublicSettings();
+});
+
+ipcMain.handle('set-ggg-session-account-name', (_event, accountName) => {
+  settings = writeSettings({
+    ...settings,
+    gggSession: {
+      ...settings.gggSession,
+      manualAccountName: normalizeAccountName(accountName)
+    }
+  });
+  publishSettings();
+  return getPublicSettings();
+});
+
+ipcMain.handle('validate-ggg-session', async () => {
+  try {
+    const token = unprotectSessionToken(settings.gggSession);
+    const validation = await validateSessionToken(token);
+    settings = writeSettings({
+      ...settings,
+      gggSession: {
+        ...settings.gggSession,
+        ...validation,
+        lastError: undefined
+      }
+    });
+    recordEvent('ggg-session-validated', {
+      accountName: validation.accountName,
+      validatedAt: validation.validatedAt
+    });
+    publishSettings();
+    return {
+      settings: getPublicSettings(),
+      validation
+    };
+  } catch (error) {
+    settings = writeSettings({
+      ...settings,
+      gggSession: {
+        ...settings.gggSession,
+        status: settings.gggSession?.encryptedToken ? 'error' : 'not-configured',
+        lastError: error.message
+      }
+    });
+    publishSettings();
+    const classified = classifyError(error);
+    recordApiError('ggg-session-validation', error, classified);
+    throw new Error(formatErrorMessage('POESESSID validation failed', error));
+  }
+});
+
+ipcMain.handle('disconnect-ggg-session', () => {
+  settings = writeSettings({
+    ...settings,
+    gggSession: undefined
+  });
+  recordEvent('ggg-session-disconnected');
+  publishSettings();
+  return getPublicSettings();
+});
+
+ipcMain.handle('refresh-session-account', async () => {
+  try {
+    const { accountName, characters } = await refreshOfficialAccountContext();
+    const league = settings.league || 'Standard';
+    const existing = getCachedStashIndex(league);
+    const updated = saveCachedStashIndex({
+      ...existing,
+      accountName,
+      characters: Array.isArray(characters) ? characters : characters?.characters || []
+    });
+    publishSettings();
+    return {
+      settings: getPublicSettings(),
+      stash: createPublicStashState(updated)
+    };
+  } catch (error) {
+    const classified = classifyError(error);
+    recordApiError('session-account-refresh', error, classified);
+    throw new Error(formatErrorMessage('Account refresh failed', error));
+  }
+});
+
+ipcMain.handle('get-stash-state', (_event, query) => {
+  return createPublicStashState(getCachedStashIndex(settings.league || 'Standard'), query);
+});
+
+ipcMain.handle('refresh-stash-index', async (_event, options = {}) => {
+  try {
+    const league = String(options.league || settings.league || 'Standard').trim() || 'Standard';
+    const index = await fetchOfficialStashIndex(league, options);
+    recordEvent('stash-index-refreshed', {
+      accountName: index.accountName,
+      league,
+      tabs: index.tabs.length,
+      items: index.items.length
+    });
+    return createPublicStashState(index, options.query);
+  } catch (error) {
+    const classified = classifyError(error);
+    recordApiError('stash-index-refresh', error, classified);
+    throw new Error(formatErrorMessage('Stash index refresh failed', error));
+  }
+});
+
+ipcMain.handle('price-stash-index', async (_event, options = {}) => {
+  try {
+    const league = String(options.league || settings.league || 'Standard').trim() || 'Standard';
+    const index = getCachedStashIndex(league);
+    if (!index.indexedAt) {
+      throw new Error('Refresh the stash index before pricing it.');
+    }
+    const targets = getPriceTargets(index, Number(options.limit || 120));
+    const results = [];
+    for (const target of targets) {
+      const price = await getSummaryPrice(target, league);
+      if (price.status === 'priced' && Number.isFinite(price.result?.chaosValue)) {
+        results.push({
+          itemKey: target.itemKey,
+          label: price.result.label,
+          chaosValue: price.result.chaosValue,
+          pricedAt: new Date().toISOString()
+        });
+      }
+    }
+    const priced = saveCachedStashIndex(applyPricingResults(index, results));
+    recordEvent('stash-index-priced', {
+      league,
+      targets: targets.length,
+      priced: results.length
+    });
+    return createPublicStashState(priced, options.query);
+  } catch (error) {
+    const classified = classifyError(error);
+    recordApiError('stash-index-pricing', error, classified);
+    throw new Error(formatErrorMessage('Stash pricing failed', error));
+  }
+});
+
+ipcMain.handle('compare-stash-shopping-list', (_event, text) => {
+  const league = settings.league || 'Standard';
+  const index = getCachedStashIndex(league);
+  return {
+    league,
+    indexedAt: index.indexedAt,
+    entries: compareShoppingList(index, text)
+  };
+});
+
 ipcMain.handle('test-ggg-profile', async () => {
   const profile = await gggApiFetch('/profile', settings.oauth?.token);
   return {
@@ -1488,9 +1856,14 @@ ipcMain.handle('lookup-price', async () => {
   }
 
   const price = await getSummaryPrice(currentLookup.item, currentLookup.league);
+  const owned = getOwnedSummaryForItem(currentLookup.item, currentLookup.league);
   return {
     ...price,
-    confidenceHints: createConfidenceHints(currentLookup.item, price)
+    owned,
+    confidenceHints: [
+      ...createConfidenceHints(currentLookup.item, price),
+      ...createOwnedConfidenceHints(owned)
+    ]
   };
 });
 
@@ -1525,7 +1898,7 @@ ipcMain.handle('lookup-related-outcomes', async () => {
     };
   }
 
-  return getRelatedOutcomes(currentLookup.item, currentLookup.league);
+  return annotateRelatedOwnership(await getRelatedOutcomes(currentLookup.item, currentLookup.league), currentLookup.league);
 });
 
 ipcMain.handle('set-query-options', (_event, queryOptions) => {

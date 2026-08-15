@@ -32,6 +32,7 @@ Keep the plain JS stack until the loot-filter workbench stabilizes. A React + Ty
 - Official Path of Exile developer docs: https://www.pathofexile.com/developer/docs
 - Official Path of Exile API reference: https://www.pathofexile.com/developer/docs/reference
 - Path of Building Community Fork data: https://github.com/PathOfBuildingCommunity/PathOfBuilding/tree/dev/src/Data
+- Exilence CE stash/wealth reference: https://github.com/exilence-ce/exilence-ce
 - Sample filter in this repo: `example-filter.filter`
 
 ## What Is Already Built
@@ -73,12 +74,13 @@ Keep the plain JS stack until the loot-filter workbench stabilizes. A React + Ty
 - Boss fragment and invitation related-drop views with poe.ninja prices.
 - No expected-value math yet because chance odds and many boss drop rates are not public.
 
-### OAuth and API Foundation
+### Account API Foundation
 
 - GGG OAuth settings for public desktop clients using authorization code with PKCE.
 - Account profile and item-filter API wiring through `https://api.pathofexile.com`.
 - Public Currency Exchange endpoint test.
 - Service-token field exists as a future hook, but public desktop clients cannot request `service:*` scopes.
+- Exilence CE confirms modern stash/character access should use official OAuth endpoints (`/profile`, `/character`, `/stash/{league}`, `/stash/{league}/{id}`) with `account:profile`, `account:characters`, and `account:stashes`; `POESESSID` can validate website login but is not sufficient for modern stash indexing.
 
 ### Loot Filter Workbench
 
@@ -263,32 +265,59 @@ Exit criteria:
 - ~~The workbench is no longer bottlenecked by one large renderer file.~~
 - ~~Domain behavior is easier to test than UI behavior.~~
 
-### Milestone 8: Companion Suite
+### ~~Milestone 8: Session Auth And Account Intelligence V1~~
 
-Goal: expand only after price lookup and filter workbench feel dependable.
+Goal: ~~add account-aware features that make price checking, stash review, and loot filters smarter. Modern stash and character data uses official OAuth account scopes; `POESESSID` is retained only as a website-session validation aid.~~
 
-Candidates:
+Reference: use Exilence CE as an implementation reference for stash/account workflows, wealth snapshots, valuation UX, and API failure handling. Do not copy code directly; it is licensed CC BY-NC 3.0, so POEHelper should use it as a behavioral/architecture comparison point only.
 
-- Add `POESESSID` session-cookie authentication as a fallback/private-account auth method for stash, account, and other GGG web endpoints that are not practical through OAuth yet.
-- Stash search presets and hotkeys.
-- Farming strategy notes.
-- Build-specific filter/profile recommendations.
-- Bossing helper panels.
-- Session summary: checked drops, valuable drops, filter edits, recent searches.
-- Optional account-auth features through OAuth where official scopes are available, with `POESESSID` clearly labeled as an advanced/local-only credential option.
+Security and policy posture:
+
+- ~~Treat `POESESSID` as a password-equivalent secret.~~
+- ~~Store the token only through Electron safe storage or the Windows credential store.~~
+- ~~Keep the token in the main process; never expose it directly to renderer windows, logs, diagnostics, crash output, or exported profiles.~~
+- ~~Add explicit user-facing copy explaining what the token can access, how to revoke it, and that POEHelper is not affiliated with or endorsed by GGG.~~
+- ~~Use conservative request rates, parse rate-limit headers where present, and provide a manual disconnect/purge option.~~
+- ~~Prefer documented account/filter/stash routes where possible; do not build gameplay automation or item-moving behavior.~~
+
+Work:
+
+- ~~Add a Session Auth settings section for entering, validating, masking, rotating, and removing `POESESSID`.~~
+- ~~Add a main-process GGG session client with shared user-agent handling, cookie injection, rate-limit handling, retry/backoff, and redacted diagnostics.~~
+- ~~Add account/league discovery so the app can identify the current account, leagues, characters, and available stash contexts.~~
+- ~~Add stash tab indexing for a selected league: tab list, tab contents, item normalization, refresh metadata, and local cache.~~
+- ~~Add a stash browser/search page with filters for text, item category, rarity, and value bucket, plus cached item details such as sockets/links, map tier, gem level/quality, corrupted state, influence, and stack size.~~
+- ~~Add "Do I own this?" to price check and related outcomes, backed by the local stash index.~~
+- ~~Add stash value summaries by tab, category, league, and active cache.~~
+- ~~Add inventory summaries for maps, fragments/invitations, scarabs, oils, divination cards, currency, gems, uniques, and valuable bases through category summaries.~~
+- ~~Add duplicate finder for uniques, maps, fragments, gems, jewels, and other useful repeat-item groups.~~
+- ~~Add bulk pricing from stash tabs using existing pricing/economy services plus conservative caching.~~
+- ~~Add "things worth selling" reports using cached economy confidence rules.~~
+- ~~Add character-aware account context from session character discovery.~~
+- ~~Add stash-aware account intelligence so price lookup, related outcomes, and reports consider what the user already owns or lacks.~~
+- Add item-filter upload/sync to the user's Path of Exile account only after a session-auth route is confirmed safe and reliable; local `.filter` writing remains the default fallback.
+- ~~Add build shopping list import/comparison against owned stash and character items.~~
+
+Exit criteria:
+
+- ~~A user can connect/disconnect `POESESSID` safely and see clear validation state.~~
+- ~~Stash data is cached locally, searchable, and never leaks the raw token.~~
+- ~~Price check can answer whether the user owns matching items.~~
+- ~~Loot-filter work remains local-only unless a safe online sync route is confirmed.~~
+- ~~Account-aware reports are useful even when some endpoints fail or rate-limit.~~
 
 ## Near-Term Backlog
 
-1. ~~Add UI tests or smoke coverage for equipment Top 2/Top 5 per selected attribute group.~~
-2. Add a catalog refresh script for `equipment-base-requirements.js`.
-3. Add catalog metadata to settings diagnostics.
-4. Finish equipment visibility UX for weapons and jewelry with the same clarity as armour/shields.
-5. ~~Add filter write summary before writing.~~
-6. Add generated filter history/rollback.
-7. Add economy audit output in the UI.
-8. Harden economy matching for variant-sensitive gems and uniques.
-9. Add raw generated filter viewer/search.
-10. Split `settings-renderer.js` into feature modules.
+1. ~~Add secure `POESESSID` storage, validation, masking, disconnect, and redacted diagnostics.~~
+2. ~~Add the main-process GGG session client with cookie injection, rate-limit handling, and safe error reporting.~~
+3. ~~Add account, character, league, and stash discovery.~~
+4. ~~Add local stash indexing and search for one selected league.~~
+5. ~~Add "Do I own this?" to price check and related outcomes.~~
+6. ~~Add stash value summaries and category inventory summaries.~~
+7. ~~Add bulk stash pricing and "things worth selling" reports.~~
+8. ~~Add character-aware account context.~~
+9. Add stash-aware loot-filter rule generation after the stash reports prove useful in live play.
+10. Add account filter upload/sync if the session-auth route proves reliable and acceptable.
 
 ## Release Checklist
 
@@ -314,6 +343,8 @@ Before publishing a release:
 - Use identifiable User-Agent headers for official API calls.
 - Respect rate-limit headers and `Retry-After`.
 - Keep OAuth tokens in the main process/local settings and out of renderer windows.
+- Keep `POESESSID` in secure OS-backed storage only; treat it as password-equivalent and redact it everywhere.
+- Provide a disconnect/purge path that removes local session credentials and cached account data.
 - Make clipboard/API/privacy behavior clear in settings.
 - Include clear third-party/disclaimer language.
 - Prefer conservative browser handoff or documented APIs when policy risk is unclear.
@@ -325,6 +356,8 @@ Before publishing a release:
 - Game data changes each league and needs a repeatable refresh/audit flow.
 - Loot filters are ordered programs; incorrect rule ordering can silently hide important items.
 - The current plain JS renderer is workable but increasingly expensive to maintain.
+- `POESESSID` unlocks useful account-aware features but creates security and policy risk if mishandled.
+- Website/session-backed endpoints can change without notice, so session-auth features must fail gracefully and remain optional.
 - Scope creep remains real; stabilize the current app before adding the broader companion suite.
 
 ## Recommended Product Definition For The Next Releasable Version

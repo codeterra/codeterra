@@ -176,6 +176,10 @@ p {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.settings-page--stash.is-active {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
 .loot-workbench-section.is-active {
   display: grid;
   align-content: start;
@@ -651,6 +655,131 @@ button:hover {
 .filter-import-review-row strong {
   color: #f4f7fb;
   font-size: 12px;
+}
+
+.stash-command-panel,
+.stash-search-panel,
+.stash-results-panel,
+.stash-report-panel {
+  grid-column: 1 / -1;
+}
+
+.stash-shopping-panel {
+  grid-column: 1 / -1;
+}
+
+.stash-shopping-panel textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.stash-search-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, 220px) minmax(120px, 160px);
+  gap: 8px;
+  align-items: end;
+}
+
+.stash-search-grid label {
+  display: grid;
+  gap: 5px;
+  color: #aeb8c4;
+  font-size: 11px;
+}
+
+.stash-results-list,
+.stash-report-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stash-results-list {
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.stash-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.17);
+}
+
+.stash-item-row__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stash-item-row__main strong,
+.stash-item-row__main span,
+.stash-item-row__value,
+.stash-report-row {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stash-item-row__main strong {
+  color: #edf2f7;
+  font-size: 12px;
+}
+
+.stash-item-row__main span,
+.stash-report-row {
+  color: #9daab8;
+  font-size: 11px;
+}
+
+.stash-item-row__value {
+  color: #fff4c4;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.stash-report-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.stash-report-grid section {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.stash-report-row {
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stash-report-row--muted {
+  color: #758291;
+}
+
+.stash-report-row--owned {
+  color: #bfe6bd;
+}
+
+.stash-report-row--missing {
+  color: #ffe1a1;
 }
 
 .loot-workbench {
@@ -1361,6 +1490,8 @@ button:hover {
   .loot-command-bar,
   .profile-command-grid,
   .loot-command-grid,
+  .stash-search-grid,
+  .stash-report-grid,
   .loot-workbench,
   .equipment-workbench,
   .special-item-entry {

@@ -27,11 +27,35 @@ const refreshOauthButton = document.querySelector('#refresh-oauth-button');
 const disconnectOauthButton = document.querySelector('#disconnect-oauth-button');
 const testProfileButton = document.querySelector('#test-profile-button');
 const oauthStatus = document.querySelector('#oauth-status');
+const gggSessionAccountNameInput = document.querySelector('#ggg-session-account-name-input');
+const saveSessionAccountNameButton = document.querySelector('#save-session-account-name-button');
+const gggSessionTokenInput = document.querySelector('#ggg-session-token-input');
+const saveSessionTokenButton = document.querySelector('#save-session-token-button');
+const validateSessionTokenButton = document.querySelector('#validate-session-token-button');
+const disconnectSessionTokenButton = document.querySelector('#disconnect-session-token-button');
+const sessionTokenStatus = document.querySelector('#session-token-status');
 const serviceTokenInput = document.querySelector('#service-token-input');
 const saveServiceTokenButton = document.querySelector('#save-service-token-button');
 const clearServiceTokenButton = document.querySelector('#clear-service-token-button');
 const testExchangeButton = document.querySelector('#test-exchange-button');
 const exchangeStatus = document.querySelector('#exchange-status');
+const refreshSessionAccountButton = document.querySelector('#refresh-session-account-button');
+const refreshStashIndexButton = document.querySelector('#refresh-stash-index-button');
+const priceStashIndexButton = document.querySelector('#price-stash-index-button');
+const stashStatus = document.querySelector('#stash-status');
+const stashSummaryPanel = document.querySelector('#stash-summary-panel');
+const stashSearchInput = document.querySelector('#stash-search-input');
+const stashCategoryFilter = document.querySelector('#stash-category-filter');
+const stashMinValueInput = document.querySelector('#stash-min-value-input');
+const stashResultsStatus = document.querySelector('#stash-results-status');
+const stashResultsList = document.querySelector('#stash-results-list');
+const stashInventorySummary = document.querySelector('#stash-inventory-summary');
+const stashWorthSellingList = document.querySelector('#stash-worth-selling-list');
+const stashDuplicateList = document.querySelector('#stash-duplicate-list');
+const stashCharacterList = document.querySelector('#stash-character-list');
+const shoppingListInput = document.querySelector('#shopping-list-input');
+const compareShoppingListButton = document.querySelector('#compare-shopping-list-button');
+const shoppingListResults = document.querySelector('#shopping-list-results');
 const filterProfileSelect = document.querySelector('#filter-profile-select');
 const filterProfileNameInput = document.querySelector('#filter-profile-name-input');
 const newFilterProfileButton = document.querySelector('#new-filter-profile-button');
@@ -187,6 +211,7 @@ let renderingLootFilter = false;
 let pendingFilterImportPreview;
 let previewAudio;
 let previewAudioContext;
+let stashState;
 const FILTER_FONT_SIZE_MIN = 18;
 const FILTER_FONT_SIZE_MAX = 45;
 
@@ -556,9 +581,204 @@ function formatExpiry(value) {
   return `expires ${date.toLocaleString()}`;
 }
 
+function formatSessionTimestamp(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleString();
+}
+
 function setStatus(element, message, warn = false) {
   element.textContent = message;
   element.classList.toggle('status-line--warn', warn);
+}
+
+function renderGggSessionStatus(session = {}) {
+  gggSessionAccountNameInput.value = session.manualAccountName || session.accountName || '';
+  if (!session.secureStorageAvailable) {
+    setStatus(sessionTokenStatus, 'Secure storage is not available yet. Restart the app and try again.', true);
+    return;
+  }
+
+  if (!session.configured) {
+    setStatus(sessionTokenStatus, 'Session auth is not configured.', true);
+    return;
+  }
+
+  const accountName = session.manualAccountName || session.accountName;
+  const account = accountName ? ` for ${accountName}` : '';
+  const validated = formatSessionTimestamp(session.validatedAt);
+  const suffix = validated ? `, validated ${validated}` : ', not validated yet';
+  const hint = session.tokenHint ? ` (${session.tokenHint})` : '';
+  const error = session.lastError ? ` Last error: ${session.lastError}` : '';
+  setStatus(
+    sessionTokenStatus,
+    `POESESSID saved${hint}${account}${suffix}.${error}`,
+    session.status === 'error' || Boolean(session.lastError)
+  );
+}
+
+function formatChaos(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) {
+    return '-';
+  }
+  if (number >= 100) return `${Math.round(number)}c`;
+  if (number >= 10) return `${number.toFixed(1)}c`;
+  return `${number.toFixed(2)}c`;
+}
+
+function formatStashDate(value) {
+  if (!value) {
+    return 'never';
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'unknown' : date.toLocaleString();
+}
+
+function getStashQuery() {
+  return {
+    text: stashSearchInput?.value || '',
+    category: stashCategoryFilter?.value || '',
+    minChaos: stashMinValueInput?.value || undefined,
+    limit: 150
+  };
+}
+
+function renderStashState(state = stashState) {
+  stashState = state || {};
+  const summary = stashState.reports?.summary || {};
+  setStatus(
+    stashStatus,
+    stashState.indexedAt
+      ? `${stashState.accountName || 'Account'} / ${stashState.league || 'Standard'} indexed ${formatStashDate(stashState.indexedAt)}. Priced ${formatStashDate(stashState.pricedAt)}.`
+      : 'No stash index loaded. Validate session auth, then index the stash.'
+  );
+
+  stashSummaryPanel.innerHTML = '';
+  const chips = [
+    `${stashState.tabCount || 0} tabs`,
+    `${summary.itemCount || stashState.itemCount || 0} items`,
+    `${summary.stackCount || 0} stacked total`,
+    `${formatChaos(summary.totalChaosValue)} estimated`,
+    `${stashState.characters?.length || 0} characters`
+  ];
+  for (const text of chips) {
+    stashSummaryPanel.appendChild(createFilterSummaryChip(text, false));
+  }
+
+  renderStashResults(stashState.results || []);
+  renderStashReports(stashState);
+}
+
+function renderStashResults(items = []) {
+  stashResultsList.innerHTML = '';
+  stashResultsStatus.textContent = `${items.length} result${items.length === 1 ? '' : 's'}`;
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No cached stash items match the current filters.';
+    stashResultsList.appendChild(empty);
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement('div');
+    row.className = 'stash-item-row';
+    row.innerHTML = `
+      <div class="stash-item-row__main">
+        <strong></strong>
+        <span></span>
+      </div>
+      <div class="stash-item-row__value"></div>
+    `;
+    row.querySelector('strong').textContent = item.searchLabel || item.name;
+    row.querySelector('span').textContent = [
+      item.rarity,
+      item.category,
+      item.itemLevel ? `ilvl ${item.itemLevel}` : '',
+      item.stackSize > 1 ? `x${item.stackSize}` : '',
+      item.tabName
+    ].filter(Boolean).join(' / ');
+    row.querySelector('.stash-item-row__value').textContent = formatChaos(item.totalChaosValue || item.chaosValue);
+    stashResultsList.appendChild(row);
+  }
+}
+
+function renderStashReports(state = {}) {
+  const summary = state.reports?.summary || {};
+  renderKeyValueReport(stashInventorySummary, summary.byCategory || {}, ({ key, value }) => (
+    `${key}: ${value.count} / ${formatChaos(value.chaosValue)}`
+  ));
+  renderListReport(stashWorthSellingList, state.reports?.worthSelling || [], (item) => (
+    `${item.searchLabel || item.name} - ${formatChaos(item.totalChaosValue || item.chaosValue)} - ${item.tabName || 'unknown tab'}`
+  ));
+  renderListReport(stashDuplicateList, state.reports?.duplicates || [], (entry) => (
+    `${entry.label} x${entry.count} - ${entry.tabs?.slice(0, 3).join(', ') || 'unknown tabs'}`
+  ));
+  renderListReport(stashCharacterList, state.characters || [], (character) => (
+    `${character.name} - ${character.class || 'Unknown'} ${character.level ? `level ${character.level}` : ''} ${character.league ? `(${character.league})` : ''}`
+  ));
+}
+
+function renderKeyValueReport(container, object, formatter) {
+  const rows = Object.entries(object)
+    .sort((a, b) => (b[1].chaosValue || b[1].count || 0) - (a[1].chaosValue || a[1].count || 0))
+    .slice(0, 18)
+    .map(([key, value]) => ({ key, value }));
+  renderListReport(container, rows, formatter);
+}
+
+function renderListReport(container, entries, formatter) {
+  container.innerHTML = '';
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'stash-report-row stash-report-row--muted';
+    empty.textContent = 'Nothing to show yet.';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const entry of entries.slice(0, 18)) {
+    const row = document.createElement('div');
+    row.className = 'stash-report-row';
+    row.textContent = formatter(entry);
+    container.appendChild(row);
+  }
+}
+
+function renderShoppingListResults(result = {}) {
+  shoppingListResults.innerHTML = '';
+  const entries = result.entries || [];
+  if (entries.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'stash-report-row stash-report-row--muted';
+    empty.textContent = 'Paste item names and compare them against the stash index.';
+    shoppingListResults.appendChild(empty);
+    return;
+  }
+
+  for (const entry of entries) {
+    const row = document.createElement('div');
+    row.className = `stash-report-row ${entry.owned ? 'stash-report-row--owned' : 'stash-report-row--missing'}`;
+    row.textContent = entry.owned
+      ? `${entry.name}: owned x${entry.count}${entry.tabs?.length ? ` in ${entry.tabs.slice(0, 3).join(', ')}` : ''}`
+      : `${entry.name}: missing`;
+    shoppingListResults.appendChild(row);
+  }
+}
+
+async function refreshStashState() {
+  if (!window.poehelper.getStashState) {
+    return;
+  }
+  renderStashState(await window.poehelper.getStashState(getStashQuery()));
 }
 
 function renderUpdateStatus(status = {}) {
@@ -696,7 +916,7 @@ function applySettingsPayload(payload) {
   if (appSettings?.oauth) {
     oauthClientIdInput.value = appSettings.oauth.clientId || '';
     oauthRedirectUriInput.value = appSettings.oauth.redirectUri || 'http://127.0.0.1:8585/callback';
-    oauthScopesInput.value = appSettings.oauth.scopes || 'account:profile account:item_filter';
+    oauthScopesInput.value = appSettings.oauth.scopes || 'account:profile account:characters account:stashes account:item_filter';
 
     if (appSettings.oauth.connected) {
       const scope = appSettings.oauth.scope ? ` - ${appSettings.oauth.scope}` : '';
@@ -711,6 +931,11 @@ function applySettingsPayload(payload) {
         ? 'Optional service token is saved. Currency Exchange can also use the public endpoint.'
         : 'Currency Exchange can use the public endpoint. No service token is saved.'
     );
+  }
+
+  if (appSettings?.gggSession) {
+    renderGggSessionStatus(appSettings.gggSession);
+    refreshStashState();
   }
 
   if (appSettings?.lootFilter) {
@@ -4394,6 +4619,82 @@ testProfileButton.addEventListener('click', () => {
   runButton(testProfileButton, oauthStatus, 'Testing...', async () => {
     const result = await window.poehelper.testGggProfile();
     setStatus(oauthStatus, `Profile API connected: ${result.name}`);
+  });
+});
+
+saveSessionAccountNameButton.addEventListener('click', async () => {
+  const settings = await window.poehelper.setGggSessionAccountName(gggSessionAccountNameInput.value);
+  applySettingsPayload({ settings });
+  setStatus(sessionTokenStatus, 'Account name saved. Use the exact website name, including #1234 if shown.');
+});
+
+saveSessionTokenButton.addEventListener('click', () => {
+  runButton(saveSessionTokenButton, sessionTokenStatus, 'Saving...', async () => {
+    const settings = await window.poehelper.setGggSessionToken(gggSessionTokenInput.value);
+    gggSessionTokenInput.value = '';
+    applySettingsPayload({ settings });
+    setStatus(sessionTokenStatus, 'POESESSID saved securely. Validate it before using account features.');
+  });
+});
+
+validateSessionTokenButton.addEventListener('click', () => {
+  runButton(validateSessionTokenButton, sessionTokenStatus, 'Validating...', async () => {
+    const result = await window.poehelper.validateGggSession();
+    applySettingsPayload(result);
+    const account = result.validation?.accountName ? ` for ${result.validation.accountName}` : '';
+    setStatus(sessionTokenStatus, `POESESSID validated${account}.`);
+  });
+});
+
+disconnectSessionTokenButton.addEventListener('click', async () => {
+  const settings = await window.poehelper.disconnectGggSession();
+  gggSessionTokenInput.value = '';
+  applySettingsPayload({ settings });
+  setStatus(sessionTokenStatus, 'Session auth disconnected and local token removed.', true);
+});
+
+refreshSessionAccountButton.addEventListener('click', () => {
+  runButton(refreshSessionAccountButton, stashStatus, 'Refreshing account...', async () => {
+    const result = await window.poehelper.refreshSessionAccount();
+    applySettingsPayload({ settings: result.settings });
+    renderStashState(result.stash);
+    setStatus(stashStatus, 'Account and character context refreshed.');
+  });
+});
+
+refreshStashIndexButton.addEventListener('click', () => {
+  runButton(refreshStashIndexButton, stashStatus, 'Indexing stash...', async () => {
+    const state = await window.poehelper.refreshStashIndex({
+      league: leagueInput.value,
+      query: getStashQuery()
+    });
+    renderStashState(state);
+    setStatus(stashStatus, `Indexed ${state.itemCount || 0} items across ${state.tabCount || 0} tabs.`);
+  });
+});
+
+priceStashIndexButton.addEventListener('click', () => {
+  runButton(priceStashIndexButton, stashStatus, 'Pricing stash...', async () => {
+    const state = await window.poehelper.priceStashIndex({
+      league: leagueInput.value,
+      query: getStashQuery()
+    });
+    renderStashState(state);
+    setStatus(stashStatus, `Bulk priced cached stash items. Estimated total: ${formatChaos(state.reports?.summary?.totalChaosValue)}.`);
+  });
+});
+
+for (const input of [stashSearchInput, stashCategoryFilter, stashMinValueInput]) {
+  input.addEventListener('input', refreshStashState);
+  input.addEventListener('change', refreshStashState);
+}
+
+compareShoppingListButton.addEventListener('click', () => {
+  runButton(compareShoppingListButton, stashStatus, 'Comparing...', async () => {
+    const result = await window.poehelper.compareStashShoppingList(shoppingListInput.value);
+    renderShoppingListResults(result);
+    const missing = (result.entries || []).filter((entry) => !entry.owned).length;
+    setStatus(stashStatus, `Shopping list compared: ${missing} missing / ${(result.entries || []).length} checked.`);
   });
 });
 

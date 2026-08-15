@@ -20,6 +20,7 @@
         <nav class="settings-tabs" aria-label="Settings sections">
           <button class="is-active" type="button" data-settings-tab="general">General</button>
           <button type="button" data-settings-tab="loot-filter">Loot Filter</button>
+          <button type="button" data-settings-tab="stash">Stash</button>
           <button type="button" data-settings-tab="account">Account</button>
           <button type="button" data-settings-tab="diagnostics">Diagnostics</button>
         </nav>
@@ -456,7 +457,119 @@
             </div>
           </section>
 
+          <section class="settings-page settings-page--stash" data-settings-panel="stash">
+            <section class="panel stash-command-panel">
+              <div class="section-heading-row">
+                <div>
+                  <h2>Stash Intelligence</h2>
+                  <p id="stash-status" class="status-line">No stash index loaded.</p>
+                </div>
+                <div class="button-row button-row--flush">
+                  <button id="refresh-session-account-button" type="button">Refresh Account</button>
+                  <button id="refresh-stash-index-button" type="button">Index Stash</button>
+                  <button id="price-stash-index-button" type="button">Bulk Price</button>
+                </div>
+              </div>
+              <div id="stash-summary-panel" class="filter-summary-panel"></div>
+            </section>
+
+            <section class="panel stash-search-panel">
+              <div class="stash-search-grid">
+                <label>
+                  Search
+                  <input id="stash-search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Mageblood, Divine Orb, maps, tab name">
+                </label>
+                <label>
+                  Category
+                  <select id="stash-category-filter">
+                    <option value="">Any</option>
+                    <option value="currency">Currency</option>
+                    <option value="unique-accessory">Unique Accessories</option>
+                    <option value="unique-armour">Unique Armour</option>
+                    <option value="unique-weapon">Unique Weapons</option>
+                    <option value="unique-jewel">Unique Jewels</option>
+                    <option value="gem">Gems</option>
+                    <option value="map">Maps</option>
+                    <option value="fragment">Fragments</option>
+                    <option value="divination-card">Div Cards</option>
+                  </select>
+                </label>
+                <label>
+                  Min value
+                  <input id="stash-min-value-input" type="number" min="0" step="1" placeholder="chaos">
+                </label>
+              </div>
+            </section>
+
+            <section class="panel stash-results-panel">
+              <div class="section-heading-row">
+                <h2>Search Results</h2>
+                <span id="stash-results-status" class="status-line">No results.</span>
+              </div>
+              <div id="stash-results-list" class="stash-results-list"></div>
+            </section>
+
+            <section class="panel stash-report-panel">
+              <h2>Reports</h2>
+              <div class="stash-report-grid">
+                <section>
+                  <h3>Inventory Summary</h3>
+                  <div id="stash-inventory-summary" class="stash-report-list"></div>
+                </section>
+                <section>
+                  <h3>Worth Selling</h3>
+                  <div id="stash-worth-selling-list" class="stash-report-list"></div>
+                </section>
+                <section>
+                  <h3>Duplicates</h3>
+                  <div id="stash-duplicate-list" class="stash-report-list"></div>
+                </section>
+                <section>
+                  <h3>Characters</h3>
+                  <div id="stash-character-list" class="stash-report-list"></div>
+                </section>
+              </div>
+            </section>
+
+            <section class="panel stash-shopping-panel">
+              <div class="section-heading-row">
+                <div>
+                  <h2>Build Shopping List</h2>
+                  <p class="status-line status-line--muted">Paste one item name per line to compare against the cached stash index.</p>
+                </div>
+                <button id="compare-shopping-list-button" type="button">Compare</button>
+              </div>
+              <textarea id="shopping-list-input" rows="5" spellcheck="false" placeholder="Lightning Coil&#10;Anathema&#10;Awakened Spell Echo Support"></textarea>
+              <div id="shopping-list-results" class="stash-report-list"></div>
+            </section>
+          </section>
+
           <section class="settings-page" data-settings-panel="account">
+            <section class="panel">
+              <h2>GGG Session</h2>
+              <p>
+                Use a local `POESESSID` session token to validate website login. Modern character and stash indexing requires OAuth with account scopes.
+              </p>
+              <div class="form-stack">
+                <label>
+                  Account name
+                  <input id="ggg-session-account-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="AccountName#1234">
+                </label>
+                <label>
+                  POESESSID token
+                  <input id="ggg-session-token-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste POESESSID or the full cookie value">
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="save-session-account-name-button" type="button">Save Account</button>
+                <button id="save-session-token-button" type="button">Save Token</button>
+                <button id="validate-session-token-button" type="button">Validate</button>
+                <button id="disconnect-session-token-button" class="danger-button" type="button">Disconnect</button>
+              </div>
+              <p id="session-token-status" class="status-line">Session auth is not configured.</p>
+              <p class="status-line status-line--muted">The token is stored with OS-backed secure storage and is never shown in diagnostics or exported profiles. Treat it like a password.</p>
+            </section>
+
             <section class="panel">
               <h2>GGG OAuth</h2>
               <div class="form-stack">
@@ -470,7 +583,7 @@
                 </label>
                 <label>
                   Scopes
-                  <input id="oauth-scopes-input" type="text" value="account:profile account:item_filter" autocomplete="off" spellcheck="false">
+                  <input id="oauth-scopes-input" type="text" value="account:profile account:characters account:stashes account:item_filter" autocomplete="off" spellcheck="false">
                 </label>
               </div>
               <div class="button-row">
@@ -481,7 +594,7 @@
                 <button id="test-profile-button" type="button">Test Profile</button>
               </div>
               <p id="oauth-status" class="status-line">OAuth is not connected.</p>
-              <p class="status-line status-line--muted">Public desktop clients use authorization code plus PKCE. Do not request service scopes here.</p>
+              <p class="status-line status-line--muted">Modern character and stash APIs require OAuth scopes such as account:characters and account:stashes. POESESSID only validates website login.</p>
             </section>
 
             <section class="panel">

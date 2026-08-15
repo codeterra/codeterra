@@ -11,3 +11,5 @@ coverage/
 .nyc_output/
 Thumbs.db
 Desktop.ini
+oauth-lambda/
+oauth-cloudflare/

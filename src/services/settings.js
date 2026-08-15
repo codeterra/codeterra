@@ -3,7 +3,7 @@ const path = require('node:path');
 const { app } = require('electron');
 const { normalizeLootFilterSettings } = require('./loot-filter-manager');
 
-const SETTINGS_SCHEMA_VERSION = 3;
+const SETTINGS_SCHEMA_VERSION = 4;
 
 const DEFAULT_SETTINGS = {
   schemaVersion: SETTINGS_SCHEMA_VERSION,
@@ -21,9 +21,19 @@ const DEFAULT_SETTINGS = {
   oauth: {
     clientId: '',
     redirectUri: 'http://127.0.0.1:8585/callback',
-    scopes: 'account:profile account:item_filter',
+    scopes: 'account:profile account:characters account:stashes account:item_filter',
     token: undefined,
     serviceToken: undefined
+  },
+  gggSession: {
+    encryptedToken: undefined,
+    tokenHint: undefined,
+    tokenSetAt: undefined,
+    validatedAt: undefined,
+    accountName: undefined,
+    manualAccountName: undefined,
+    status: 'not-configured',
+    lastError: undefined
   },
   lootFilter: undefined,
   presets: []
@@ -76,6 +86,7 @@ function normalizeSettings(nextSettings = {}) {
     shortcuts: normalizeShortcuts(nextSettings.shortcuts),
     overlayBounds: normalizeBounds(nextSettings.overlayBounds),
     oauth: normalizeOAuth(nextSettings.oauth),
+    gggSession: normalizeGggSession(nextSettings.gggSession),
     lootFilter: normalizeLootFilterSettings(nextSettings.lootFilter),
     presets: Array.isArray(nextSettings.presets) ? nextSettings.presets : []
   };
@@ -93,6 +104,27 @@ function normalizeOAuth(oauth) {
     scopes: String(merged.scopes || DEFAULT_SETTINGS.oauth.scopes).trim(),
     token: merged.token && typeof merged.token === 'object' ? merged.token : undefined,
     serviceToken: merged.serviceToken && typeof merged.serviceToken === 'object' ? merged.serviceToken : undefined
+  };
+}
+
+function normalizeGggSession(session) {
+  const merged = {
+    ...DEFAULT_SETTINGS.gggSession,
+    ...(session && typeof session === 'object' ? session : {})
+  };
+
+  const encryptedToken = String(merged.encryptedToken || '').trim();
+  const status = String(merged.status || (encryptedToken ? 'saved' : 'not-configured')).trim();
+
+  return {
+    encryptedToken: encryptedToken || undefined,
+    tokenHint: encryptedToken ? String(merged.tokenHint || '').trim() || undefined : undefined,
+    tokenSetAt: encryptedToken ? String(merged.tokenSetAt || '').trim() || undefined : undefined,
+    validatedAt: encryptedToken ? String(merged.validatedAt || '').trim() || undefined : undefined,
+    accountName: encryptedToken ? String(merged.accountName || '').trim() || undefined : undefined,
+    manualAccountName: String(merged.manualAccountName || '').trim() || undefined,
+    status: encryptedToken ? status || 'saved' : 'not-configured',
+    lastError: encryptedToken ? String(merged.lastError || '').trim() || undefined : undefined
   };
 }
 
@@ -153,5 +185,6 @@ module.exports = {
   DEFAULT_SETTINGS,
   migrateSettings,
   readSettings,
-  writeSettings
+  writeSettings,
+  normalizeGggSession
 };

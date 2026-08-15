@@ -139,6 +139,33 @@ contextBridge.exposeInMainWorld('poehelper', {
   setGggServiceToken(token) {
     return ipcRenderer.invoke('set-ggg-service-token', token);
   },
+  setGggSessionToken(token) {
+    return ipcRenderer.invoke('set-ggg-session-token', token);
+  },
+  setGggSessionAccountName(accountName) {
+    return ipcRenderer.invoke('set-ggg-session-account-name', accountName);
+  },
+  validateGggSession() {
+    return ipcRenderer.invoke('validate-ggg-session');
+  },
+  disconnectGggSession() {
+    return ipcRenderer.invoke('disconnect-ggg-session');
+  },
+  refreshSessionAccount() {
+    return ipcRenderer.invoke('refresh-session-account');
+  },
+  getStashState(query) {
+    return ipcRenderer.invoke('get-stash-state', query);
+  },
+  refreshStashIndex(options) {
+    return ipcRenderer.invoke('refresh-stash-index', options);
+  },
+  priceStashIndex(options) {
+    return ipcRenderer.invoke('price-stash-index', options);
+  },
+  compareStashShoppingList(text) {
+    return ipcRenderer.invoke('compare-stash-shopping-list', text);
+  },
   testGggProfile() {
     return ipcRenderer.invoke('test-ggg-profile');
   },
