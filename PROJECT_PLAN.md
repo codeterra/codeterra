@@ -175,12 +175,12 @@ Goal: make price checking dependable enough to trust during real play.
 
 Work:
 
-- Improve rare modifier grouping and pseudo-stat matching.
-- Add better handling for variant-sensitive items: gem level/quality, alternate/transfigured gems, corrupted uniques, foil/foulborn variants, item level, sockets/links, influences, fractures, synthesis, and enchantments.
-- Add listing outlier warnings and spread/volume confidence.
-- Add clearer commodity-vs-trade-search behavior so irrelevant controls are hidden.
-- Add smarter pricing for boss drops and related outcomes where reliable data exists.
-- Persist useful price/cache diagnostics.
+- ~~Improve rare modifier grouping and pseudo-stat matching.~~
+- ~~Add better handling for variant-sensitive items: gem level/quality, alternate/transfigured gems, corrupted uniques, foil/foulborn variants, item level, sockets/links, influences, fractures, synthesis, and enchantments.~~
+- ~~Add listing outlier warnings and spread/volume confidence.~~
+- ~~Add clearer commodity-vs-trade-search behavior so irrelevant controls are hidden.~~
+- ~~Add smarter pricing for boss drops and related outcomes where reliable data exists.~~
+- ~~Persist useful price/cache diagnostics.~~
 
 Exit criteria:
 

@@ -15,6 +15,8 @@ function createFilterGroup() {
     type_filters: { filters: {} },
     misc_filters: { filters: {} },
     map_filters: { filters: {} },
+    socket_filters: { filters: {} },
+    influence_filters: { filters: {} },
     trade_filters: { filters: {} }
   };
 }
@@ -98,6 +100,19 @@ function createTradeQuery(item, options = {}) {
     };
   }
 
+  if (Number.isFinite(item.gemLevel) && options.includeGemLevel !== false) {
+    filters.misc_filters.filters.gem_level = {
+      min: item.gemLevel,
+      max: item.gemLevel
+    };
+  }
+
+  if (Number.isFinite(item.qualityValue) && item.qualityValue > 0 && options.includeQuality !== false) {
+    filters.misc_filters.filters.quality = {
+      min: item.qualityValue
+    };
+  }
+
   if (item.mapTier && options.includeMapTier !== false) {
     filters.map_filters.filters.map_tier = {
       min: item.mapTier,
@@ -111,6 +126,36 @@ function createTradeQuery(item, options = {}) {
 
   if (item.unidentified && options.includeIdentified !== false) {
     filters.misc_filters.filters.identified = { option: 'false' };
+  }
+
+  if (item.mirrored && options.includeMirrored !== false) {
+    filters.misc_filters.filters.mirrored = { option: 'true' };
+  }
+
+  if (item.fractured && options.includeFractured !== false) {
+    filters.misc_filters.filters.fractured_item = { option: 'true' };
+  }
+
+  if (item.synthesised && options.includeSynthesised !== false) {
+    filters.misc_filters.filters.synthesised_item = { option: 'true' };
+  }
+
+  if (Number.isFinite(item.linkedSockets) && item.linkedSockets >= 5 && options.includeLinkedSockets !== false) {
+    filters.socket_filters.filters.links = {
+      min: item.linkedSockets
+    };
+  } else if (Number.isFinite(item.socketCount) && item.socketCount >= 6 && options.includeSockets !== false) {
+    filters.socket_filters.filters.sockets = {
+      min: item.socketCount
+    };
+  }
+
+  for (const influence of item.influences || []) {
+    if (options.includeInfluence === false) {
+      break;
+    }
+    const filterKey = `${influence}_item`;
+    filters.influence_filters.filters[filterKey] = { option: 'true' };
   }
 
   const compactedFilters = compactFilters(filters);

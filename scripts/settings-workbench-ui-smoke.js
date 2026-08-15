@@ -39,6 +39,7 @@ assertContains(renderer, 'function formatCatalogMetadata');
 assertContains(renderer, 'function refreshCatalogMetadata');
 assertContains(renderer, 'function setLootFilterDirty');
 assertContains(renderer, 'function markLootFilterDirty');
+assertContains(renderer, 'Provider diagnostics:');
 assertContains(renderer, 'skipped economy rows');
 assertContains(renderer, 'Save Profile to keep');
 assertContains(renderer, 'Write Filter File');

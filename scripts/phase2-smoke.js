@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { parseCopiedItem } = require('../src/domain/item-parser');
 const { createTradeQuery } = require('../src/domain/trade-query');
+const { createListingSummary, findItemLine } = require('../src/services/pricing');
 const { findBossDropSet, getChanceBaseType } = require('../src/services/related-outcomes');
 const {
   CHANCE_TARGET_OVERRIDES_METADATA,
@@ -121,7 +122,27 @@ Quality: +20%
 
 assert.equal(gem.category, 'gem');
 assert.equal(gem.gemLevel, 20);
+assert.equal(gem.qualityValue, 20);
 assert.equal(gem.poeNinjaType, 'SkillGem');
+const gemQuery = createTradeQuery(gem);
+assert.deepEqual(gemQuery.query.filters.misc_filters.filters.gem_level, { min: 20, max: 20 });
+assert.deepEqual(gemQuery.query.filters.misc_filters.filters.quality, { min: 20 });
+assert.equal(findItemLine([
+  { name: 'Vaal Lightning Strike', gemLevel: 21, gemQuality: 23, corrupted: true, chaosValue: 500 }
+], gem), undefined);
+const exactGemVariant = parseCopiedItem(`
+Item Class: Skill Gems
+Rarity: Gem
+Vaal Lightning Strike
+--------
+Level: 21
+Quality: +23%
+--------
+Corrupted
+`);
+assert.equal(findItemLine([
+  { name: 'Vaal Lightning Strike', gemLevel: 21, gemQuality: 23, corrupted: true, chaosValue: 500 }
+], exactGemVariant).chaosValue, 500);
 
 const rare = parseCopiedItem(`
 Item Class: Boots
@@ -138,12 +159,80 @@ assert.equal(rare.category, 'rare');
 assert.equal(rare.itemLevel, 84);
 assert.equal(rare.unidentified, true);
 assert.equal(createTradeQuery(rare).query.type, 'Dragonscale Boots');
+assert.deepEqual(createTradeQuery(rare).query.filters.misc_filters.filters.identified, { option: 'false' });
 
 const pricedRare = parseCopiedItem(fixture('rare-boots-priced.txt'));
 
 assert.equal(pricedRare.modifiers.length, 4);
 assert.equal(pricedRare.pseudoGroups.find((group) => group.id === 'pseudo.life').value, 78);
 assert.equal(pricedRare.pseudoGroups.find((group) => group.id === 'pseudo.fire-resistance').value, 34);
+
+const linkedItem = parseCopiedItem(`
+Item Class: Body Armours
+Rarity: Rare
+Dragon Jack
+Astral Plate
+--------
+Quality: +28%
+--------
+Sockets: R-R-R-R-R-R
+--------
+Item Level: 86
+--------
+Shaper Item
+--------
+Fractured Item
+--------
+Corrupted
+`);
+assert.equal(linkedItem.qualityValue, 28);
+assert.equal(linkedItem.socketCount, 6);
+assert.equal(linkedItem.linkedSockets, 6);
+assert.deepEqual(linkedItem.influences, ['shaper']);
+const linkedQuery = createTradeQuery(linkedItem);
+assert.deepEqual(linkedQuery.query.filters.misc_filters.filters.quality, { min: 28 });
+assert.deepEqual(linkedQuery.query.filters.misc_filters.filters.corrupted, { option: 'true' });
+assert.deepEqual(linkedQuery.query.filters.misc_filters.filters.fractured_item, { option: 'true' });
+assert.deepEqual(linkedQuery.query.filters.socket_filters.filters.links, { min: 6 });
+assert.deepEqual(linkedQuery.query.filters.influence_filters.filters.shaper_item, { option: 'true' });
+
+const sixSocketUnlinked = parseCopiedItem(`
+Item Class: Body Armours
+Rarity: Rare
+Phoenix Coat
+Astral Plate
+--------
+Sockets: R-R-R G-G-G
+--------
+Item Level: 84
+`);
+assert.equal(sixSocketUnlinked.socketCount, 6);
+assert.equal(sixSocketUnlinked.linkedSockets, 3);
+assert.deepEqual(createTradeQuery(sixSocketUnlinked).query.filters.socket_filters.filters.sockets, { min: 6 });
+
+const allResAttributes = parseCopiedItem(`
+Item Class: Rings
+Rarity: Rare
+Glyph Circle
+Ruby Ring
+--------
++14 to all Attributes
++16% to all Elemental Resistances
+`);
+assert.equal(allResAttributes.pseudoGroups.find((group) => group.id === 'pseudo.attributes').value, 42);
+assert.equal(allResAttributes.pseudoGroups.find((group) => group.id === 'pseudo.elemental-resistance').value, 48);
+
+const listingSummary = createListingSummary([
+  { amount: 10, currency: 'chaos' },
+  { amount: 11, currency: 'chaos' },
+  { amount: 12, currency: 'chaos' },
+  { amount: 40, currency: 'chaos' },
+  { amount: 90, currency: 'chaos' }
+]);
+assert.equal(listingSummary.median, 12);
+assert.equal(listingSummary.confidence, 'low');
+assert.equal(listingSummary.outlierCount, 2);
+assert.equal(listingSummary.warnings.some((warning) => warning.includes('spread')), true);
 
 const noNumberResistance = parseCopiedItem(`
 Item Class: Boots

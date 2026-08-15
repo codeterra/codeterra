@@ -58,8 +58,16 @@ function createDefaultQueryOptionsState() {
     selectedModifierIds: [],
     includeItemLevel: false,
     includeMapTier: false,
+    includeGemLevel: false,
+    includeQuality: false,
     includeCorrupted: false,
     includeIdentified: false,
+    includeMirrored: false,
+    includeFractured: false,
+    includeSynthesised: false,
+    includeLinkedSockets: false,
+    includeSockets: false,
+    includeInfluence: false,
     useModifierValues: true
   };
 }
@@ -328,8 +336,10 @@ function setListingResult(payload) {
   if (result.summary) {
     listingSummaryShown = true;
     priceValue.textContent = `${formatNumber(result.summary.median)} ${result.summary.currency}`;
-    priceMeta.className = 'price-meta';
-    priceMeta.textContent = `${result.listings.length} instant buyouts - low ${formatNumber(result.summary.min)} / median ${formatNumber(result.summary.median)} / high ${formatNumber(result.summary.max)} ${result.summary.currency}`;
+    priceMeta.className = result.summary.confidence === 'low' ? 'price-meta price-meta--warn' : 'price-meta';
+    const spread = result.summary.spreadRatio ? ` / spread ${result.summary.spreadRatio}x` : '';
+    const warning = result.summary.warnings?.length ? ` - ${result.summary.warnings.join(' ')}` : '';
+    priceMeta.textContent = `${result.listings.length} instant buyouts - low ${formatNumber(result.summary.min)} / median ${formatNumber(result.summary.median)} / high ${formatNumber(result.summary.max)} ${result.summary.currency}${spread}${warning}`;
   }
 
   for (const listing of result.listings) {

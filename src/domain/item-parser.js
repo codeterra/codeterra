@@ -58,6 +58,56 @@ function getNumericLineValue(lines, label) {
   return match ? Number(match[0]) : undefined;
 }
 
+function parsePercentValue(value) {
+  const match = String(value || '').match(/[+-]?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : undefined;
+}
+
+function parseSocketInfo(lines) {
+  const sockets = getLineValue(lines, 'Sockets');
+  if (!sockets) {
+    return {
+      sockets,
+      socketCount: undefined,
+      linkedSockets: undefined,
+      socketGroups: []
+    };
+  }
+
+  const groups = sockets
+    .split(/\s+/)
+    .map((group) => group.trim())
+    .filter(Boolean);
+  const socketGroups = groups.map((group) => ({
+    text: group,
+    count: (group.match(/[A-Z]/g) || []).length
+  }));
+  const socketCount = socketGroups.reduce((total, group) => total + group.count, 0);
+  const linkedSockets = socketGroups.reduce((max, group) => Math.max(max, group.count), 0);
+
+  return {
+    sockets,
+    socketCount,
+    linkedSockets,
+    socketGroups
+  };
+}
+
+function parseInfluences(lines) {
+  const influencePatterns = [
+    ['shaper', /\bShaper Item\b/i],
+    ['elder', /\bElder Item\b/i],
+    ['crusader', /\bCrusader Item\b/i],
+    ['hunter', /\bHunter Item\b/i],
+    ['redeemer', /\bRedeemer Item\b/i],
+    ['warlord', /\bWarlord Item\b/i]
+  ];
+
+  return influencePatterns
+    .filter(([, pattern]) => lines.some((line) => pattern.test(line)))
+    .map(([id]) => id);
+}
+
 function getNameBlock(lines, rarityLine) {
   if (!rarityLine) {
     return [];
@@ -182,12 +232,15 @@ function parseCopiedItem(rawText) {
   const mapTier = getNumericLineValue(lines, 'Map Tier');
   const gemLevel = getNumericLineValue(lines, 'Level');
   const quality = getLineValue(lines, 'Quality');
+  const qualityValue = parsePercentValue(quality);
   const stackSize = getLineValue(lines, 'Stack Size');
+  const socketInfo = parseSocketInfo(lines);
   const corrupted = lines.includes('Corrupted');
   const unidentified = lines.includes('Unidentified');
   const mirrored = lines.includes('Mirrored');
   const synthesised = lines.includes('Synthesised Item');
   const fractured = lines.some((line) => line.includes('Fractured'));
+  const influences = parseInfluences(lines);
 
   let name = 'Clipboard text';
   let baseType;
@@ -228,12 +281,18 @@ function parseCopiedItem(rawText) {
     mapTier,
     gemLevel,
     quality,
+    qualityValue,
     stackSize,
+    sockets: socketInfo.sockets,
+    socketCount: socketInfo.socketCount,
+    linkedSockets: socketInfo.linkedSockets,
+    socketGroups: socketInfo.socketGroups,
     corrupted,
     unidentified,
     mirrored,
     synthesised,
     fractured,
+    influences,
     category,
     poeNinjaType,
     modifiers,

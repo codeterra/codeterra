@@ -9,6 +9,7 @@ const state = {
   lastLookup: undefined,
   lastLootFilterWrite: undefined
 };
+const diagnosticProviders = new Map();
 
 function recordEvent(type, details = {}) {
   state.events.unshift({
@@ -57,10 +58,20 @@ function recordApiError(source, error, classified) {
 }
 
 function getDiagnostics() {
+  const providerDiagnostics = {};
+  for (const [id, provider] of diagnosticProviders.entries()) {
+    try {
+      providerDiagnostics[id] = sanitize(provider());
+    } catch (error) {
+      providerDiagnostics[id] = { error: error.message || String(error) };
+    }
+  }
+
   return {
     ...state,
     events: [...state.events],
-    lastCopiedTextPreview: state.lastCopiedText
+    lastCopiedTextPreview: state.lastCopiedText,
+    providers: providerDiagnostics
   };
 }
 
@@ -73,6 +84,13 @@ function clearDiagnostics() {
   state.lastLootFilterWrite = undefined;
   recordEvent('diagnostics-cleared');
   return getDiagnostics();
+}
+
+function registerDiagnosticProvider(id, provider) {
+  if (!id || typeof provider !== 'function') {
+    return;
+  }
+  diagnosticProviders.set(id, provider);
 }
 
 function summarizeItem(item) {
@@ -90,6 +108,16 @@ function summarizeItem(item) {
     poeNinjaType: item.poeNinjaType,
     itemLevel: item.itemLevel,
     mapTier: item.mapTier,
+    gemLevel: item.gemLevel,
+    qualityValue: item.qualityValue,
+    socketCount: item.socketCount,
+    linkedSockets: item.linkedSockets,
+    corrupted: item.corrupted,
+    unidentified: item.unidentified,
+    mirrored: item.mirrored,
+    fractured: item.fractured,
+    synthesised: item.synthesised,
+    influences: item.influences,
     modifiers: Array.isArray(item.modifiers) ? item.modifiers.length : 0,
     pseudoGroups: Array.isArray(item.pseudoGroups) ? item.pseudoGroups.length : 0,
     mapWarnings: Array.isArray(item.mapWarnings) ? item.mapWarnings.length : 0,
@@ -133,5 +161,6 @@ module.exports = {
   recordLootFilterWrite,
   recordLookup,
   recordParsedItem,
+  registerDiagnosticProvider,
   summarizeItem
 };

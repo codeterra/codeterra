@@ -3184,6 +3184,11 @@ function formatDiagnostics(diagnostics) {
     lines.push(diagnostics.lastCopiedTextPreview);
   }
 
+  if (diagnostics.providers && Object.keys(diagnostics.providers).length) {
+    lines.push('Provider diagnostics:');
+    lines.push(JSON.stringify(diagnostics.providers, null, 2));
+  }
+
   if (diagnostics.events?.length) {
     lines.push('Recent events:');
     lines.push(JSON.stringify(diagnostics.events.slice(0, 12), null, 2));

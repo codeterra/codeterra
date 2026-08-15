@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { parseCopiedItem } = require('./domain/item-parser');
 const { createConfidenceHints } = require('./domain/item-intelligence');
-const { createOfficialTradeSearch, createTradeQuery, getInstantBuyoutListings, getSummaryPrice } = require('./services/pricing');
+const { createOfficialTradeSearch, createTradeQuery, getInstantBuyoutListings, getPricingDiagnostics, getSummaryPrice } = require('./services/pricing');
 const { DEFAULT_SETTINGS, readSettings, writeSettings } = require('./services/settings');
 const { matchTradeStats } = require('./services/trade-stats');
 const { beginAuthorization, fetchCurrencyExchange, gggApiFetch, refreshToken } = require('./services/ggg-oauth');
@@ -38,7 +38,8 @@ const {
   recordEvent,
   recordLootFilterWrite,
   recordLookup,
-  recordParsedItem
+  recordParsedItem,
+  registerDiagnosticProvider
 } = require('./services/diagnostics');
 
 const POE_PROCESS_PATTERN = 'PathOfExile|PathOfExileSteam|PathOfExile_x64|PathOfExile_x64Steam';
@@ -62,6 +63,8 @@ let updateState = {
   downloaded: false,
   canCheck: false
 };
+
+registerDiagnosticProvider('pricing', getPricingDiagnostics);
 
 function getPublicSettings() {
   const token = settings?.oauth?.token;
@@ -708,7 +711,8 @@ async function showLookupOverlay({ copyHighlightedItem = false } = {}) {
     mode: 'price',
     league: lookupLeague,
     item: item.searchLabel || item.name,
-    category: item.category
+    category: item.category,
+    queryOptions: currentLookup.queryOptions
   });
 
   overlayWindow.webContents.send('lookup-result', {
@@ -730,6 +734,15 @@ async function showLookupOverlay({ copyHighlightedItem = false } = {}) {
         return;
       }
 
+      recordEvent('summary-price-result', {
+        lookupId,
+        status: price.status,
+        source: price.result?.source,
+        kind: price.result?.kind,
+        chaosValue: price.result?.chaosValue,
+        confidence: price.result?.confidence,
+        cacheTtlSeconds: price.cacheTtlSeconds
+      });
       overlayWindow.webContents.send('price-result', {
         lookupId,
         league: lookupLeague,
@@ -762,6 +775,16 @@ async function showLookupOverlay({ copyHighlightedItem = false } = {}) {
           return;
         }
 
+        recordEvent('instant-buyout-result', {
+          lookupId,
+          status: listings.status,
+          total: listings.total,
+          fetched: listings.listings?.length,
+          median: listings.summary?.median,
+          currency: listings.summary?.currency,
+          confidence: listings.summary?.confidence,
+          warnings: listings.summary?.warnings
+        });
         overlayWindow.webContents.send('listing-result', {
           lookupId,
           league: lookupLeague,
@@ -814,7 +837,8 @@ async function showRelatedOutcomesOverlay({ copyHighlightedItem = false } = {}) 
     mode: 'related',
     league: lookupLeague,
     item: item.searchLabel || item.name,
-    category: item.category
+    category: item.category,
+    queryOptions: currentLookup.queryOptions
   });
 
   overlayWindow.webContents.send('lookup-result', {
@@ -838,6 +862,15 @@ async function showRelatedOutcomesOverlay({ copyHighlightedItem = false } = {}) 
         return;
       }
 
+      recordEvent('related-outcomes-result', {
+        lookupId,
+        status: related.status,
+        mode: related.mode,
+        source: related.source,
+        outcomes: related.outcomes?.length,
+        required: related.required?.length,
+        notes: related.notes?.length
+      });
       overlayWindow.webContents.send('related-outcomes-result', {
         lookupId,
         league: lookupLeague,
@@ -911,8 +944,16 @@ function createDefaultQueryOptions(item) {
     selectedModifierIds,
     includeItemLevel: item.category === 'rare' || item.category === 'magic' || item.synthesised || item.fractured,
     includeMapTier: Boolean(item.mapTier),
+    includeGemLevel: item.category === 'gem' && Number.isFinite(item.gemLevel),
+    includeQuality: Number.isFinite(item.qualityValue) && item.qualityValue > 0,
     includeCorrupted: Boolean(item.corrupted),
     includeIdentified: Boolean(item.unidentified),
+    includeMirrored: Boolean(item.mirrored),
+    includeFractured: Boolean(item.fractured),
+    includeSynthesised: Boolean(item.synthesised),
+    includeLinkedSockets: Number.isFinite(item.linkedSockets) && item.linkedSockets >= 5,
+    includeSockets: Number.isFinite(item.socketCount) && item.socketCount >= 6,
+    includeInfluence: Array.isArray(item.influences) && item.influences.length > 0,
     useModifierValues: true,
     modifierTolerance: 0.15
   };

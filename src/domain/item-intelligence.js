@@ -233,6 +233,13 @@ function createPseudoGroups(modifiers = []) {
       addPseudoMatch(groups, 'pseudo.lightning-resistance', 'Total lightning resistance', value, modifier.id);
     }
 
+    if (/all elemental resistances/i.test(text)) {
+      addPseudoMatch(groups, 'pseudo.fire-resistance', 'Total fire resistance', value, modifier.id);
+      addPseudoMatch(groups, 'pseudo.cold-resistance', 'Total cold resistance', value, modifier.id);
+      addPseudoMatch(groups, 'pseudo.lightning-resistance', 'Total lightning resistance', value, modifier.id);
+      addPseudoMatch(groups, 'pseudo.elemental-resistance', 'Total elemental resistance', value * 3, modifier.id);
+    }
+
     if (/chaos resistance/i.test(text)) {
       addPseudoMatch(groups, 'pseudo.chaos-resistance', 'Total chaos resistance', value, modifier.id);
     }
@@ -247,6 +254,13 @@ function createPseudoGroups(modifiers = []) {
 
     if (/intelligence/i.test(text)) {
       addPseudoMatch(groups, 'pseudo.intelligence', 'Total intelligence', value, modifier.id);
+    }
+
+    if (/all attributes/i.test(text)) {
+      addPseudoMatch(groups, 'pseudo.strength', 'Total strength', value, modifier.id);
+      addPseudoMatch(groups, 'pseudo.dexterity', 'Total dexterity', value, modifier.id);
+      addPseudoMatch(groups, 'pseudo.intelligence', 'Total intelligence', value, modifier.id);
+      addPseudoMatch(groups, 'pseudo.attributes', 'Total attributes', value * 3, modifier.id);
     }
 
     if (/movement speed/i.test(text)) {
@@ -301,6 +315,22 @@ function createConfidenceHints(item, price) {
 
   if (item.synthesised || item.fractured) {
     hints.push({ severity: 'info', text: 'Synthesised and fractured bases can have crafting value even without strong explicit mods.' });
+  }
+
+  if (item.category === 'gem' && (item.gemLevel || item.qualityValue)) {
+    hints.push({ severity: 'info', text: 'Gem searches include level and quality when present to avoid matching low-value variants.' });
+  }
+
+  if (item.linkedSockets >= 5) {
+    hints.push({ severity: 'info', text: `${item.linkedSockets}-linked items are searched with link count enabled.` });
+  }
+
+  if (item.socketCount >= 6 && item.linkedSockets < 5) {
+    hints.push({ severity: 'info', text: 'Six-socket items are searched with socket count enabled.' });
+  }
+
+  if (Array.isArray(item.influences) && item.influences.length > 0) {
+    hints.push({ severity: 'info', text: `Influenced item search includes: ${item.influences.join(', ')}.` });
   }
 
   if (item.statMatchWarning) {

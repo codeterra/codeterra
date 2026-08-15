@@ -7,6 +7,13 @@ const TRADE_BASE_URL = 'https://www.pathofexile.com';
 const CACHE_TTL_MS = 15 * 60 * 1000;
 
 const overviewCache = new Map();
+const pricingStats = {
+  overviewCacheHits: 0,
+  overviewCacheMisses: 0,
+  lastOverviewFetch: undefined,
+  lastTradeSearch: undefined,
+  lastListingFetch: undefined
+};
 
 function normalizeName(value) {
   return String(value || '').trim().toLowerCase();
@@ -68,9 +75,11 @@ async function fetchPoeNinjaOverview(league, type, endpoint) {
   const cacheKey = `${endpoint}:${league}:${type}`;
   const cached = getCachedOverview(cacheKey);
   if (cached) {
+    pricingStats.overviewCacheHits += 1;
     return cached;
   }
 
+  pricingStats.overviewCacheMisses += 1;
   const params = new URLSearchParams({
     league,
     type,
@@ -78,6 +87,13 @@ async function fetchPoeNinjaOverview(league, type, endpoint) {
   });
   const data = await fetchJson(`${POE_NINJA_BASE_URL}/${endpoint}?${params.toString()}`);
   setCachedOverview(cacheKey, data);
+  pricingStats.lastOverviewFetch = {
+    league,
+    type,
+    endpoint,
+    rows: Array.isArray(data?.lines) ? data.lines.length : undefined,
+    fetchedAt: new Date().toISOString()
+  };
   return data;
 }
 
@@ -137,12 +153,52 @@ function findItemLine(lines, item) {
       return false;
     }
 
-    if (!baseType || !line.baseType) {
-      return true;
+    if (baseType && line.baseType && normalizeName(line.baseType) !== baseType) {
+      return false;
     }
 
-    return normalizeName(line.baseType) === baseType;
+    return rowMatchesCopiedItemVariant(line, item);
   });
+}
+
+function rowMatchesCopiedItemVariant(line, item) {
+  const variantChecks = [
+    ['gemLevel', 'gemLevel', 'exact'],
+    ['gemQuality', 'qualityValue', 'exact'],
+    ['quality', 'qualityValue', 'minimum'],
+    ['links', 'linkedSockets', 'minimum']
+  ];
+
+  for (const [lineKey, itemKey, mode] of variantChecks) {
+    const providerValue = normalizePositiveNumber(line[lineKey]);
+    if (providerValue === undefined) {
+      continue;
+    }
+
+    const itemValue = normalizePositiveNumber(item[itemKey]);
+    if (itemValue === undefined) {
+      return false;
+    }
+
+    if (mode === 'exact' && itemValue !== providerValue) {
+      return false;
+    }
+
+    if (mode === 'minimum' && itemValue < providerValue) {
+      return false;
+    }
+  }
+
+  if (typeof line.corrupted === 'boolean' && Boolean(item.corrupted) !== line.corrupted) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizePositiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : undefined;
 }
 
 function formatNinjaResult(line, type, endpoint) {
@@ -295,6 +351,15 @@ async function createOfficialTradeSearch(item, league, queryOptions = {}) {
     method: 'POST',
     body: JSON.stringify(query)
   });
+  pricingStats.lastTradeSearch = {
+    item: item.searchLabel || item.name,
+    category: item.category,
+    league,
+    total: response.total,
+    resultCount: Array.isArray(response.result) ? response.result.length : undefined,
+    searchedAt: new Date().toISOString(),
+    query
+  };
 
   if (!response.id) {
     return {
@@ -368,13 +433,44 @@ function createListingSummary(listings) {
   const min = amounts[0];
   const max = amounts[amounts.length - 1];
   const currency = source[0].currency;
+  const lowerQuartile = amounts[Math.floor((amounts.length - 1) * 0.25)];
+  const upperQuartile = amounts[Math.floor((amounts.length - 1) * 0.75)];
+  const spreadRatio = median > 0 ? Math.round((max / median) * 100) / 100 : undefined;
+  const undercutRatio = median > 0 ? Math.round((min / median) * 100) / 100 : undefined;
+  const outlierCount = amounts.filter((amount) => (
+    median > 0 && (amount >= median * 3 || amount <= median * 0.4)
+  )).length;
+  const warnings = [];
+
+  if (amounts.length < 5) {
+    warnings.push('Very low instant-buyout sample size.');
+  } else if (amounts.length < 10) {
+    warnings.push('Low instant-buyout sample size.');
+  }
+
+  if (spreadRatio !== undefined && spreadRatio >= 4) {
+    warnings.push('Very wide listing spread; verify manually before pricing.');
+  } else if (spreadRatio !== undefined && spreadRatio >= 2.5) {
+    warnings.push('Wide listing spread; estimate is directional.');
+  }
+
+  if (outlierCount > 0) {
+    warnings.push(`${outlierCount} likely listing outlier${outlierCount === 1 ? '' : 's'} in fetched results.`);
+  }
 
   return {
     count: source.length,
     currency,
     min,
     median,
-    max
+    max,
+    lowerQuartile,
+    upperQuartile,
+    spreadRatio,
+    undercutRatio,
+    outlierCount,
+    confidence: warnings.length > 0 ? 'low' : 'normal',
+    warnings
   };
 }
 
@@ -425,6 +521,18 @@ async function getInstantBuyoutListings(item, league, queryOptions = {}, limit =
   }
 
   const limitedListings = listings.slice(0, limit);
+  const summary = createListingSummary(limitedListings);
+  pricingStats.lastListingFetch = {
+    item: item.searchLabel || item.name,
+    category: item.category,
+    league,
+    searchId: search.id,
+    total: search.total,
+    fetched: limitedListings.length,
+    requestedLimit: limit,
+    summary,
+    fetchedAt: new Date().toISOString()
+  };
 
   return {
     status: 'ready',
@@ -432,7 +540,19 @@ async function getInstantBuyoutListings(item, league, queryOptions = {}, limit =
     total: search.total,
     url: search.url,
     listings: limitedListings,
-    summary: createListingSummary(limitedListings)
+    summary
+  };
+}
+
+function getPricingDiagnostics() {
+  return {
+    cacheTtlSeconds: Math.round(CACHE_TTL_MS / 1000),
+    overviewCacheSize: overviewCache.size,
+    overviewCacheHits: pricingStats.overviewCacheHits,
+    overviewCacheMisses: pricingStats.overviewCacheMisses,
+    lastOverviewFetch: pricingStats.lastOverviewFetch,
+    lastTradeSearch: pricingStats.lastTradeSearch,
+    lastListingFetch: pricingStats.lastListingFetch
   };
 }
 
@@ -444,5 +564,8 @@ module.exports = {
   fetchPoeNinjaOverview,
   getPoeNinjaEndpoint,
   getExchangeItemName,
+  getPricingDiagnostics,
+  createListingSummary,
+  findItemLine,
   USER_AGENT
 };
