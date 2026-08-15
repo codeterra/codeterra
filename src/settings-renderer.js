@@ -112,6 +112,8 @@ const settingsTabButtons = [...document.querySelectorAll('[data-settings-tab]')]
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')];
 const lootTabButtons = [...document.querySelectorAll('[data-loot-tab]')];
 const lootSections = [...document.querySelectorAll('[data-loot-section]')];
+const equipmentTabButtons = [...document.querySelectorAll('[data-equipment-tab]')];
+const equipmentPanes = [...document.querySelectorAll('[data-equipment-pane]')];
 const chanceBasesEnabledInput = document.querySelector('#chance-bases-enabled-input');
 const chanceBaselineStyle = document.querySelector('#chance-baseline-style');
 const chanceBaseInput = document.querySelector('#chance-base-input');
@@ -237,6 +239,29 @@ const FLASK_BASE_TYPES = [
   'Jade Flask',
   'Quartz Flask'
 ];
+const EQUIPMENT_SLOT_PATTERNS = [
+  {
+    id: 'helmets',
+    label: 'Helmets',
+    test: /\b(?:Helmet|Burgonet|Circlet|Cage|Crown|Coif|Bascinet|Sallet|Tricorne|Cap|Hood|Pelt|Mask|Crest|Hat)\b/i
+  },
+  {
+    id: 'body-armours',
+    label: 'Body Armours',
+    test: /\b(?:Plate|Vest|Vestment|Robe|Regalia|Silks|Wrap|Garb|Leather|Tunic|Jerkin|Pelt|Doublet|Armour|Raiment|Jacket|Coat|Chainmail|Ringmail|Hauberk|Brigandine|Lamellar)\b/i
+  },
+  {
+    id: 'gloves',
+    label: 'Gloves',
+    test: /\b(?:Gloves|Gauntlets|Mitts)\b/i
+  },
+  {
+    id: 'boots',
+    label: 'Boots',
+    test: /\b(?:Boots|Greaves|Slippers|Treads|Shoes)\b/i
+  }
+];
+const EQUIPMENT_SLOT_ORDER = new Map(EQUIPMENT_SLOT_PATTERNS.map((slot, index) => [slot.id, index]));
 const CATEGORY_RULE_DEFINITIONS = {
   uniques: {
     label: 'Unique',
@@ -1475,19 +1500,21 @@ function renderRareEquipment(profile, groups) {
   rareEquipmentEnabledInput.checked = Boolean(rareEquipment.enabled);
   showNormalItemsInput.checked = rarityVisibility.normal !== false;
   showMagicItemsInput.checked = rarityVisibility.magic !== false;
-  renderEquipmentGroupList(
+  renderEquipmentSlotMatrix(
     rareArmorGroupList,
     groups?.armor || [],
     new Set(rareEquipment.armorGroups || []),
     'armorGroup',
-    baseSelections.armor || {}
+    baseSelections.armor || {},
+    { splitArmorSlots: true }
   );
-  renderEquipmentGroupList(
+  renderEquipmentSlotMatrix(
     rareShieldGroupList,
     groups?.shields || [],
     new Set(rareEquipment.shieldGroups || []),
     'shieldGroup',
-    baseSelections.shields || {}
+    baseSelections.shields || {},
+    { fallbackSlotLabel: 'Shields' }
   );
   renderEquipmentGroupList(
     rareWeaponGroupList,
@@ -1858,22 +1885,29 @@ function addSpecialItemFromInput() {
 
 function renderEquipmentGroupList(container, groups, selected, field, selectedBasesByGroup = {}) {
   container.innerHTML = '';
+  container.classList.remove('equipment-group-list--matrix');
   for (const group of groups) {
     const card = document.createElement('div');
     card.className = 'equipment-group';
     card.classList.toggle('is-open', selected.has(group.id));
     card.dataset.equipmentGroupId = group.id;
 
-    const label = document.createElement('label');
-    label.className = 'equipment-group__header';
+    const header = document.createElement('div');
+    header.className = 'equipment-group__header';
     const input = document.createElement('input');
     input.type = 'checkbox';
+    input.id = `${field}-${group.id}-visibility`;
     input.dataset.rareEquipmentField = field;
     input.value = group.id;
     input.checked = selected.has(group.id);
-    label.appendChild(input);
-    label.appendChild(document.createTextNode(`${group.label}${group.bases?.length ? ` (${group.bases.length})` : ''}`));
-    card.appendChild(label);
+    const label = document.createElement('label');
+    label.htmlFor = input.id;
+    label.className = 'equipment-group__label';
+    label.title = `${group.label}${group.bases?.length ? ` (${group.bases.length})` : ''}`;
+    label.textContent = label.title;
+    header.appendChild(input);
+    header.appendChild(label);
+    card.appendChild(header);
 
     if (group.bases?.length) {
       const baseGrid = document.createElement('div');
@@ -1882,17 +1916,51 @@ function renderEquipmentGroupList(container, groups, selected, field, selectedBa
         ? new Set(selectedBasesByGroup[group.id])
         : new Set(group.bases);
 
-      for (const base of group.bases) {
-        const baseLabel = document.createElement('label');
-        const baseInput = document.createElement('input');
-        baseInput.type = 'checkbox';
-        baseInput.dataset.equipmentBase = 'true';
-        baseInput.dataset.equipmentGroupId = group.id;
-        baseInput.value = base;
-        baseInput.checked = selectedBases.has(base);
-        baseLabel.appendChild(baseInput);
-        baseLabel.appendChild(document.createTextNode(base));
-        baseGrid.appendChild(baseLabel);
+      for (const section of getEquipmentBaseSections(group, field)) {
+        const sectionNode = document.createElement('section');
+        sectionNode.className = 'equipment-base-section';
+        sectionNode.dataset.equipmentBaseSection = 'true';
+
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'equipment-base-section__header';
+        const sectionTitle = document.createElement('div');
+        sectionTitle.className = 'equipment-base-section__title';
+        sectionHeader.appendChild(sectionTitle);
+
+        const actions = document.createElement('div');
+        actions.className = 'equipment-base-actions';
+        for (const [action, labelText] of [
+          ['all', 'All'],
+          ['top2', 'Top 2'],
+          ['top5', 'Top 5'],
+          ['none', 'None']
+        ]) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.equipmentBaseAction = action;
+          button.textContent = labelText;
+          actions.appendChild(button);
+        }
+        sectionHeader.appendChild(actions);
+        sectionNode.appendChild(sectionHeader);
+
+        const options = document.createElement('div');
+        options.className = 'equipment-base-options';
+        for (const base of section.bases) {
+          const baseLabel = document.createElement('label');
+          const baseInput = document.createElement('input');
+          baseInput.type = 'checkbox';
+          baseInput.dataset.equipmentBase = 'true';
+          baseInput.dataset.equipmentGroupId = group.id;
+          baseInput.value = base;
+          baseInput.checked = selectedBases.has(base);
+          baseLabel.appendChild(baseInput);
+          baseLabel.appendChild(document.createTextNode(base));
+          options.appendChild(baseLabel);
+        }
+        sectionNode.appendChild(options);
+        updateEquipmentBaseSectionTitle(sectionNode, section.label);
+        baseGrid.appendChild(sectionNode);
       }
 
       card.appendChild(baseGrid);
@@ -1900,6 +1968,276 @@ function renderEquipmentGroupList(container, groups, selected, field, selectedBa
 
     container.appendChild(card);
   }
+}
+
+function renderEquipmentSlotMatrix(container, groups, selected, field, selectedBasesByGroup = {}, options = {}) {
+  container.innerHTML = '';
+  container.classList.add('equipment-group-list--matrix');
+
+  const attributePicker = document.createElement('section');
+  attributePicker.className = 'equipment-attribute-picker';
+  const attributeTitle = document.createElement('div');
+  attributeTitle.className = 'equipment-attribute-picker__title';
+  attributeTitle.textContent = 'Defensive Attributes';
+  attributePicker.appendChild(attributeTitle);
+
+  const attributeGrid = document.createElement('div');
+  attributeGrid.className = 'equipment-attribute-grid';
+  for (const group of groups) {
+    const label = document.createElement('label');
+    label.className = 'equipment-attribute-option';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.dataset.rareEquipmentField = field;
+    input.value = group.id;
+    input.checked = selected.has(group.id);
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(group.label));
+    attributeGrid.appendChild(label);
+  }
+  attributePicker.appendChild(attributeGrid);
+  container.appendChild(attributePicker);
+
+  const selectedGroups = groups.filter((group) => selected.has(group.id));
+  const slots = getEquipmentSlotRows(selectedGroups, selectedBasesByGroup, options);
+  if (!slots.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Select one or more defensive attributes to choose bases by slot.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const slotList = document.createElement('div');
+  slotList.className = 'equipment-slot-list';
+  for (const slot of slots) {
+    const sectionNode = document.createElement('section');
+    sectionNode.className = 'equipment-base-section equipment-slot-row';
+    sectionNode.dataset.equipmentBaseSection = 'true';
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.className = 'equipment-base-section__header';
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'equipment-base-section__title';
+    sectionHeader.appendChild(sectionTitle);
+
+    const actions = document.createElement('div');
+    actions.className = 'equipment-base-actions';
+    for (const [action, labelText] of [
+      ['all', 'All'],
+      ['top2', 'Top 2'],
+      ['top5', 'Top 5'],
+      ['none', 'None']
+    ]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.equipmentBaseAction = action;
+      button.textContent = labelText;
+      actions.appendChild(button);
+    }
+    sectionHeader.appendChild(actions);
+    sectionNode.appendChild(sectionHeader);
+
+    const optionsGrid = document.createElement('div');
+    optionsGrid.className = 'equipment-base-options equipment-base-options--wide';
+    for (const item of slot.items) {
+      const baseLabel = document.createElement('label');
+      baseLabel.className = 'equipment-base-option';
+      const baseInput = document.createElement('input');
+      baseInput.type = 'checkbox';
+      baseInput.dataset.equipmentBase = 'true';
+      baseInput.dataset.equipmentGroupId = item.group.id;
+      baseInput.value = item.base;
+      baseInput.checked = item.selected;
+      const text = document.createElement('span');
+      text.className = 'equipment-base-option__name';
+      text.textContent = item.base;
+      const meta = document.createElement('span');
+      meta.className = 'equipment-base-option__meta';
+      meta.textContent = formatEquipmentBaseMeta(item.base, item.group.label);
+      baseLabel.appendChild(baseInput);
+      baseLabel.appendChild(text);
+      baseLabel.appendChild(meta);
+      optionsGrid.appendChild(baseLabel);
+    }
+
+    sectionNode.appendChild(optionsGrid);
+    updateEquipmentBaseSectionTitle(sectionNode, slot.label);
+    slotList.appendChild(sectionNode);
+  }
+  container.appendChild(slotList);
+}
+
+function getEquipmentSlotRows(groups, selectedBasesByGroup = {}, options = {}) {
+  const slots = new Map();
+  for (const group of groups) {
+    const groupBases = group.bases || [];
+    const selectedBases = Array.isArray(selectedBasesByGroup[group.id])
+      ? new Set(selectedBasesByGroup[group.id])
+      : new Set(groupBases);
+
+    for (const base of groupBases) {
+      const slot = options.splitArmorSlots
+        ? classifyArmorBase(base)
+        : { id: options.fallbackSlotId || 'bases', label: options.fallbackSlotLabel || 'Bases' };
+      if (!slots.has(slot.id)) {
+        slots.set(slot.id, { ...slot, items: [] });
+      }
+      slots.get(slot.id).items.push({
+        base,
+        group,
+        selected: selectedBases.has(base),
+        sortIndex: groupBases.indexOf(base)
+      });
+    }
+  }
+
+  return [...slots.values()]
+    .sort((left, right) => (
+      (EQUIPMENT_SLOT_ORDER.get(left.id) ?? 99) - (EQUIPMENT_SLOT_ORDER.get(right.id) ?? 99)
+    ))
+    .map((slot) => ({
+      ...slot,
+      items: sortEquipmentSlotItems(slot.items)
+    }));
+}
+
+function sortEquipmentSlotItems(items) {
+  return [...items].sort((left, right) => {
+    const requirementSort = compareEquipmentBaseTier(left.base, right.base);
+    if (requirementSort !== 0) {
+      return requirementSort;
+    }
+    if (left.sortIndex !== right.sortIndex) {
+      return left.sortIndex - right.sortIndex;
+    }
+    return left.group.label.localeCompare(right.group.label);
+  });
+}
+
+function getEquipmentBaseSections(group, field) {
+  if (field === 'armorGroup') {
+    const sections = new Map();
+    for (const base of sortEquipmentBasesForProgression(group.bases || [])) {
+      const slot = classifyArmorBase(base);
+      if (!sections.has(slot.id)) {
+        sections.set(slot.id, { ...slot, bases: [] });
+      }
+      sections.get(slot.id).bases.push(base);
+    }
+    return [...sections.values()].sort((left, right) => (
+      (EQUIPMENT_SLOT_ORDER.get(left.id) ?? 99) - (EQUIPMENT_SLOT_ORDER.get(right.id) ?? 99)
+    ));
+  }
+
+  return [{
+    id: group.id,
+    label: field === 'weaponGroup' ? 'Bases' : group.label,
+    bases: sortEquipmentBasesForProgression(group.bases || [])
+  }];
+}
+
+function classifyArmorBase(base) {
+  for (const slot of EQUIPMENT_SLOT_PATTERNS) {
+    if (slot.test.test(base)) {
+      return { id: slot.id, label: slot.label };
+    }
+  }
+  return { id: 'other-armour', label: 'Other Armour' };
+}
+
+function sortEquipmentBasesForProgression(bases) {
+  return [...bases].sort((left, right) => {
+    const requirementSort = compareEquipmentBaseTier(left, right);
+    if (requirementSort !== 0) {
+      return requirementSort;
+    }
+    return bases.indexOf(left) - bases.indexOf(right);
+  });
+}
+
+function compareEquipmentBaseTier(left, right) {
+  const leftRequirement = getEquipmentBaseRequirement(left);
+  const rightRequirement = getEquipmentBaseRequirement(right);
+  if (leftRequirement && rightRequirement) {
+    return (leftRequirement.level - rightRequirement.level)
+      || ((leftRequirement.defenses || 0) - (rightRequirement.defenses || 0))
+      || String(left).localeCompare(String(right));
+  }
+  if (leftRequirement) {
+    return 1;
+  }
+  if (rightRequirement) {
+    return -1;
+  }
+  return 0;
+}
+
+function getEquipmentBaseRequirement(base) {
+  return lootFilterState?.equipmentBaseRequirements?.[base];
+}
+
+function formatEquipmentBaseMeta(base, groupLabel) {
+  const requirement = getEquipmentBaseRequirement(base);
+  if (!requirement) {
+    return groupLabel;
+  }
+  return `Lvl ${requirement.level} - ${groupLabel}`;
+}
+
+function updateEquipmentBaseSectionTitle(sectionNode, label) {
+  const inputs = [...sectionNode.querySelectorAll('[data-equipment-base="true"]')];
+  const selected = inputs.filter((input) => input.checked).length;
+  const title = sectionNode.querySelector('.equipment-base-section__title');
+  if (title) {
+    title.textContent = `${label} (${selected}/${inputs.length})`;
+  }
+}
+
+function applyEquipmentBaseAction(sectionNode, action) {
+  if (!sectionNode) {
+    return;
+  }
+
+  const inputs = [...sectionNode.querySelectorAll('[data-equipment-base="true"]')];
+  if (!inputs.length) {
+    return;
+  }
+
+  if (action === 'all' || action === 'none') {
+    for (const input of inputs) {
+      input.checked = action === 'all';
+    }
+    updateEquipmentBaseSectionTitle(sectionNode, getEquipmentBaseSectionLabel(sectionNode));
+    return;
+  }
+
+  const keepCount = action === 'top2' ? 2 : action === 'top5' ? 5 : 0;
+  const groups = new Map();
+  for (const input of inputs) {
+    const groupId = input.dataset.equipmentGroupId || 'default';
+    if (!groups.has(groupId)) {
+      groups.set(groupId, []);
+    }
+    groups.get(groupId).push(input);
+  }
+
+  const selectedInputs = new Set();
+  for (const groupInputs of groups.values()) {
+    for (const input of groupInputs.slice(Math.max(groupInputs.length - keepCount, 0))) {
+      selectedInputs.add(input);
+    }
+  }
+
+  for (const input of inputs) {
+    input.checked = selectedInputs.has(input);
+  }
+  updateEquipmentBaseSectionTitle(sectionNode, getEquipmentBaseSectionLabel(sectionNode));
+}
+
+function getEquipmentBaseSectionLabel(sectionNode) {
+  const title = sectionNode.querySelector('.equipment-base-section__title')?.textContent || 'Bases';
+  return title.replace(/\s+\(\d+\/\d+\)$/, '');
 }
 
 function renderCurrencyTiers(tiers) {
@@ -2527,16 +2865,20 @@ function collectRareEquipment() {
 
 function collectEquipmentBaseSelections(container, field) {
   const selections = {};
+  const baseInputs = [...container.querySelectorAll('[data-equipment-base="true"]')];
   for (const groupInput of container.querySelectorAll(`[data-rare-equipment-field="${field}"]`)) {
     if (!groupInput.checked) {
       continue;
     }
 
     const card = groupInput.closest('[data-equipment-group-id]');
-    const bases = [...(card?.querySelectorAll('[data-equipment-base="true"]') || [])]
+    const scopedInputs = card?.querySelector('[data-equipment-base="true"]')
+      ? [...card.querySelectorAll('[data-equipment-base="true"]')]
+      : baseInputs.filter((input) => input.dataset.equipmentGroupId === groupInput.value);
+    const bases = scopedInputs
       .filter((input) => input.checked)
       .map((input) => input.value);
-    if (bases.length > 0 || card?.querySelector('[data-equipment-base="true"]')) {
+    if (bases.length > 0 || scopedInputs.length > 0) {
       selections[groupInput.value] = bases;
     }
   }
@@ -3038,11 +3380,44 @@ clearFilterRulesButton.addEventListener('click', () => {
 
 for (const container of [rareArmorGroupList, rareShieldGroupList, rareWeaponGroupList, miscEquipmentGroupList]) {
   container.addEventListener('change', (event) => {
-    if (!event.target?.dataset?.rareEquipmentField) {
+    if (event.target?.dataset?.rareEquipmentField) {
+      const card = event.target.closest('.equipment-group');
+      if (card) {
+        card.classList.toggle('is-open', event.target.checked);
+      } else {
+        lootFilterState.profile.rareEquipment = collectRareEquipment();
+        renderRareEquipment(lootFilterState.profile, lootFilterState.rareEquipmentGroups);
+      }
       return;
     }
 
-    event.target.closest('.equipment-group')?.classList.toggle('is-open', event.target.checked);
+    if (event.target?.dataset?.equipmentBase) {
+      const section = event.target.closest('[data-equipment-base-section]');
+      if (section) {
+        updateEquipmentBaseSectionTitle(section, getEquipmentBaseSectionLabel(section));
+      }
+    }
+  });
+
+  container.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('[data-equipment-base-action]');
+    if (!button) {
+      return;
+    }
+
+    applyEquipmentBaseAction(button.closest('[data-equipment-base-section]'), button.dataset.equipmentBaseAction);
+  });
+}
+
+for (const button of equipmentTabButtons) {
+  button.addEventListener('click', () => {
+    const tab = button.dataset.equipmentTab;
+    for (const entry of equipmentTabButtons) {
+      entry.classList.toggle('is-active', entry === button);
+    }
+    for (const pane of equipmentPanes) {
+      pane.classList.toggle('is-active', pane.dataset.equipmentPane === tab);
+    }
   });
 }
 

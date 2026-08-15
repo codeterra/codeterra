@@ -297,12 +297,11 @@
                 </section>
                 <section class="loot-workbench-section" data-loot-section="equipment">
                   <div class="section-heading-row">
-                    <h3>Rare Item Rules</h3>
-                    <button id="add-rare-tier-button" type="button">Add Rare Rule</button>
+                    <div>
+                      <h3>Equipment</h3>
+                      <p class="status-line status-line--muted">Pick broad item families, then narrow by slot, base tier, and exact base.</p>
+                    </div>
                   </div>
-                  <div id="rare-baseline-style" class="category-baseline-list"></div>
-                  <div id="rare-tier-list" class="tier-list"></div>
-                  <h3>Equipment Visibility</h3>
                   <div class="toolbar-strip">
                     <label class="inline-toggle">
                       <input id="rare-equipment-enabled-input" type="checkbox">
@@ -317,22 +316,51 @@
                       Show magic equipment
                     </label>
                   </div>
-                  <div class="equipment-toggle-layout">
-                    <div>
-                      <h4>Armour Bases</h4>
-                      <div id="rare-armor-group-list" class="toggle-grid"></div>
-                    </div>
-                    <div>
-                      <h4>Shield Bases</h4>
-                      <div id="rare-shield-group-list" class="toggle-grid"></div>
-                    </div>
-                    <div>
-                      <h4>Weapon Classes</h4>
-                      <div id="rare-weapon-group-list" class="toggle-grid"></div>
-                    </div>
-                    <div>
-                      <h4>Other Equipment</h4>
-                      <div id="misc-equipment-group-list" class="toggle-grid"></div>
+                  <div class="equipment-workbench">
+                    <nav class="equipment-subnav" aria-label="Equipment sections">
+                      <button type="button" class="is-active" data-equipment-tab="armor">Armour</button>
+                      <button type="button" data-equipment-tab="shields">Shields</button>
+                      <button type="button" data-equipment-tab="weapons">Weapons</button>
+                      <button type="button" data-equipment-tab="jewelry">Jewelry</button>
+                      <button type="button" data-equipment-tab="rare-rules">Rare Rules</button>
+                    </nav>
+                    <div class="equipment-panes">
+                      <section class="equipment-pane is-active" data-equipment-pane="armor">
+                        <div class="equipment-pane__heading">
+                          <h4>Armour Bases</h4>
+                          <span>Select defensive attributes, then tune each armour slot by base progression.</span>
+                        </div>
+                        <div id="rare-armor-group-list" class="equipment-group-list"></div>
+                      </section>
+                      <section class="equipment-pane" data-equipment-pane="shields">
+                        <div class="equipment-pane__heading">
+                          <h4>Shield Bases</h4>
+                          <span>Select shield attribute types, then keep the shield bases that fit your build or trade plan.</span>
+                        </div>
+                        <div id="rare-shield-group-list" class="equipment-group-list"></div>
+                      </section>
+                      <section class="equipment-pane" data-equipment-pane="weapons">
+                        <div class="equipment-pane__heading">
+                          <h4>Weapon Classes</h4>
+                          <span>Enable weapon families, then keep only the bases your build or trade plan cares about.</span>
+                        </div>
+                        <div id="rare-weapon-group-list" class="equipment-group-list"></div>
+                      </section>
+                      <section class="equipment-pane" data-equipment-pane="jewelry">
+                        <div class="equipment-pane__heading">
+                          <h4>Jewelry, Belts, and Quivers</h4>
+                          <span>Jewels live in the Jewel Rules tab and are no longer controlled here.</span>
+                        </div>
+                        <div id="misc-equipment-group-list" class="equipment-group-list"></div>
+                      </section>
+                      <section class="equipment-pane" data-equipment-pane="rare-rules">
+                        <div class="section-heading-row">
+                          <h4>Rare Item Rules</h4>
+                          <button id="add-rare-tier-button" type="button">Add Rare Rule</button>
+                        </div>
+                        <div id="rare-baseline-style" class="category-baseline-list"></div>
+                        <div id="rare-tier-list" class="tier-list"></div>
+                      </section>
                     </div>
                   </div>
                 </section>

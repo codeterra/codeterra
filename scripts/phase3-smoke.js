@@ -5,9 +5,13 @@ const { parseCopiedItem } = require('../src/domain/item-parser');
 const {
   DEFAULT_LOOT_FILTER_PROFILE,
   ECONOMY_HIGHLIGHT_CACHE_VERSION,
+  EQUIPMENT_MISC_VISIBILITY_GROUPS,
+  RARE_ARMOR_GROUPS,
+  RARE_SHIELD_GROUPS,
   createRuleFromItem,
   normalizeLootFilterProfile
 } = require('../src/domain/loot-filter');
+const { EQUIPMENT_BASE_REQUIREMENTS } = require('../src/data/equipment-base-requirements');
 const { createEconomyRulesFromOverviews } = require('../src/services/economy-highlights');
 const { generateLootFilter } = require('../src/services/loot-filter-generator');
 
@@ -28,6 +32,39 @@ const currencyRule = createRuleFromItem(currency, { action: 'Show' });
 assert.equal(currencyRule.style, 'currency');
 assert.equal(currencyRule.conditions.some((condition) => condition.key === 'Class'), true);
 assert.equal(normalizeLootFilterProfile({}).economyHighlights.cacheVersion, ECONOMY_HIGHLIGHT_CACHE_VERSION);
+assert.equal(EQUIPMENT_MISC_VISIBILITY_GROUPS.some((group) => group.id === 'jewels'), false);
+assert.equal(
+  [...RARE_ARMOR_GROUPS, ...RARE_SHIELD_GROUPS]
+    .flatMap((group) => group.bases)
+    .every((base) => EQUIPMENT_BASE_REQUIREMENTS[base]),
+  true
+);
+const dexIntHelmetTierOrder = [
+  'Scare Mask',
+  'Plague Mask',
+  'Gale Crown',
+  'Iron Mask',
+  'Festival Mask',
+  'Golden Mask',
+  'Raven Mask',
+  'Callous Mask',
+  'Winter Crown',
+  'Regicide Mask',
+  'Harlequin Mask',
+  'Vaal Mask',
+  'Deicide Mask',
+  'Jester Mask',
+  'Blizzard Crown',
+  'Ancient Mask',
+  "Torturer's Mask"
+];
+assert.deepEqual(
+  [...dexIntHelmetTierOrder].sort((left, right) => (
+    EQUIPMENT_BASE_REQUIREMENTS[left].level - EQUIPMENT_BASE_REQUIREMENTS[right].level
+    || EQUIPMENT_BASE_REQUIREMENTS[left].defenses - EQUIPMENT_BASE_REQUIREMENTS[right].defenses
+  )),
+  dexIntHelmetTierOrder
+);
 
 const divinationCardRule = createRuleFromItem({
   looksLikePoeItem: true,

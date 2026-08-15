@@ -30,7 +30,10 @@ const OIL_BASE_TYPES = [
   'Tainted Oil'
 ];
 const FLASK_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => FLASK_EQUIPMENT_GROUP_IDS.includes(group.id));
-const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => !FLASK_EQUIPMENT_GROUP_IDS.includes(group.id));
+const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => (
+  !FLASK_EQUIPMENT_GROUP_IDS.includes(group.id)
+  && group.id !== 'jewels'
+));
 const FLASK_CLASSES = [...new Set(FLASK_GROUPS.flatMap((group) => group.classes || []))];
 const FLASK_BASE_TYPES = [...new Set(FLASK_GROUPS.flatMap((group) => group.bases || []))];
 

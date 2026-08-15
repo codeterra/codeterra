@@ -9,6 +9,7 @@ const {
   createRuleFromItem,
   normalizeLootFilterProfile
 } = require('../domain/loot-filter');
+const { EQUIPMENT_BASE_REQUIREMENTS } = require('../data/equipment-base-requirements');
 const { refreshEconomyHighlightRules } = require('./economy-highlights');
 const { getChanceBaseOptions } = require('./base-type-catalog');
 const { generateLootFilter } = require('./loot-filter-generator');
@@ -60,6 +61,7 @@ async function getLootFilterState(settings) {
       weapons: toUiGroups(RARE_WEAPON_GROUPS),
       misc: toUiGroups(EQUIPMENT_MISC_VISIBILITY_GROUPS)
     },
+    equipmentBaseRequirements: EQUIPMENT_BASE_REQUIREMENTS,
     chanceBaseOptions: await getChanceBaseOptions(lootFilter.profile),
     soundFiles: getLootFilterSoundFiles(lootFilter),
     preview,
