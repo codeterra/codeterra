@@ -8,10 +8,10 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="settings-sidebar">
-        <div class="brand-block">
+      <header class="app-topbar">
+        <div class="brand-block" aria-label="POEHelper">
           <div class="brand-mark">PH</div>
-          <div>
+          <div class="brand-copy">
             <div class="brand-name">POEHelper</div>
             <div class="brand-subtitle">Desktop companion</div>
           </div>
@@ -24,20 +24,12 @@
           <button type="button" data-settings-tab="diagnostics">Diagnostics</button>
         </nav>
 
-        <section class="notice">
-          This product isn't affiliated with or endorsed by Grinding Gear Games in any way.
-        </section>
-      </aside>
+        <div class="topbar-meta">
+          <span>Unofficial tool</span>
+        </div>
+      </header>
 
       <main class="settings-main">
-        <header class="settings-topbar">
-          <div>
-            <div class="kicker">Settings</div>
-            <h1>Configure POEHelper</h1>
-          </div>
-          <p>Fast controls, one main work area, and room for the loot-filter editor to keep growing.</p>
-        </header>
-
         <div class="settings-content">
           <section class="settings-page is-active" data-settings-panel="general">
             <section class="panel">
@@ -126,13 +118,28 @@
                   Filter name
                   <input id="filter-profile-name-input" type="text" autocomplete="off" spellcheck="false">
                 </label>
-                <div class="button-row button-row--flush profile-command-actions">
-                  <button id="new-filter-profile-button" type="button">New</button>
-                  <button id="duplicate-filter-profile-button" type="button">Duplicate</button>
-                  <button id="delete-filter-profile-button" class="danger-button" type="button">Delete</button>
-                  <button id="import-filter-profile-button" type="button">Import</button>
-                  <button id="export-filter-profile-button" type="button">Export JSON</button>
-                </div>
+                <label>
+                  Output filter path
+                  <input id="filter-output-path-input" type="text" autocomplete="off" spellcheck="false">
+                </label>
+                <label>
+                  Hotkey capture action
+                  <select id="filter-quick-action-input">
+                    <option value="Show">Show</option>
+                    <option value="Hide">Hide</option>
+                  </select>
+                </label>
+              </div>
+              <div class="button-row button-row--flush loot-primary-actions">
+                <button id="save-filter-workbench-button" type="button">Save Changes</button>
+                <button id="write-filter-button" type="button">Write Filter File</button>
+              </div>
+              <div class="button-row button-row--flush profile-command-actions">
+                <button id="new-filter-profile-button" type="button">New Profile</button>
+                <button id="duplicate-filter-profile-button" type="button">Duplicate</button>
+                <button id="import-filter-profile-button" type="button">Import</button>
+                <button id="export-filter-profile-button" type="button">Export JSON</button>
+                <button id="delete-filter-profile-button" class="danger-button" type="button">Delete</button>
               </div>
               <div id="filter-import-review-panel" class="filter-import-review-panel" hidden>
                 <div>
@@ -144,27 +151,6 @@
                   <button id="confirm-filter-import-button" type="button">Import Profile</button>
                   <button id="cancel-filter-import-button" type="button">Cancel</button>
                 </div>
-              </div>
-              <div class="loot-command-grid">
-                <label>
-                  Output filter path
-                  <input id="filter-output-path-input" type="text" autocomplete="off" spellcheck="false">
-                </label>
-                <label>
-                  Captured item action
-                  <select id="filter-quick-action-input">
-                    <option value="Show">Show</option>
-                    <option value="Hide">Hide</option>
-                  </select>
-                </label>
-              </div>
-              <div class="button-row button-row--flush">
-                <button id="save-filter-config-button" type="button">Save Settings</button>
-                <button id="save-filter-workbench-button" type="button">Save Profile</button>
-                <button id="write-filter-button" type="button">Write Filter File</button>
-                <button id="capture-filter-rule-button" type="button">Capture Hovered Item</button>
-                <button id="refresh-filter-preview-button" type="button">Refresh Preview</button>
-                <button id="clear-filter-rules-button" type="button">Clear Captured Rules</button>
               </div>
               <p id="filter-status" class="status-line">Fresh-slate filter defaults show all items, with category styles and optional rule overrides above the default rule.</p>
               <div id="filter-summary-panel" class="filter-summary-panel" aria-live="polite"></div>

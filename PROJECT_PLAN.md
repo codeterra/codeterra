@@ -269,12 +269,13 @@ Goal: expand only after price lookup and filter workbench feel dependable.
 
 Candidates:
 
+- Add `POESESSID` session-cookie authentication as a fallback/private-account auth method for stash, account, and other GGG web endpoints that are not practical through OAuth yet.
 - Stash search presets and hotkeys.
 - Farming strategy notes.
 - Build-specific filter/profile recommendations.
 - Bossing helper panels.
 - Session summary: checked drops, valuable drops, filter edits, recent searches.
-- Optional account-auth features after OAuth scope/policy implications are clear.
+- Optional account-auth features through OAuth where official scopes are available, with `POESESSID` clearly labeled as an advanced/local-only credential option.
 
 ## Near-Term Backlog
 

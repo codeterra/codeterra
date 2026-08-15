@@ -1,7 +1,22 @@
 :root {
   color-scheme: dark;
   font-family: "Segoe UI", system-ui, sans-serif;
-  background: #101418;
+  --bg: #0f1317;
+  --surface-1: #171c22;
+  --surface-2: #20262e;
+  --surface-3: #252c35;
+  --border: #303945;
+  --border-soft: rgba(255, 255, 255, 0.09);
+  --text: #edf2f7;
+  --muted: #99a6b5;
+  --muted-2: #7f8c99;
+  --accent: #d9b95f;
+  --accent-soft: rgba(217, 185, 95, 0.12);
+  --success: #77d18b;
+  --warning: #f0b35a;
+  --danger: #ef7777;
+  --focus: #8cc8ff;
+  background: var(--bg);
   color: #edf2f7;
 }
 
@@ -14,9 +29,7 @@ body {
   min-height: 100vh;
   margin: 0;
   overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(213, 182, 108, 0.08), transparent 34%),
-    #101418;
+  background: var(--bg);
 }
 
 h1,
@@ -62,82 +75,88 @@ p {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-rows: 48px minmax(0, 1fr);
   height: 100vh;
   min-height: 0;
 }
 
-.settings-sidebar {
+.app-topbar {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 0;
-  padding: 16px 14px;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(13, 17, 22, 0.94);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(15, 19, 23, 0.98);
 }
 
 .brand-block {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, auto);
   align-items: center;
-  gap: 10px;
-  padding-bottom: 16px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .brand-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 30px;
+  height: 30px;
   place-items: center;
-  border: 1px solid rgba(227, 200, 117, 0.45);
-  border-radius: 8px;
-  background: rgba(227, 200, 117, 0.12);
+  border: 1px solid rgba(217, 185, 95, 0.45);
+  border-radius: 7px;
+  background: var(--accent-soft);
   color: #ffe79a;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
+}
+
+.brand-copy {
+  min-width: 0;
 }
 
 .brand-name {
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1.1;
 }
 
 .brand-subtitle,
 .kicker {
-  color: #8e9ba8;
-  font-size: 11px;
+  color: var(--muted-2);
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
+.topbar-meta {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.topbar-meta span {
+  padding: 3px 7px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .settings-main {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-}
-
-.settings-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  min-height: 76px;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(16, 20, 24, 0.86);
-}
-
-.settings-topbar p {
-  max-width: 520px;
-  text-align: right;
 }
 
 .settings-content {
   min-height: 0;
   overflow: auto;
-  padding: 16px 20px 20px;
+  padding: 12px;
 }
 
 .settings-page,
@@ -166,18 +185,18 @@ p {
 .panel,
 .loot-command-bar,
 .loot-workbench-stage {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-1);
 }
 
 .panel {
   display: grid;
   grid-column: span 6;
   align-content: start;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
 }
 
 .panel:first-child,
@@ -189,49 +208,41 @@ p {
   grid-column: span 6;
 }
 
-.notice {
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
-  color: #87929f;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
 .settings-tabs,
 .loot-workbench-tabs {
-  display: grid;
-  align-content: start;
-  gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
 }
 
 .settings-tabs button,
 .loot-workbench-tabs button {
-  justify-content: flex-start;
-  width: 100%;
+  justify-content: center;
+  width: auto;
   border-color: transparent;
   background: transparent;
-  color: #aeb8c4;
-  text-align: left;
+  color: var(--muted);
+  text-align: center;
 }
 
 .settings-tabs button {
-  height: 34px;
-  padding: 0 10px;
+  height: 32px;
+  min-width: 82px;
+  padding: 0 12px;
 }
 
 .loot-workbench-tabs button {
-  height: 30px;
-  padding: 0 9px;
+  height: 28px;
+  min-width: 78px;
+  padding: 0 10px;
   font-size: 12px;
 }
 
 .settings-tabs button.is-active,
 .loot-workbench-tabs button.is-active {
-  border-color: rgba(227, 200, 117, 0.34);
-  background: rgba(227, 200, 117, 0.12);
+  border-color: rgba(217, 185, 95, 0.46);
+  background: var(--accent-soft);
   color: #fff4c4;
 }
 
@@ -380,6 +391,7 @@ button:hover {
 .filter-summary-panel {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   min-width: 0;
 }
@@ -399,6 +411,49 @@ button:hover {
 .filter-summary-chip--warn {
   border-color: rgba(227, 200, 117, 0.28);
   color: #fff4c4;
+}
+
+.filter-summary-details {
+  position: relative;
+  min-width: 0;
+}
+
+.filter-summary-details summary {
+  height: 23px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #cfd8e3;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.25;
+  list-style: none;
+}
+
+.filter-summary-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-summary-details[open] summary {
+  border-color: rgba(217, 185, 95, 0.34);
+  color: #fff4c4;
+}
+
+.filter-summary-details__body {
+  position: absolute;
+  right: 0;
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  width: min(720px, calc(100vw - 32px));
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(15, 19, 23, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
 }
 
 .filter-dirty-indicator {
@@ -492,11 +547,15 @@ button:hover {
 }
 
 .loot-command-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) auto;
-  gap: 10px 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
   align-items: end;
-  padding: 12px;
+  padding: 10px;
+  background: rgba(23, 28, 34, 0.98);
 }
 
 .loot-command-bar .status-line {
@@ -505,14 +564,38 @@ button:hover {
 
 .profile-command-grid {
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
-  gap: 10px;
+  grid-column: 1 / 2;
+  grid-template-columns: minmax(150px, 0.75fr) minmax(180px, 0.9fr) minmax(260px, 1.6fr) 126px;
+  gap: 8px;
   align-items: end;
 }
 
-.profile-command-actions {
+.loot-primary-actions {
+  grid-column: 2 / 3;
   justify-content: flex-end;
+}
+
+.loot-primary-actions button {
+  min-width: 120px;
+}
+
+.loot-primary-actions #write-filter-button {
+  border-color: rgba(217, 185, 95, 0.55);
+  background: rgba(217, 185, 95, 0.16);
+  color: #fff4c4;
+}
+
+.profile-command-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
+
+.profile-command-actions button {
+  height: 26px;
+  min-width: 0;
+  padding: 0 8px;
+  color: #c6d0dc;
+  font-size: 11px;
 }
 
 .filter-import-review-panel {
@@ -570,35 +653,31 @@ button:hover {
   font-size: 12px;
 }
 
-.loot-command-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px;
-  gap: 10px;
-}
-
 .loot-workbench {
   display: grid;
-  grid-template-columns: 152px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   min-width: 0;
 }
 
 .loot-workbench-tabs {
   position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: calc(100vh - 174px);
-  overflow: auto;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(9, 12, 16, 0.62);
+  top: 142px;
+  z-index: 4;
+  align-self: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(15, 19, 23, 0.98);
+  scrollbar-width: thin;
 }
 
 .loot-workbench-stage {
   min-width: 0;
   min-height: 620px;
-  padding: 14px;
+  padding: 12px;
 }
 
 .toolbar-strip {
@@ -1067,6 +1146,17 @@ button:hover {
   display: none !important;
 }
 
+.inline-style-panel--disabled {
+  opacity: 0.56;
+}
+
+.inline-style-panel--disabled input,
+.inline-style-panel--disabled select,
+.inline-style-panel--disabled textarea,
+.inline-style-panel--disabled button {
+  cursor: not-allowed;
+}
+
 .style-sound-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(140px, 180px)) minmax(0, 1fr);
@@ -1238,20 +1328,20 @@ button:hover {
   }
 
   .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
     height: auto;
     min-height: 100vh;
   }
 
-  .settings-sidebar {
-    grid-template-rows: auto auto auto;
-    gap: 10px;
-    border-right: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  .app-topbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
   }
 
   .settings-tabs {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: grid;
   }
 
   .settings-tabs button {
@@ -1259,16 +1349,8 @@ button:hover {
     text-align: center;
   }
 
-  .settings-topbar {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-    min-height: 0;
-  }
-
-  .settings-topbar p {
-    max-width: none;
-    text-align: left;
+  .topbar-meta {
+    display: none;
   }
 
   .settings-content {
@@ -1285,6 +1367,10 @@ button:hover {
     grid-template-columns: 1fr;
   }
 
+  .loot-command-bar {
+    position: static;
+  }
+
   .panel,
   .panel:first-child {
     grid-column: 1 / -1;
@@ -1292,8 +1378,9 @@ button:hover {
 
   .loot-workbench-tabs {
     position: static;
-    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
     max-height: none;
+    flex-wrap: wrap;
+    overflow: visible;
   }
 
   .loot-workbench-tabs button {
