@@ -141,7 +141,7 @@ function findDivineChaosValue(overviews) {
   return undefined;
 }
 
-function createEconomyRulesFromOverviews(overviews, options = {}) {
+function createEconomyRuleSnapshotFromOverviews(overviews, options = {}) {
   const divineChaosValue = Number(options.divineChaosValue) || findDivineChaosValue(overviews) || 150;
   const tiers = normalizeTierConfig(options.tiers, options)
     .map((tier) => ({
@@ -152,20 +152,29 @@ function createEconomyRulesFromOverviews(overviews, options = {}) {
   const minChaos = Math.min(...tiers.map((tier) => tier.minChaosValue));
   const seen = new Set();
   const candidates = [];
+  const skippedEntries = createSkippedEconomyCounters();
 
   for (const { type, endpoint, overview } of overviews) {
     if (UNSUPPORTED_FILTER_ECONOMY_TYPES.has(type)) {
+      incrementSkippedEconomyCounter(skippedEntries, 'unsupportedType', overview?.lines?.length || 0);
       continue;
     }
 
     for (const line of overview?.lines || []) {
       const item = normalizePoeNinjaEconomyRow({ type, endpoint, overview, row: line });
-      if (!item.supported || item.chaosValue < minChaos) {
+      if (!item.supported) {
+        incrementSkippedEconomyCounter(skippedEntries, 'unsupportedRow');
+        continue;
+      }
+
+      if (item.chaosValue < minChaos) {
+        incrementSkippedEconomyCounter(skippedEntries, 'belowThreshold');
         continue;
       }
 
       const key = createEconomyItemKey(item);
       if (seen.has(key)) {
+        incrementSkippedEconomyCounter(skippedEntries, 'duplicate');
         continue;
       }
       seen.add(key);
@@ -179,11 +188,18 @@ function createEconomyRulesFromOverviews(overviews, options = {}) {
       item,
       tier: tiers.find((candidateTier) => item.chaosValue >= candidateTier.minChaosValue)
     }))
-    .filter((entry) => entry.tier)
+    .flatMap((entry) => {
+      if (!entry.tier) {
+        incrementSkippedEconomyCounter(skippedEntries, 'noTier');
+        return [];
+      }
+      return [entry];
+    })
     .sort(compareEconomySelectionEntries)
     .flatMap((item) => {
       const count = byTierCount.get(item.tier.id) || 0;
       if (count >= item.tier.maxItems) {
+        incrementSkippedEconomyCounter(skippedEntries, 'overTierCap');
         return [];
       }
 
@@ -191,9 +207,35 @@ function createEconomyRulesFromOverviews(overviews, options = {}) {
       return [item];
     });
 
-  return selected
+  const entries = selected
     .sort(compareEconomyOutputEntries)
     .map(({ item, tier }) => createEconomyRule({ item, tier }));
+
+  return {
+    entries,
+    skippedEntries,
+    candidateCount: candidates.length,
+    selectedCount: entries.length
+  };
+}
+
+function createEconomyRulesFromOverviews(overviews, options = {}) {
+  return createEconomyRuleSnapshotFromOverviews(overviews, options).entries;
+}
+
+function createSkippedEconomyCounters() {
+  return {
+    unsupportedType: 0,
+    unsupportedRow: 0,
+    belowThreshold: 0,
+    duplicate: 0,
+    noTier: 0,
+    overTierCap: 0
+  };
+}
+
+function incrementSkippedEconomyCounter(counters, key, amount = 1) {
+  counters[key] = (counters[key] || 0) + Math.max(0, Number(amount) || 0);
 }
 
 function compareEconomySelectionEntries(a, b) {
@@ -234,8 +276,13 @@ async function refreshEconomyHighlightRules(league, config = {}) {
     }
   }
 
+  const snapshot = createEconomyRuleSnapshotFromOverviews(overviews, config);
+
   return {
-    entries: createEconomyRulesFromOverviews(overviews, config),
+    entries: snapshot.entries,
+    skippedEntries: snapshot.skippedEntries,
+    candidateCount: snapshot.candidateCount,
+    selectedCount: snapshot.selectedCount,
     cacheVersion: ECONOMY_CACHE_VERSION,
     source: 'poe.ninja',
     league,
@@ -251,6 +298,7 @@ module.exports = {
   ECONOMY_CACHE_VERSION,
   DEFAULT_ECONOMY_TYPES,
   DEFAULT_ECONOMY_TIERS,
+  createEconomyRuleSnapshotFromOverviews,
   createEconomyRulesFromOverviews,
   refreshEconomyHighlightRules
 };

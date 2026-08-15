@@ -13,6 +13,8 @@ const { EQUIPMENT_BASE_REQUIREMENTS } = require('../data/equipment-base-requirem
 const { refreshEconomyHighlightRules } = require('./economy-highlights');
 const { getChanceBaseOptions } = require('./base-type-catalog');
 const { generateLootFilter } = require('./loot-filter-generator');
+const { summarizeFilterFileDiff } = require('./loot-filter-diff');
+const { summarizeGeneratedFilter } = require('./loot-filter-summary');
 
 const LOOT_FILTER_LIBRARY_SCHEMA_VERSION = 1;
 const DEFAULT_PROFILE_ID = 'profile-default';
@@ -52,6 +54,8 @@ function getLootFilterSummary(settings) {
 async function getLootFilterState(settings) {
   const lootFilter = normalizeLootFilterSettings(settings?.lootFilter);
   const preview = generateLootFilter(lootFilter.profile);
+  const previewSummary = summarizeGeneratedFilter(preview, lootFilter.profile);
+  const previewDiff = summarizeFilterFileDiff(lootFilter.outputPath, preview);
   return {
     ...getLootFilterSummary({ lootFilter }),
     profile: lootFilter.profile,
@@ -65,7 +69,9 @@ async function getLootFilterState(settings) {
     chanceBaseOptions: await getChanceBaseOptions(lootFilter.profile),
     soundFiles: getLootFilterSoundFiles(lootFilter),
     preview,
-    previewBytes: Buffer.byteLength(preview, 'utf8')
+    previewBytes: previewSummary.bytes,
+    previewSummary,
+    previewDiff
   };
 }
 
@@ -294,13 +300,18 @@ async function refreshLootFilterEconomyHighlights(settings, league) {
 function writeLootFilter(settings) {
   const lootFilter = normalizeLootFilterSettings(settings.lootFilter);
   const output = generateLootFilter(lootFilter.profile);
+  const summary = summarizeGeneratedFilter(output, lootFilter.profile);
+  const previousDiff = summarizeFilterFileDiff(lootFilter.outputPath, output);
   fs.mkdirSync(path.dirname(lootFilter.outputPath), { recursive: true });
   fs.writeFileSync(lootFilter.outputPath, output, 'utf8');
   return {
     status: 'written',
     outputPath: lootFilter.outputPath,
-    bytes: Buffer.byteLength(output, 'utf8'),
-    userRuleCount: lootFilter.profile.userRules.length
+    writtenAt: new Date().toISOString(),
+    bytes: summary.bytes,
+    userRuleCount: lootFilter.profile.userRules.length,
+    summary,
+    previousDiff
   };
 }
 

@@ -377,6 +377,47 @@ button:hover {
   color: #ffe1a1;
 }
 
+.filter-summary-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-summary-chip {
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #cfd8e3;
+  font-size: 11px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.filter-summary-chip--warn {
+  border-color: rgba(227, 200, 117, 0.28);
+  color: #fff4c4;
+}
+
+.filter-dirty-indicator {
+  justify-self: start;
+  padding: 4px 7px;
+  border: 1px solid rgba(111, 185, 128, 0.25);
+  border-radius: 6px;
+  background: rgba(111, 185, 128, 0.08);
+  color: #bfe6bd;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.filter-dirty-indicator.is-dirty {
+  border-color: rgba(227, 200, 117, 0.35);
+  background: rgba(227, 200, 117, 0.08);
+  color: #fff4c4;
+}
+
 .section-heading-row {
   display: flex;
   align-items: center;

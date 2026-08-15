@@ -148,14 +148,16 @@
                 </label>
               </div>
               <div class="button-row button-row--flush">
-                <button id="save-filter-config-button" type="button">Save</button>
-                <button id="save-filter-workbench-button" type="button">Save Workbench</button>
-                <button id="write-filter-button" type="button">Write Filter</button>
-                <button id="capture-filter-rule-button" type="button">Capture Rule</button>
+                <button id="save-filter-config-button" type="button">Save Settings</button>
+                <button id="save-filter-workbench-button" type="button">Save Profile</button>
+                <button id="write-filter-button" type="button">Write Filter File</button>
+                <button id="capture-filter-rule-button" type="button">Capture Hovered Item</button>
                 <button id="refresh-filter-preview-button" type="button">Refresh Preview</button>
-                <button id="clear-filter-rules-button" type="button">Clear Rules</button>
+                <button id="clear-filter-rules-button" type="button">Clear Captured Rules</button>
               </div>
               <p id="filter-status" class="status-line">Fresh-slate filter defaults show all items, with category styles and optional rule overrides above the default rule.</p>
+              <div id="filter-summary-panel" class="filter-summary-panel" aria-live="polite"></div>
+              <div id="filter-dirty-indicator" class="filter-dirty-indicator">Saved</div>
             </section>
 
             <div class="loot-workbench">
@@ -505,6 +507,7 @@
       </main>
     </div>
 
+    <script src="./shared/equipment-selection.js"></script>
     <script src="./settings-renderer.js"></script>
   </body>
 </html>

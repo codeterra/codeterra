@@ -1,289 +1,342 @@
 # POEHelper Project Plan
 
+Roadmap convention: completed items are ~~crossed out~~ and any unfinished remainder stays listed as normal work.
+
 ## Product Direction
 
-POEHelper should start as a Windows-first Path of Exile companion app that combines fast in-game price lookup with a personal loot-filter workbench. The north star is not to clone every community tool at once, but to make the most repeated play-session decisions easier: "Is this worth picking up?", "How should this item be priced?", and "Do I want my filter to show this for my build right now?"
+POEHelper is a Windows-first Path of Exile companion app for the repeated in-game decisions that slow down play:
 
-The first target should be PoE 1, with PoE 2 support treated as a later compatibility track unless you decide the app should be PoE 2-first.
+- "What is this item worth?"
+- "What can this base or fragment turn into?"
+- "Should my current filter show this item for this character right now?"
+
+The app is no longer just a feasibility prototype. It now combines an Awakened PoE Trade-style price lookup flow with a fresh-slate loot-filter workbench, local filter profiles, economy-aware highlighting, and release/update tooling.
+
+The current target remains Path of Exile 1. PoE 2 support should be treated as a later compatibility track unless the project direction changes.
+
+## Current Stack
+
+- Electron + Node.js desktop app.
+- Plain HTML/CSS/JavaScript renderers.
+- Electron main process services for settings, shortcuts, overlay/window management, OAuth, pricing, related outcomes, loot-filter generation, release/update support, and file IO.
+- Local JSON settings and filter profiles.
+- Electron Builder for Windows NSIS installer, portable builds, and GitHub release publishing.
+- `electron-updater` for installed-build auto-update.
+
+Keep the plain JS stack until the loot-filter workbench stabilizes. A React + TypeScript migration is still a good future move, but doing it before the product model settles would slow feature iteration.
 
 ## References
 
 - Awakened PoE Trade: https://github.com/SnosMe/awakened-poe-trade
-- Awakened PoE Trade download/requirements: https://snosme.github.io/awakened-poe-trade/download
 - Official item filter syntax: https://www.pathofexile.com/item-filter/about
-- Official Path of Exile developer docs and API policy: https://www.pathofexile.com/developer/docs
+- Official Path of Exile developer docs: https://www.pathofexile.com/developer/docs
 - Official Path of Exile API reference: https://www.pathofexile.com/developer/docs/reference
+- Path of Building Community Fork data: https://github.com/PathOfBuildingCommunity/PathOfBuilding/tree/dev/src/Data
 - Sample filter in this repo: `example-filter.filter`
 
-## Initial Findings
+## What Is Already Built
 
-- The sample filter is a full NeverSink-style generated filter with 10,836 lines, 722 `Show` blocks, 30 `Hide` blocks, 107 section headers, and many `# !! Waypoint` comments.
-- Path of Exile filters are ordered rule programs. A `Show`, `Hide`, or `Minimal` block has conditions and actions; multiple conditions in a block must all match. `Continue` allows later rules to keep applying.
-- Useful filter conditions include `Class`, `BaseType`, `Rarity`, `AreaLevel`, `ItemLevel`, `MapTier`, `Sockets`, `SocketGroup`, `StackSize`, influence flags, gem conditions, and explicit/enchantment mod checks.
-- Useful filter actions include text/background/border colors, font size, alert sounds, minimap icons, and beam effects.
-- Awakened PoE Trade is an Electron/Vue/TypeScript app with an overlay, global hotkeys, price checking, map/item checking, stash search, timers, image references, and supporting data sources such as poe.ninja, poeprices.info, and RePoE.
-- GGG allows independent executable apps, but API use must follow their policy, OAuth model, identifiable User-Agent rules, rate-limit headers, and macro restrictions.
+### Desktop Shell
 
-## Recommended Stack
+- Electron app shell with overlay and settings windows.
+- Global shortcuts for price lookup, related outcomes, captured filter rules, settings, click-through toggle, and overlay hide.
+- One-action copy flow for hovered in-game items.
+- Tray menu.
+- Click-through overlay support.
+- Movable lookup overlay with persisted position.
+- Lightweight PoE process/window detection.
+- Diagnostics panel for copied text, parsed item state, recent events, and API errors.
 
-### App Shell
+### Price Lookup
 
-Use **Electron + Node.js**, with the option to add TypeScript once the app surface stabilizes.
+- Copied-item parser for common PoE item text.
+- Summary pricing through poe.ninja PoE 1 economy endpoints.
+- Sparkline trend support when poe.ninja provides it.
+- Official trade search generation.
+- Official trade listing fetch with instant-buyout filtering.
+- Configurable listing count in settings.
+- Modifier extraction for rares.
+- Trade stat matching against official trade stats data.
+- Toggle UI for matched modifiers and item flags.
+- Simple pseudo groups for obvious stats.
+- Map danger warnings.
+- Confidence hints for weak/low-confidence pricing cases.
+- Local search presets.
 
-Reasons:
+### Related Outcomes
 
-- Electron has already proven the important Windows overlay features for this project: transparent windows, always-on-top behavior, click-through toggling, global shortcuts, tray controls, and preload-guarded IPC.
-- Node keeps early development dependency-light and avoids the Rust/Tauri toolchain requirements for now.
-- The main process can own file IO, shortcuts, overlay/window management, process/window detection, secure-ish local settings boundaries, and future native integrations.
-- Renderer code can own the UI-heavy workbench: price panels, filter editor, previews, settings, diagnostics, and workflow screens.
+- Related Outcomes shortcut.
+- Chance-base outcomes for normal bases and scoured magic/rare bases.
+- Shared chance-base catalog from poe.ninja unique data plus curated overrides.
+- Chance targets classified as `chanceable`, `not_chanceable`, or `unknown`.
+- Corrupted items are blocked from chance-base flows.
+- Boss fragment and invitation related-drop views with poe.ninja prices.
+- No expected-value math yet because chance odds and many boss drop rates are not public.
 
-Revisit Tauri only if Electron becomes a clear packaging or runtime liability. Awakened PoE Trade proves Electron is viable for this class of tool.
+### OAuth and API Foundation
 
-### Frontend
+- GGG OAuth settings for public desktop clients using authorization code with PKCE.
+- Account profile and item-filter API wiring through `https://api.pathofexile.com`.
+- Public Currency Exchange endpoint test.
+- Service-token field exists as a future hook, but public desktop clients cannot request `service:*` scopes.
 
-- Plain HTML/CSS/JavaScript for the prototype; migrate to React + TypeScript when Phase 3/4 UI complexity justifies it.
-- Vite or another bundler after the migration.
-- Zustand or Jotai for app state
-- TanStack Query for cached API data and request state
-- TanStack Router if multiple screens become complex
-- Monaco Editor for raw filter editing
-- React Hook Form + Zod for settings/forms/validation
-- Tailwind CSS or CSS Modules, with a restrained desktop-tool UI
+### Loot Filter Workbench
 
-### Backend/Core
+- Fresh-slate POEHelper profile model rather than NeverSink as the internal source of truth.
+- Default generated filter ends with a show-all fallback.
+- Local filter profiles with JSON import/export.
+- Profile name becomes the generated filter name.
+- Category pages for currency, maps, oils, fragments/invitations, blueprints, gems, div cards, scarabs, uniques, jewels, equipment, chance bases, economy, flasks, misc rules, and custom rules.
+- Category-level styles and per-rule override styles.
+- Style primitives: text/background/border color, font size, minimap icon, beam, built-in sound, custom MP3 sound, volume, and `DisableDropSoundIfAlertSound`.
+- Sound preview in the settings UI.
+- Captured custom rules always include the available criteria instead of relying on capture-default toggles.
+- Special items and captured rules are merged into Custom Rules.
+- Normal/magic equipment visibility toggles.
+- Chance bases can ignore normal/magic equipment hiding and must be uncorrupted.
+- Equipment visibility split by Armour, Shields, Weapons, and Jewelry.
+- Armour/Shields UI selects defensive attributes, then applies per-slot base selection.
+- Equipment tier sorting uses required level and defense data from Path of Building base data.
+- Jewels are handled by the Jewels category, not Equipment.
+- Economy-aware filter rules using cached poe.ninja economy snapshots.
+- Economy cache tiers with per-tier caps.
+- Validation and smoke scripts for parser/query and loot-filter output.
 
-- Electron main process plus Node services for file watching, global shortcuts, settings, atomic filter writes, and local cache.
-- SQLite via `sqlx` or `rusqlite` for local snapshots, price cache, filter versions, presets, and user rules.
-- A typed TypeScript domain layer for item parsing and query construction can be added once the plain JavaScript prototype starts to strain.
+### Release and Distribution
 
-### Testing
+- Windows installer and portable build scripts.
+- One-click NSIS installer.
+- GitHub release publishing flow.
+- Release preflight checks.
+- Auto-update support for installed builds.
+- `release:patch` flow for check, version bump, tag push, and installer publication.
+- Watch-dev script for local iterative development.
 
-- Vitest for parser/query/unit tests.
-- Playwright for core UI flows.
-- Node unit tests for file operations and filter export safety.
-- Snapshot/golden-file tests for parsing and re-emitting `.filter` files without corrupting comments or ordering.
+## Current Reality Check
 
-## Architecture
+The project has advanced past the original Phase 3 plan and has started parts of the original Phase 4 and Phase 5. The weak points are no longer feasibility or basic features. The weak points are now:
 
-### Modules
+- UI complexity in the settings workbench.
+- Data quality and update paths for curated/game-data-driven catalogs.
+- Test coverage for UI state and generated filter correctness.
+- Confidence and correctness for economy-derived rules.
+- Lack of a loss-preserving filter import/parser.
+- No durable local database/cache layer.
+- Plain JavaScript is beginning to strain under the settings UI complexity.
 
-- `desktop-host`: Electron main process, windows, shortcuts, file IO, local OS integration.
-- `overlay`: transparent price-check and quick action surfaces.
-- `item-parser`: parses copied PoE item text into normalized item models.
-- `pricing`: builds trade queries, handles poe.ninja-style summary pricing, caching, rate-limit backoff, and result normalization.
-- `filter-parser`: parses `.filter` files into a loss-preserving AST.
-- `filter-workbench`: visual filter management, presets, rule groups, previews, diff/export.
-- `game-profile`: league, realm, language, account-independent paths, client log path if needed.
-- `settings`: hotkeys, overlay position, privacy, cache, filter folder, API behavior.
+## Updated Roadmap
 
-### Data Principles
+### Milestone 1: Stabilize The Current App
 
-- Store user intent as structured presets/patches, not only as edited generated text.
-- Preserve original filter comments, section order, spacing, and unknown directives when importing.
-- Export through a deterministic formatter so changes are reviewable.
-- Keep a full version history of generated filters so users can roll back after a bad league-start tweak.
+Goal: make the existing features reliable before adding another large category of functionality.
 
-## Feature Progression
+Work:
 
-### Phase 0: Feasibility Spike
-
-Goal: prove the app shell can support the gameplay loop.
-
-- Create minimal Electron app.
-- Register configurable global hotkey.
-- Read clipboard item text after user keypress.
-- Show a small always-on-top overlay near cursor or fixed screen corner.
-- Detect PoE window state enough to avoid showing the overlay over unrelated apps.
-- Confirm transparent/click-through overlay behavior on Windows.
-- Confirm package/signing path.
-
-Exit criteria:
-
-- Hotkey plus clipboard flow works while PoE runs in Windowed Fullscreen.
-- Overlay appears reliably and closes/focuses predictably.
-- Decision made: continue Electron unless a later packaging/performance issue justifies revisiting the shell.
-
-### Phase 1: Price Lookup MVP
-
-Goal: useful price checks before filter editing.
-
-- Parse common copied item text: currency, uniques, gems, maps, divination cards, rares.
-- League selector and settings.
-- Price check panel with item summary, normalized modifiers, and query controls.
-- Query official trade-compatible searches where allowed and/or open the official trade page with generated query.
-- Add poe.ninja-style cached summary pricing for commodities.
-- Add rate-limit-aware request queue and response cache.
-- Add "copy trade search URL" and "open in browser" actions.
-
-Exit criteria:
-
-- Currency, unique, gem, map, div card, and basic rare checks are useful in real play.
-- Every external request path has caching, retry, rate-limit handling, and clear failure UI.
-
-### Phase 2: Better Item Intelligence
-
-Goal: make price lookup feel better than manual searching.
-
-- Modifier toggle UI for rares.
-- Pseudo-stat grouping where practical.
-- Socket/link/corruption/influence/fracture/synth filters.
-- Map mod analysis with user-defined dangerous/wanted mods.
-- Bulk exchange helper.
-- Price confidence indicators: stale data, low sample size, wide price spread, likely price-fixing.
-- Saved search presets.
+- ~~Add focused UI tests for the settings workbench.~~
+- ~~Add golden output tests for generated filters by profile scenario.~~
+- ~~Add tests for equipment visibility interactions, especially per-attribute Top 2/Top 5 behavior.~~
+- ~~Add tests for normal/magic equipment hiding exceptions.~~
+- ~~Add tests for economy rule generation against known low-value unique/gem edge cases.~~
+- ~~Improve diagnostics around filter generation: last written path, rule counts, hidden equipment counts, economy cache counts, and skipped invalid entries.~~
+- ~~Add a visible dirty-state or unsaved-work indication in settings.~~
+- ~~Add generated-filter summary chips before writing.~~
+- ~~Add generated-filter diff preview before writing.~~
+- ~~Review and clean naming in the settings UI so "rules", "visibility", "economy", and "custom rules" have consistent meanings.~~
 
 Exit criteria:
 
-- Rare item checks can be narrowed/widened without editing JSON.
-- Maps and commodity items are faster than browser workflows.
+- Existing Phase 3/4/5-ish features can be used without frequent UI confusion or silent filter mistakes.
+- A user can tell what changed before writing a filter.
+- Key workbench interactions are covered by automated tests.
 
-### Phase 3: Fresh-Slate Loot Filter Foundation
+### Milestone 2: Data Catalog And League Update System
 
-Goal: create POEHelper's own filter model instead of treating NeverSink as the source of truth.
+Goal: make game-data-driven features safe to maintain each league.
 
-- Build a versioned filter profile with shared visual styles by item family and tier.
-- Default posture is show all items, then intelligently add stronger show/hide rules above the default.
-- Configure visual primitives: text color, background color, border color, font size, alert sound, minimap icon, and beam.
-- Establish family defaults such as black/green currency labels and yellow/black rare labels with tiered borders.
-- Generate a valid standalone `.filter` file from the profile.
-- Add a hotkey workflow that captures the hovered in-game item and creates a rule from metrics such as `Class`, `BaseType`, `Rarity`, `ItemLevel`, `MapTier`, `Quality`, and corruption state.
-- Store captured item rules as structured profile data so they can be edited later.
+Work:
 
-Exit criteria:
-
-- A fresh POEHelper filter can be generated and selected in game.
-- Capturing a hovered item can add a Show/Hide rule and write the filter.
-- The generated filter ends with an explicit show-all fallback.
-
-### Phase 4: Personal Filter Workbench
-
-Goal: FilterBlade-like usefulness, but focused on your preferences.
-
-- Visual rule cards for high-value categories: currency, maps, scarabs/fragments, div cards, gems, uniques, crafting bases, leveling gear.
-- Controls for visibility, strictness, font size, label colors, border/background, alert sound, minimap icon, and beam.
-- Build profile presets: league start, early maps, farming strategy, bossing, SSF, trade, leveling.
-- Rule editor for captured rules and family/tier defaults.
-- Preview samples: "what would this item look/sound like?"
-- Optional import tools can come later, but they should translate into POEHelper profile concepts rather than making NeverSink the design baseline.
-- One-click export to the PoE filter folder.
+- Move generated game data into clearly versioned local catalogs.
+- Add a script to refresh equipment base requirements from Path of Building data.
+- Add a script to audit chance-base curation after a new league.
+- Add a script to audit economy item normalization across poe.ninja categories.
+- Store catalog metadata: source, source revision/date, PoE release, generated date, and manual overrides.
+- Add a settings diagnostics panel for catalog versions.
+- Add a release checklist that includes catalog refresh/audit.
+- Define rules for ambiguous display names such as `Two-Toned Boots`.
 
 Exit criteria:
 
-- You can make personal changes through UI, preview them, export a valid `.filter`, and roll back.
+- After a PoE update, there is a repeatable command/checklist to refresh catalogs and identify manual curation gaps.
+- The app can explain what data version it used when writing a filter.
 
-### Phase 5: Economy-Aware Filters
+### Milestone 3: Price Lookup Quality Pass
 
-Goal: connect price knowledge to pick-up rules.
+Goal: make price checking dependable enough to trust during real play.
 
-- Cached price tiers for currency, fragments, scarabs, div cards, uniques, gems, and common crafting bases.
-- Rules such as "show div cards above X chaos", "highlight scarabs above Y", "hide low-value currency below stack size Z".
-- League-update workflow that refreshes economy tiers without overwriting personal style.
-- Warnings for volatile/low-confidence prices.
+Work:
+
+- Improve rare modifier grouping and pseudo-stat matching.
+- Add better handling for variant-sensitive items: gem level/quality, alternate/transfigured gems, corrupted uniques, foil/foulborn variants, item level, sockets/links, influences, fractures, synthesis, and enchantments.
+- Add listing outlier warnings and spread/volume confidence.
+- Add clearer commodity-vs-trade-search behavior so irrelevant controls are hidden.
+- Add smarter pricing for boss drops and related outcomes where reliable data exists.
+- Persist useful price/cache diagnostics.
 
 Exit criteria:
 
-- The app can regenerate selected tier lists from market data while preserving user choices.
+- The overlay makes it clear when a result is commodity-based, trade-listing-based, or low-confidence.
+- Common false-positive economy and unique pricing cases are reduced.
 
-### Phase 6: Companion Suite
+### Milestone 4: Loot Filter Workbench V1
 
-Goal: expand beyond Awakened-style parity.
+Goal: turn the current powerful-but-growing settings workbench into a coherent product surface.
+
+Work:
+
+- Finish the equipment UI rework across armour, shields, weapons, jewelry, flasks, and chance bases.
+- Add sample item previews for every category and rule.
+- Add visual/sound preview rows for generated rules.
+- Add rule ordering controls where order matters.
+- Add enable/disable and show/hide behavior consistently across every category.
+- Add filter write preview: count of Show/Hide blocks, top hidden classes, economy entries, and chance bases.
+- Add rollback/version history for written filters.
+- Add a raw generated filter viewer with search.
+
+Exit criteria:
+
+- A user can build and maintain a personal filter without needing to inspect raw `.filter` text.
+- The workbench fits comfortably on a 1080p monitor.
+- Category pages feel consistent and predictable.
+
+### Milestone 5: Economy-Aware Filters V1
+
+Goal: make economy rules useful without causing misleading loot highlights.
+
+Work:
+
+- Split economy normalization by category: stackables, uniques, gems, maps/fragments, jewels, and special bases.
+- Store economy snapshots with league and timestamp.
+- Add cache age warnings and refresh prompts.
+- Add per-category matching precision: exact item, base-only, variant-sensitive, skipped.
+- Do not generate economy rules for variant-sensitive items unless the filter conditions can represent the valuable variant.
+- Add user-facing economy audit output.
+- Preserve user styles and rule thresholds when refreshing market data.
+
+Exit criteria:
+
+- Economy highlights are explainable and conservative.
+- Low-value variants do not trigger high-value rules merely because a different variant is expensive.
+
+### Milestone 6: Import, Migration, And Interop
+
+Goal: let users bring in existing filters or share filters without making POEHelper depend on another tool's model.
+
+Work:
+
+- Build a loss-preserving filter parser/AST.
+- Import an existing `.filter` into either raw-reference mode or translated POEHelper profile mode.
+- Preserve comments and unknown directives when exporting imported filters.
+- Add JSON profile import/export version migration.
+- Add profile diffing.
+- Add a friend-import review screen that shows what will change before accepting it.
+
+Exit criteria:
+
+- A user can import/share profiles safely.
+- Imported filter text is not corrupted by a no-op import/export cycle.
+
+### Milestone 7: Architecture Upgrade
+
+Goal: reduce complexity and make future features cheaper.
+
+Work:
+
+- Decide whether to migrate renderer code to React + TypeScript.
+- Move domain logic to typed modules.
+- Introduce a local database if JSON settings become too heavy:
+  - price cache
+  - economy snapshots
+  - filter write history
+  - profile versions
+  - diagnostics events
+- Add Vitest for domain tests.
+- Add Playwright or Electron-oriented UI smoke tests.
+- Split `settings-renderer.js` into modules even before a full framework migration.
+
+Exit criteria:
+
+- The workbench is no longer bottlenecked by one large renderer file.
+- Domain behavior is easier to test than UI behavior.
+
+### Milestone 8: Companion Suite
+
+Goal: expand only after price lookup and filter workbench feel dependable.
+
+Candidates:
 
 - Stash search presets and hotkeys.
-- Timers/reminders.
-- Strategy notes or image reference widgets.
-- Build-specific checklist panels.
-- Session summary: valuable drops checked, filter changes made, recent searches.
-- Optional account-auth features only after OAuth registration is understood and approved.
+- Farming strategy notes.
+- Build-specific filter/profile recommendations.
+- Bossing helper panels.
+- Session summary: checked drops, valuable drops, filter edits, recent searches.
+- Optional account-auth features after OAuth scope/policy implications are clear.
 
-## Compliance and Safety Requirements
+## Near-Term Backlog
+
+1. ~~Add UI tests or smoke coverage for equipment Top 2/Top 5 per selected attribute group.~~
+2. Add a catalog refresh script for `equipment-base-requirements.js`.
+3. Add catalog metadata to settings diagnostics.
+4. Finish equipment visibility UX for weapons and jewelry with the same clarity as armour/shields.
+5. ~~Add filter write summary before writing.~~
+6. Add generated filter history/rollback.
+7. Add economy audit output in the UI.
+8. Harden economy matching for variant-sensitive gems and uniques.
+9. Add raw generated filter viewer/search.
+10. Split `settings-renderer.js` into feature modules.
+
+## Release Checklist
+
+Before publishing a release:
+
+1. Run `npm.cmd run check`.
+2. Run `npm.cmd run validate:equipment`.
+3. Run `npm.cmd run report:chance -- <league> 100`.
+4. Run `npm.cmd run audit:economy` for the target league once economy data is current.
+5. Confirm catalog metadata is current.
+6. Manually open settings and verify the main workbench tabs fit at 1080p.
+7. Price check at least one currency, unique, rare, map, gem, and boss fragment.
+8. Write a test filter and load it in Path of Exile.
+9. Commit changes.
+10. Run `npm.cmd run release:patch`.
+
+## Compliance And Safety Requirements
 
 - Do not read or modify game memory.
 - Do not inject into the game process.
 - Do not automate gameplay inputs.
-- Keep all game-affecting macro behavior to one user action causing at most one permitted action.
-- Use clear privacy settings for clipboard, logs, account data, and external requests.
-- Include GGG's third-party notice in settings/about.
+- Keep macro behavior to one user action causing at most one permitted action.
 - Use identifiable User-Agent headers for official API calls.
-- Respect dynamic rate-limit headers and `Retry-After`.
-- Prefer opening official trade URLs over reverse-engineering undocumented endpoints if the policy risk is unclear.
+- Respect rate-limit headers and `Retry-After`.
+- Keep OAuth tokens in the main process/local settings and out of renderer windows.
+- Make clipboard/API/privacy behavior clear in settings.
+- Include clear third-party/disclaimer language.
+- Prefer conservative browser handoff or documented APIs when policy risk is unclear.
 
 ## Main Risks
 
-- Overlay reliability: Windows overlay behavior over games can be fiddly. Mitigate with Electron smoke checks and a later native helper only if needed.
-- Trade API policy: official public docs limit what is explicitly supported. Mitigate with conservative API use, browser handoff, caching, and clear User-Agent/rate-limit handling.
-- Filter parser correctness: filters are ordered and large. Mitigate with loss-preserving AST, golden-file tests, and patch layers.
-- Economy data quality: market listings can be noisy. Mitigate with confidence indicators and user override tiers.
-- Scope creep: this idea can become ten apps at once. Mitigate by shipping price lookup first, then filter import/export, then visual customization.
+- Settings UI complexity can keep regressing without componentization and tests.
+- Economy data can create misleading filter highlights if variant-sensitive items are matched too broadly.
+- Game data changes each league and needs a repeatable refresh/audit flow.
+- Loot filters are ordered programs; incorrect rule ordering can silently hide important items.
+- The current plain JS renderer is workable but increasingly expensive to maintain.
+- Scope creep remains real; stabilize the current app before adding the broader companion suite.
 
-## Recommended First Backlog
+## Recommended Product Definition For The Next Releasable Version
 
-1. Create Electron app skeleton.
-2. Implement app settings storage and Windows packaging baseline.
-3. Implement global hotkey and clipboard item capture.
-4. Implement overlay proof of concept.
-5. Build copied-item parser fixtures for common item types.
-6. Build price check UI with mocked data.
-7. Add real pricing adapters and request cache.
-8. Build filter lexer/parser for block structure.
-9. Add golden test for `example-filter.filter`.
-10. Build filter section navigator and raw editor.
+The next meaningful release should focus on reliability, not breadth:
 
-## Opinionated MVP Definition
-
-The first releasable version should do three things very well:
-
-1. Press a hotkey over an item and get a useful price panel.
-2. Import an existing `.filter`, browse/search its sections, and export it unchanged.
-3. Add personal override rules through a simple UI and write a valid filter to the PoE filter folder.
-
-That combination is small enough to finish, but strong enough to become the foundation for the larger companion app.
-
-## Implementation Notes
-
-### Phase 0 Complete
-
-- Electron shell, global hotkey, clipboard capture, always-on-top overlay, tray menu, click-through mode, and lightweight PoE process/window detection are implemented.
-
-### Phase 1 Complete
-
-- Copied item parsing was moved into a fixture-tested domain module.
-- Summary pricing is implemented through poe.ninja's current PoE 1 economy endpoints with a 15-minute cache.
-- Official trade search generation is implemented for browser handoff.
-- The overlay now supports league selection, summary price display, trade opening, and query JSON copying.
-- Rare item pricing at this point was still broad and modifier-light.
-
-### Phase 2 Complete
-
-- Copied item parsing now extracts candidate modifiers and simple pseudo groups.
-- Official trade stat matching is implemented with a daily in-memory cache.
-- The overlay now lets users toggle matched modifiers and item flags before opening/copying a trade query.
-- Map warning detection flags dangerous mods such as reflect, no regeneration, no leech, and reduced recovery.
-- Confidence hints are displayed for rares, special bases, unidentified items, low sample sizes, and unavailable stat matching.
-- Local saved search presets are available for repeated query option setups.
-- Full pseudo-stat query generation and deeper rare valuation remain future work.
-
-### Pre-Phase 3 Polish Complete
-
-- Price lookup now uses `Ctrl+D` and sends a single copy command before reading the hovered item text.
-- `Shift+Space` opens a dedicated settings window.
-- The old clipboard-first flow remains available from the overlay/tray as a fallback and debugging path.
-- The lookup overlay can be dragged by its header.
-- The overlay was condensed around the main price answer and top instant-buyout listings.
-- League and listing-count controls moved to settings.
-
-### Pre-Phase 3 Economy/OAuth Foundation Complete
-
-- poe.ninja overview matches now carry sparkline trend data into the overlay when the source response includes it.
-- The settings window has GGG OAuth configuration for public desktop clients using authorization code with PKCE.
-- Authenticated API calls are wired for account resources such as profile and item filters through `https://api.pathofexile.com`.
-- Currency Exchange history is wired through GGG's public `https://web.poecdn.com/api/currency-exchange` endpoint.
-- Optional service-token storage exists as a future hook, but public desktop OAuth cannot request `service:*` scopes.
-
-### Pre-Phase 3 Related Outcomes Complete
-
-- Added a configurable Related Outcomes shortcut, defaulting to `Ctrl+Alt+B`.
-- Normal base items can show same-base unique candidates from poe.ninja, useful for chance-orb decisions.
-- Supported boss fragments and invitations can show required fragment sets and notable mapped drops with poe.ninja prices.
-- The first pass intentionally avoids exact expected-value math because chance odds and many boss drop rates are not public.
-- Added a shared chance-base catalog module that combines poe.ninja unique overviews with curated chanceability overrides.
-- Chance targets are classified as `chanceable`, `not_chanceable`, or `unknown`, giving the future loot-filter workbench a safe source for chance-base tiers.
+1. Price lookup is fast, obvious, and honest about confidence.
+2. The loot-filter workbench can generate a personal filter without layout friction.
+3. Equipment/chance/economy rules are conservative and explainable.
+4. Profiles can be exported/imported as JSON.
+5. Installed builds auto-update cleanly from GitHub releases.

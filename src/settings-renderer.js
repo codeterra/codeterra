@@ -48,6 +48,8 @@ const refreshFilterPreviewButton = document.querySelector('#refresh-filter-previ
 const clearFilterRulesButton = document.querySelector('#clear-filter-rules-button');
 const saveFilterWorkbenchButton = document.querySelector('#save-filter-workbench-button');
 const filterStatus = document.querySelector('#filter-status');
+const filterSummaryPanel = document.querySelector('#filter-summary-panel');
+const filterDirtyIndicator = document.querySelector('#filter-dirty-indicator');
 const filterCaptureDefaults = document.querySelector('#filter-capture-defaults');
 const filterStyleList = document.querySelector('#filter-style-list');
 const customStyleNameInput = document.querySelector('#custom-style-name-input');
@@ -110,6 +112,7 @@ const diagnosticsOutput = document.querySelector('#diagnostics-output');
 const diagnosticsStatus = document.querySelector('#diagnostics-status');
 const settingsTabButtons = [...document.querySelectorAll('[data-settings-tab]')];
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')];
+const lootFilterPanel = document.querySelector('[data-settings-panel="loot-filter"]');
 const lootTabButtons = [...document.querySelectorAll('[data-loot-tab]')];
 const lootSections = [...document.querySelectorAll('[data-loot-section]')];
 const equipmentTabButtons = [...document.querySelectorAll('[data-equipment-tab]')];
@@ -167,6 +170,8 @@ let lootFilterState;
 let lootFilterRefreshToken = 0;
 let chanceBaseOptions = [];
 let lootFilterSoundFiles = [];
+let lootFilterDirty = false;
+let renderingLootFilter = false;
 let previewAudio;
 let previewAudioContext;
 const FILTER_FONT_SIZE_MIN = 18;
@@ -953,7 +958,7 @@ function addCustomStyleFromInput() {
   };
   customStyleNameInput.value = '';
   renderLootFilterState(lootFilterState);
-  setStatus(customStyleStatus, `${getStyleLabel(styleId)} added. Save Workbench to keep it.`);
+  setStatus(customStyleStatus, `${getStyleLabel(styleId)} added. Save Profile to keep it.`);
 }
 
 function appendLabeled(container, labelText, control) {
@@ -1880,7 +1885,7 @@ function addSpecialItemFromInput() {
   specialItemLabelInput.value = '';
   specialItemBaseInput.value = '';
   renderSpecialItems(lootFilterState.profile);
-  setStatus(specialItemStatus, `Added ${entry.label}. Tune its options, then Save Workbench.`);
+  setStatus(specialItemStatus, `Added ${entry.label}. Tune its options, then Save Profile.`);
 }
 
 function renderEquipmentGroupList(container, groups, selected, field, selectedBasesByGroup = {}) {
@@ -2204,34 +2209,15 @@ function applyEquipmentBaseAction(sectionNode, action) {
     return;
   }
 
-  if (action === 'all' || action === 'none') {
-    for (const input of inputs) {
-      input.checked = action === 'all';
-    }
-    updateEquipmentBaseSectionTitle(sectionNode, getEquipmentBaseSectionLabel(sectionNode));
-    return;
-  }
-
-  const keepCount = action === 'top2' ? 2 : action === 'top5' ? 5 : 0;
-  const groups = new Map();
-  for (const input of inputs) {
-    const groupId = input.dataset.equipmentGroupId || 'default';
-    if (!groups.has(groupId)) {
-      groups.set(groupId, []);
-    }
-    groups.get(groupId).push(input);
-  }
-
-  const selectedInputs = new Set();
-  for (const groupInputs of groups.values()) {
-    for (const input of groupInputs.slice(Math.max(groupInputs.length - keepCount, 0))) {
-      selectedInputs.add(input);
-    }
-  }
-
-  for (const input of inputs) {
-    input.checked = selectedInputs.has(input);
-  }
+  const selection = window.poehelperEquipmentSelection?.getSelectedEquipmentIndexes
+    ? window.poehelperEquipmentSelection.getSelectedEquipmentIndexes(inputs.map((input) => ({
+      groupId: input.dataset.equipmentGroupId || 'default'
+    })), action)
+    : (action === 'all' ? inputs.map((_input, index) => index) : []);
+  const selectedIndexes = new Set(selection);
+  inputs.forEach((input, index) => {
+    input.checked = selectedIndexes.has(index);
+  });
   updateEquipmentBaseSectionTitle(sectionNode, getEquipmentBaseSectionLabel(sectionNode));
 }
 
@@ -2446,7 +2432,80 @@ function getConditionText(rule, key, operator) {
   return Array.isArray(condition.value) ? condition.value.join(', ') : String(condition.value ?? '');
 }
 
+function renderFilterSummaryPanel(summary = lootFilterState?.previewSummary, diff = lootFilterState?.previewDiff) {
+  if (!filterSummaryPanel) {
+    return;
+  }
+
+  filterSummaryPanel.innerHTML = '';
+  if (!summary) {
+    return;
+  }
+
+  const equipment = summary.equipment || {};
+  const hiddenEquipment = equipment.enabled
+    ? (equipment.hiddenArmorBases || 0)
+      + (equipment.hiddenShieldBases || 0)
+      + (equipment.hiddenWeaponBases || 0)
+      + (equipment.hiddenMiscBases || 0)
+      + (equipment.hiddenWeaponClasses || 0)
+      + (equipment.hiddenMiscClasses || 0)
+    : 0;
+  const chips = [
+    [`${summary.showBlocks || 0} Show`, false],
+    [`${summary.hideBlocks || 0} Hide`, (summary.hideBlocks || 0) > 0],
+    [`${summary.enabledCategoryRules || 0} category rules`, false],
+    [`${summary.enabledCustomRules || 0} custom rules`, false],
+    [`${summary.economyEntries || 0} economy entries`, (summary.economyEntries || 0) > 0],
+    [`${summary.skippedEconomyEntries || 0} skipped economy rows`, (summary.skippedEconomyEntries || 0) > 0],
+    [`${summary.chanceBases || 0} chance bases`, (summary.chanceBases || 0) > 0],
+    [equipment.enabled ? `${hiddenEquipment} equipment hides` : 'equipment narrowing off', equipment.enabled && hiddenEquipment > 0],
+    [`${summary.lines || 0} lines`, false],
+    [`${summary.bytes || 0} bytes`, false]
+  ];
+  if (diff) {
+    chips.push([formatFilterDiffChip(diff), diff.status === 'changed' || diff.status === 'missing' || diff.status === 'unreadable']);
+  }
+
+  for (const [text, warn] of chips) {
+    const chip = document.createElement('span');
+    chip.className = `filter-summary-chip${warn ? ' filter-summary-chip--warn' : ''}`;
+    chip.textContent = text;
+    filterSummaryPanel.appendChild(chip);
+  }
+}
+
+function formatFilterDiffChip(diff = {}) {
+  if (diff.status === 'unchanged') {
+    return 'output unchanged';
+  }
+  if (diff.status === 'missing' || diff.status === 'missing-path') {
+    return `new output file: +${diff.addedLines || 0} lines`;
+  }
+  if (diff.status === 'unreadable') {
+    return `output unreadable: ${diff.error || 'check path'}`;
+  }
+  return `output changes: ${diff.changedLines || 0} changed, +${diff.addedLines || 0}, -${diff.removedLines || 0}`;
+}
+
+function setLootFilterDirty(dirty) {
+  lootFilterDirty = Boolean(dirty);
+  if (!filterDirtyIndicator) {
+    return;
+  }
+
+  filterDirtyIndicator.classList.toggle('is-dirty', lootFilterDirty);
+  filterDirtyIndicator.textContent = lootFilterDirty ? 'Unsaved changes' : 'Saved';
+}
+
+function markLootFilterDirty() {
+  if (!renderingLootFilter) {
+    setLootFilterDirty(true);
+  }
+}
+
 function renderLootFilterState(state) {
+  renderingLootFilter = true;
   lootFilterRefreshToken += 1;
   lootFilterState = state;
   lootFilterSoundFiles = state.soundFiles || [];
@@ -2455,6 +2514,7 @@ function renderLootFilterState(state) {
   filterOutputPathInput.value = state.outputPath || filterOutputPathInput.value;
   filterQuickActionInput.value = state.quickAction || filterQuickActionInput.value || 'Show';
   filterPreviewOutput.textContent = state.preview || 'No generated filter preview available.';
+  renderFilterSummaryPanel(state.previewSummary, state.previewDiff);
   renderCaptureDefaults(profile);
   renderTierLists(profile);
   renderCategoryRules(profile);
@@ -2537,6 +2597,8 @@ function renderLootFilterState(state) {
     filterRuleList.appendChild(row);
   }
 
+  renderingLootFilter = false;
+  setLootFilterDirty(false);
   setStatus(filterStatus, `${state.profileName || 'POEHelper filter'} has ${rules.length} captured rules. Preview is ${state.previewBytes || 0} bytes.`);
 }
 
@@ -3109,6 +3171,11 @@ function formatDiagnostics(diagnostics) {
     lines.push(JSON.stringify(diagnostics.lastApiError, null, 2));
   }
 
+  if (diagnostics.lastLootFilterWrite) {
+    lines.push('Last loot-filter write:');
+    lines.push(JSON.stringify(diagnostics.lastLootFilterWrite, null, 2));
+  }
+
   if (diagnostics.lastCopiedTextPreview) {
     lines.push('Copied text:');
     lines.push(diagnostics.lastCopiedTextPreview);
@@ -3163,6 +3230,17 @@ for (const button of lootTabButtons) {
   button.addEventListener('click', () => activateLootSection(button.dataset.lootTab));
 }
 
+if (lootFilterPanel) {
+  for (const eventName of ['input', 'change']) {
+    lootFilterPanel.addEventListener(eventName, (event) => {
+      if (event.target?.id === 'filter-profile-select') {
+        return;
+      }
+      markLootFilterDirty();
+    });
+  }
+}
+
 saveLeagueButton.addEventListener('click', async () => {
   const settings = await window.poehelper.setLeague(leagueInput.value);
   leagueInput.value = settings.league;
@@ -3198,7 +3276,7 @@ newFilterProfileButton.addEventListener('click', () => {
     renderLootFilterState(state);
     filterProfileNameInput.focus();
     filterProfileNameInput.select();
-    setStatus(filterStatus, `Created ${state.profileName}. Rename it, then Save Workbench.`);
+    setStatus(filterStatus, `Created ${state.profileName}. Rename it, then Save Profile.`);
   });
 });
 
@@ -3278,7 +3356,8 @@ writeFilterButton.addEventListener('click', () => {
     await saveLootFilterWorkbenchState();
     const result = await window.poehelper.writeLootFilter();
     await refreshLootFilterState(false);
-    setStatus(filterStatus, `Wrote ${result.outputPath} (${result.userRuleCount} captured rules).`);
+    renderFilterSummaryPanel(result.summary, result.previousDiff);
+    setStatus(filterStatus, `Wrote ${result.outputPath} (${result.summary?.showBlocks || 0} Show / ${result.summary?.hideBlocks || 0} Hide blocks).`);
   });
 });
 
@@ -3306,7 +3385,7 @@ addCurrencyTierButton.addEventListener('click', () => {
     }
   ];
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Currency rule added. Save Workbench to keep it.');
+  setStatus(filterStatus, 'Currency rule added. Save Profile to keep it.');
 });
 
 if (addCustomStyleButton) {
@@ -3339,7 +3418,7 @@ addRareTierButton.addEventListener('click', () => {
     }
   ];
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Rare item rule added. Save Workbench to keep it.');
+  setStatus(filterStatus, 'Rare item rule added. Save Profile to keep it.');
 });
 
 for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
@@ -3363,7 +3442,7 @@ function addCategoryRule(categoryId) {
     ]
   };
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, `${definition.label} rule added. Save Workbench to keep it.`);
+  setStatus(filterStatus, `${definition.label} rule added. Save Profile to keep it.`);
 }
 
 refreshFilterPreviewButton.addEventListener('click', () => {
@@ -3438,7 +3517,7 @@ refreshEconomyButton.addEventListener('click', () => {
     const state = await window.poehelper.refreshLootFilterEconomy();
     renderLootFilterState(state);
     const count = state.profile?.economyHighlights?.entries?.length || 0;
-    setStatus(economyStatus, `Cached ${count} high-value economy items. Save or Write Filter when ready.`);
+    setStatus(economyStatus, `Cached ${count} high-value economy items. Save Profile or Write Filter File when ready.`);
   });
 });
 
@@ -3460,7 +3539,7 @@ addEconomyTierButton.addEventListener('click', () => {
     ]
   };
   renderEconomyHighlights(lootFilterState.profile);
-  setStatus(economyStatus, 'Economy rule added. Save Workbench to keep it.');
+  setStatus(economyStatus, 'Economy rule added. Save Profile to keep it.');
 });
 
 economyTierList.addEventListener('click', (event) => {
@@ -3475,7 +3554,7 @@ economyTierList.addEventListener('click', (event) => {
     tiers: (current.tiers || []).filter((_, tierIndex) => tierIndex !== index)
   };
   renderEconomyHighlights(lootFilterState.profile);
-  setStatus(economyStatus, 'Economy rule removed. Save Workbench to keep this change.');
+  setStatus(economyStatus, 'Economy rule removed. Save Profile to keep this change.');
 });
 
 specialItemBaseInput.addEventListener('keydown', (event) => {
@@ -3507,7 +3586,7 @@ chanceBaseList.addEventListener('click', (event) => {
       .filter((entry) => normalizeBaseKey(entry) !== normalizeBaseKey(base))
   };
   renderChanceBases(lootFilterState.profile, lootFilterState.chanceBaseOptions);
-  setStatus(chanceBaseStatus, `Removed ${base}. Save Workbench to keep this change.`);
+  setStatus(chanceBaseStatus, `Removed ${base}. Save Profile to keep this change.`);
 });
 
 specialItemList.addEventListener('click', (event) => {
@@ -3523,7 +3602,7 @@ specialItemList.addEventListener('click', (event) => {
       .filter((_, entryIndex) => entryIndex !== index)
   };
   renderSpecialItems(lootFilterState.profile);
-  setStatus(specialItemStatus, 'Special item removed. Save Workbench to keep this change.');
+  setStatus(specialItemStatus, 'Special item removed. Save Profile to keep this change.');
 });
 
 for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
@@ -3544,7 +3623,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
       rules: (category.rules || []).filter((_, entryIndex) => entryIndex !== index)
     };
     renderCategoryRuleList(categoryId, lootFilterState.profile.categoryRules[categoryId]);
-    setStatus(definition.status, `${definition.label} rule removed. Save Workbench to keep this change.`);
+    setStatus(definition.status, `${definition.label} rule removed. Save Profile to keep this change.`);
   });
 
   definition.list.addEventListener('change', (event) => {
@@ -3637,7 +3716,7 @@ currencyTierList.addEventListener('click', (event) => {
   lootFilterState.profile.currencyStyle = collectCurrencyStyle();
   lootFilterState.profile.currencyTiers = collectCurrencyTiers().filter((_, entryIndex) => entryIndex !== index);
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Currency rule removed. Save Workbench to keep this change.');
+  setStatus(filterStatus, 'Currency rule removed. Save Profile to keep this change.');
 });
 
 rareTierList.addEventListener('click', (event) => {
@@ -3649,7 +3728,7 @@ rareTierList.addEventListener('click', (event) => {
   lootFilterState.profile.rareStyle = collectRareStyle();
   lootFilterState.profile.rareTiers = collectRareTiers().filter((_, entryIndex) => entryIndex !== index);
   renderLootFilterState(lootFilterState);
-  setStatus(filterStatus, 'Rare item rule removed. Save Workbench to keep this change.');
+  setStatus(filterStatus, 'Rare item rule removed. Save Profile to keep this change.');
 });
 
 for (const [name, input] of Object.entries(shortcutInputs)) {

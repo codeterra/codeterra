@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { parseCopiedItem } = require('../src/domain/item-parser');
 const {
@@ -12,8 +13,14 @@ const {
   normalizeLootFilterProfile
 } = require('../src/domain/loot-filter');
 const { EQUIPMENT_BASE_REQUIREMENTS } = require('../src/data/equipment-base-requirements');
-const { createEconomyRulesFromOverviews } = require('../src/services/economy-highlights');
+const {
+  createEconomyRuleSnapshotFromOverviews,
+  createEconomyRulesFromOverviews
+} = require('../src/services/economy-highlights');
+const { summarizeFilterFileDiff } = require('../src/services/loot-filter-diff');
 const { generateLootFilter } = require('../src/services/loot-filter-generator');
+const { formatFilterSummary, summarizeGeneratedFilter } = require('../src/services/loot-filter-summary');
+const { getSelectedEquipmentIndexes } = require('../src/shared/equipment-selection');
 
 function fixture(name) {
   return fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'copied-items', name), 'utf8');
@@ -65,6 +72,14 @@ assert.deepEqual(
   )),
   dexIntHelmetTierOrder
 );
+const mixedEquipmentRows = [
+  ...Array.from({ length: 6 }, (_value, index) => ({ groupId: 'dex-int', base: `DexInt ${index}` })),
+  ...Array.from({ length: 4 }, (_value, index) => ({ groupId: 'str-dex', base: `StrDex ${index}` }))
+];
+assert.deepEqual(getSelectedEquipmentIndexes(mixedEquipmentRows, 'top2'), [4, 5, 8, 9]);
+assert.deepEqual(getSelectedEquipmentIndexes(mixedEquipmentRows, 'top5'), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+assert.deepEqual(getSelectedEquipmentIndexes(mixedEquipmentRows, 'none'), []);
+assert.deepEqual(getSelectedEquipmentIndexes(mixedEquipmentRows, 'all'), mixedEquipmentRows.map((_entry, index) => index));
 
 const divinationCardRule = createRuleFromItem({
   looksLikePoeItem: true,
@@ -203,6 +218,7 @@ const emptyMapRulesProfile = normalizeLootFilterProfile({
 assert.equal(emptyMapRulesProfile.categoryRules.maps.rules.length, 0);
 assert.equal(emptyMapRulesProfile.categoryRules.oils.rules.length > 0, true);
 const output = generateLootFilter(profile);
+const outputSummary = summarizeGeneratedFilter(output, profile);
 
 assert.match(output, /# POEHelper generated loot filter/);
 assert.match(output, /# Hand-picked special items\n# Special Gold Ring\nShow\n    BaseType "Gold Ring"\n    Rarity Rare\n    ItemLevel >= 84\n    LinkedSockets >= 5\n    HasInfluence Shaper Elder\n    Corrupted False\n    Identified True\n    FracturedItem True\n    SynthesisedItem True/);
@@ -249,6 +265,76 @@ assert.doesNotMatch(output, /# 20% quality gem recipe\nShow/);
 assert.match(output, /# Rare baseline rules\n# Rare ilvl 86\+\nShow\n    Rarity Rare\n    ItemLevel >= 86/);
 assert.match(output, /# Rare baseline rules[\s\S]*# Rare baseline\nShow\n    Rarity Rare/);
 assert.match(output, /# Fresh-slate default: show everything not matched above\n# Default show all\nShow/);
+assert.equal(outputSummary.showBlocks > 0, true);
+assert.equal(outputSummary.hideBlocks > 0, true);
+assert.equal(outputSummary.enabledCustomRules, 2);
+assert.equal(outputSummary.economyEntries, 1);
+assert.equal(outputSummary.skippedEconomyEntries, 0);
+assert.equal(outputSummary.chanceBases, DEFAULT_LOOT_FILTER_PROFILE.chanceBases.bases.length);
+assert.match(formatFilterSummary(outputSummary), /Show \| \d+ Hide \| \d+ category rules/);
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'poehelper-filter-'));
+const tempFilterPath = path.join(tempDir, 'Golden.filter');
+assert.equal(summarizeFilterFileDiff(tempFilterPath, output).status, 'missing');
+fs.writeFileSync(tempFilterPath, output, 'utf8');
+assert.equal(summarizeFilterFileDiff(tempFilterPath, output).status, 'unchanged');
+const changedDiff = summarizeFilterFileDiff(tempFilterPath, output.replace('# Currency tiers', '# Currency rules'));
+assert.equal(changedDiff.status, 'changed');
+assert.equal(changedDiff.changedLines > 0, true);
+const goldenOutput = generateLootFilter(normalizeLootFilterProfile({
+  ...profile,
+  rarityVisibility: {
+    normal: false,
+    magic: false
+  },
+  chanceBases: {
+    enabled: true,
+    bases: ['Leather Belt']
+  },
+  rareTiers: [
+    {
+      id: 'golden-rare-wand',
+      enabled: true,
+      action: 'Show',
+      label: 'Golden rare wand',
+      style: 'rare',
+      tier: 'baseline',
+      conditions: [
+        { key: 'Rarity', value: 'Rare' },
+        { key: 'BaseType', value: 'Omen Wand' }
+      ]
+    },
+    ...(profile.rareTiers || [])
+  ],
+  rareEquipment: {
+    enabled: true,
+    armorGroups: ['dex-int'],
+    shieldGroups: ['dex-int'],
+    weaponGroups: ['wands'],
+    miscGroups: ['rings']
+  }
+}));
+const goldenSectionOrder = [
+  '# Hand-picked special items',
+  '# Personal captured-item rules',
+  '# Economy high-value items',
+  '# Category rules',
+  '# Currency tiers',
+  '# Chance bases',
+  '# Misc rules',
+  '# Rare item rules',
+  '# Base rarity visibility',
+  '# Equipment narrowing for normal, magic, and rare bases',
+  '# Rare baseline rules',
+  '# Family baseline rules',
+  '# Fresh-slate default: show everything not matched above'
+];
+let previousSectionIndex = -1;
+for (const section of goldenSectionOrder) {
+  const sectionIndex = goldenOutput.indexOf(section);
+  assert.notEqual(sectionIndex, -1, `Missing golden section: ${section}`);
+  assert.equal(sectionIndex > previousSectionIndex, true, `Section out of order: ${section}`);
+  previousSectionIndex = sectionIndex;
+}
 
 const hiddenCurrencyProfile = normalizeLootFilterProfile({
   currencyTiers: [
@@ -386,6 +472,61 @@ const economyRules = createEconomyRulesFromOverviews([
     { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 10 }
   ]
 });
+const economySnapshot = createEconomyRuleSnapshotFromOverviews([
+  {
+    type: 'Currency',
+    endpoint: 'stash/current/currency/overview',
+    overview: {
+      lines: [
+        { currencyTypeName: 'Divine Orb', chaosEquivalent: 150 },
+        { currencyTypeName: 'Orb of Annulment', chaosEquivalent: 60 },
+        { currencyTypeName: 'Orb of Chance', chaosEquivalent: 0.2 }
+      ]
+    }
+  },
+  {
+    type: 'UniqueAccessory',
+    endpoint: 'stash/current/item/overview',
+    overview: {
+      lines: [
+        { name: 'Mageblood', baseType: 'Heavy Belt', chaosValue: 9000 },
+        { name: 'Astral Projector', baseType: 'Topaz Ring', chaosValue: 200 },
+        { name: 'Le Heup of All', chaosValue: 2 }
+      ]
+    }
+  },
+  {
+    type: 'UniqueJewel',
+    endpoint: 'stash/current/item/overview',
+    overview: {
+      lines: [
+        { name: 'Foulborn Unnatural Instinct', baseType: 'Unnatural Instinct', chaosValue: 5000 }
+      ]
+    }
+  }
+], {
+  tiers: [
+    { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 10 },
+    { id: 'divine-1', label: '1 divine+', minDivines: 1, style: 'highValue', tier: 'valuable', maxItems: 10 },
+    { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 10 }
+  ]
+});
+assert.deepEqual(economySnapshot.entries.map((rule) => rule.label), ['Divine Orb (150c)', 'Orb of Annulment (60c)']);
+assert.equal(economySnapshot.candidateCount, 2);
+assert.equal(economySnapshot.selectedCount, 2);
+assert.deepEqual(economySnapshot.skippedEntries, {
+  unsupportedType: 1,
+  unsupportedRow: 3,
+  belowThreshold: 1,
+  duplicate: 0,
+  noTier: 0,
+  overTierCap: 0
+});
+assert.equal(summarizeGeneratedFilter('', {
+  economyHighlights: {
+    skippedEntries: economySnapshot.skippedEntries
+  }
+}).skippedEconomyEntries, 5);
 assert.deepEqual(economyRules.map((rule) => rule.label), ['Divine Orb (150c)', 'Orb of Annulment (60c)']);
 assert.deepEqual(economyRules.map((rule) => rule.tier), ['valuable', 'baseline']);
 assert.deepEqual(economyRules.map((rule) => rule.economyTierId), ['divine-1', 'chaos-50']);
@@ -539,6 +680,22 @@ assert.deepEqual(foulbornLeHeupRules[0].conditions, [
   { key: 'BaseType', value: 'Iron Ring' },
   { key: 'Foulborn', value: true }
 ]);
+const foulbornLeHeupOutput = generateLootFilter(normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  economyHighlights: {
+    enabled: true,
+    tiers: [
+      { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 10 },
+      { id: 'divine-1', label: '1 divine+', minDivines: 1, style: 'highValue', tier: 'valuable', maxItems: 10 },
+      { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 10 }
+    ],
+    entries: foulbornLeHeupRules
+  }
+}));
+const foulbornLeHeupBlock = getRuleBlock(foulbornLeHeupOutput, 'Foulborn Le Heup of All (929.3c)');
+assert.match(foulbornLeHeupBlock, /BaseType "Iron Ring"/);
+assert.match(foulbornLeHeupBlock, /Foulborn True/);
+assert.doesNotMatch(foulbornLeHeupOutput, /# Le Heup of All \(2c\)/);
 
 const replicaLinkedUniqueRules = createEconomyRulesFromOverviews([
   {
@@ -584,6 +741,24 @@ const cappedEconomyRules = createEconomyRulesFromOverviews([
   ]
 });
 assert.equal(cappedEconomyRules.filter((rule) => rule.economyTierId === 'divine-10').length, 5);
+const cappedEconomySnapshot = createEconomyRuleSnapshotFromOverviews([
+  {
+    type: 'SkillGem',
+    endpoint: 'stash/current/item/overview',
+    overview: {
+      lines: Array.from({ length: 12 }, (_, index) => ({ name: `Expensive Item ${index + 1}`, baseType: `Expensive Base ${index + 1}`, chaosValue: 2000 - index }))
+    }
+  }
+], {
+  divineChaosValue: 150,
+  tiers: [
+    { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 10 },
+    { id: 'divine-1', label: '1 divine+', minDivines: 1, style: 'highValue', tier: 'valuable', maxItems: 10 },
+    { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 5 }
+  ]
+});
+assert.equal(cappedEconomySnapshot.selectedCount, 5);
+assert.equal(cappedEconomySnapshot.skippedEntries.overTierCap, 7);
 
 const transfiguredGemEconomyRules = createEconomyRulesFromOverviews([
   {
@@ -788,6 +963,24 @@ assert.deepEqual(scorchingRayEconomyRules[0].conditions, [
   { key: 'Quality', operator: '>=', value: 23 },
   { key: 'Corrupted', value: true }
 ]);
+const scorchingRayOutput = generateLootFilter(normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  economyHighlights: {
+    enabled: true,
+    tiers: [
+      { id: 'chaos-50', label: '50c+', minChaos: 50, style: 'highValue', tier: 'baseline', maxItems: 10 },
+      { id: 'divine-1', label: '1 divine+', minDivines: 1, style: 'highValue', tier: 'valuable', maxItems: 10 },
+      { id: 'divine-10', label: '10 divines+', minDivines: 10, style: 'highValue', tier: 'high', maxItems: 10 }
+    ],
+    entries: scorchingRayEconomyRules
+  }
+}));
+const scorchingRayBlock = getRuleBlock(scorchingRayOutput, 'Scorching Ray (147c)');
+assert.match(scorchingRayBlock, /BaseType "Scorching Ray"/);
+assert.match(scorchingRayBlock, /GemLevel >= 21/);
+assert.match(scorchingRayBlock, /Quality >= 23/);
+assert.match(scorchingRayBlock, /Corrupted True/);
+assert.doesNotMatch(scorchingRayBlock, /Show\n    Class "Skill Gems" "Support Gems"\n    BaseType "Scorching Ray"\n(?:    Set|$)/);
 
 const narrowedProfile = normalizeLootFilterProfile({
   ...DEFAULT_LOOT_FILTER_PROFILE,
@@ -1085,11 +1278,21 @@ assert.match(baseRaritySection, /Class .*Belts/s);
 assert.match(baseRaritySection, /Class .*Quivers/s);
 assert.match(baseRaritySection, /Class .*Amulets/s);
 assert.match(baseRaritySection, /Class .*Rings/s);
+assert.match(baseRaritySection, /Class .*Helmets/s);
+assert.match(baseRaritySection, /Class .*Shields/s);
+assert.match(baseRaritySection, /Class .*Bows/s);
 assert.doesNotMatch(baseRaritySection, /Class .*"Life Flasks"/s);
 assert.doesNotMatch(baseRaritySection, /Class .*"Utility Flasks"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Stackable Currency"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Map Fragments"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Misc Map Items"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*Blueprints/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Skill Gems"/s);
+assert.doesNotMatch(baseRaritySection, /Class .*"Support Gems"/s);
 assert.doesNotMatch(baseRaritySection, /Class .*Maps/);
 assert.doesNotMatch(baseRaritySection, /Class .*Jewels/);
 assert.doesNotMatch(baseRaritySection, /Class .*"Divination Cards"/);
+assert.doesNotMatch(baseRaritySection, /BaseType .*Scarab/s);
 assert.ok(hiddenNormalMagicOutput.indexOf('# Chance bases') < hiddenNormalMagicOutput.indexOf('# Misc rules'));
 assert.ok(hiddenNormalMagicOutput.indexOf('# Misc rules') < hiddenNormalMagicOutput.indexOf('# Base rarity visibility'));
 

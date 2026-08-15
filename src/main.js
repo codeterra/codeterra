@@ -35,6 +35,7 @@ const {
   recordApiError,
   recordCopiedText,
   recordEvent,
+  recordLootFilterWrite,
   recordLookup,
   recordParsedItem
 } = require('./services/diagnostics');
@@ -1247,7 +1248,7 @@ ipcMain.handle('update-loot-filter-profile', async (_event, profilePatch) => {
 
 ipcMain.handle('write-loot-filter', () => {
   const result = writeLootFilter(settings);
-  recordEvent('loot-filter-written', result);
+  recordLootFilterWrite(result);
   return result;
 });
 

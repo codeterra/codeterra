@@ -6,7 +6,8 @@ const state = {
   lastCopiedText: '',
   lastParsedItem: undefined,
   lastApiError: undefined,
-  lastLookup: undefined
+  lastLookup: undefined,
+  lastLootFilterWrite: undefined
 };
 
 function recordEvent(type, details = {}) {
@@ -39,6 +40,11 @@ function recordLookup(details) {
   recordEvent('lookup', state.lastLookup);
 }
 
+function recordLootFilterWrite(details) {
+  state.lastLootFilterWrite = sanitize(details);
+  recordEvent('loot-filter-written', state.lastLootFilterWrite);
+}
+
 function recordApiError(source, error, classified) {
   state.lastApiError = sanitize({
     source,
@@ -64,6 +70,7 @@ function clearDiagnostics() {
   state.lastParsedItem = undefined;
   state.lastApiError = undefined;
   state.lastLookup = undefined;
+  state.lastLootFilterWrite = undefined;
   recordEvent('diagnostics-cleared');
   return getDiagnostics();
 }
@@ -123,6 +130,7 @@ module.exports = {
   recordApiError,
   recordCopiedText,
   recordEvent,
+  recordLootFilterWrite,
   recordLookup,
   recordParsedItem,
   summarizeItem

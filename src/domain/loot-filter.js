@@ -1324,8 +1324,25 @@ function normalizeEconomyHighlights(economyHighlights, styles = DEFAULT_LOOT_FIL
     league: source.league ? String(source.league) : undefined,
     source: source.source ? String(source.source) : undefined,
     divineChaosValue: Number.isFinite(Number(source.divineChaosValue)) ? Number(source.divineChaosValue) : undefined,
+    candidateCount: normalizeOptionalCount(source.candidateCount),
+    selectedCount: normalizeOptionalCount(source.selectedCount),
+    skippedEntries: normalizeSkippedEconomyEntries(source.skippedEntries),
     errors: Array.isArray(source.errors) ? source.errors.map(String) : []
   };
+}
+
+function normalizeOptionalCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number) : undefined;
+}
+
+function normalizeSkippedEconomyEntries(skippedEntries) {
+  const source = skippedEntries && typeof skippedEntries === 'object' ? skippedEntries : {};
+  const output = {};
+  for (const key of ['unsupportedType', 'unsupportedRow', 'belowThreshold', 'duplicate', 'noTier', 'overTierCap']) {
+    output[key] = Math.max(0, Math.round(Number(source[key]) || 0));
+  }
+  return output;
 }
 
 function normalizeEconomyCacheVersion(source, defaults) {
