@@ -515,6 +515,61 @@ button:hover {
   justify-content: flex-end;
 }
 
+.filter-import-review-panel {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(227, 200, 117, 0.28);
+  border-radius: 6px;
+  background: rgba(227, 200, 117, 0.08);
+}
+
+.filter-import-review-panel[hidden] {
+  display: none !important;
+}
+
+.filter-import-review-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 7px;
+  min-width: 0;
+}
+
+.filter-import-review-row {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.filter-import-review-row--warn {
+  border-color: rgba(255, 194, 102, 0.48);
+  background: rgba(255, 194, 102, 0.1);
+}
+
+.filter-import-review-row span,
+.filter-import-review-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-import-review-row span {
+  color: #b6c3d2;
+  font-size: 11px;
+}
+
+.filter-import-review-row strong {
+  color: #f4f7fb;
+  font-size: 12px;
+}
+
 .loot-command-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 140px;

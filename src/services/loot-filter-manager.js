@@ -15,9 +15,12 @@ const { getChanceBaseOptions } = require('./base-type-catalog');
 const { getCatalogMetadata } = require('./catalog-metadata');
 const { generateLootFilter } = require('./loot-filter-generator');
 const { summarizeFilterFileDiff } = require('./loot-filter-diff');
+const { diffLootFilterProfiles } = require('./loot-filter-profile-diff');
+const { parseLootFilter } = require('./loot-filter-parser');
 const { summarizeGeneratedFilter } = require('./loot-filter-summary');
 
 const LOOT_FILTER_LIBRARY_SCHEMA_VERSION = 1;
+const LOOT_FILTER_PROFILE_EXPORT_VERSION = 2;
 const DEFAULT_PROFILE_ID = 'profile-default';
 const HISTORY_DIR_NAME = '.poehelper-history';
 const HISTORY_LIMIT = 20;
@@ -206,7 +209,7 @@ function exportLootFilterProfile(settings, profileId) {
     || current.profiles[0];
   return {
     kind: 'poehelper-loot-filter-profile',
-    version: 1,
+    version: LOOT_FILTER_PROFILE_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     profile: {
       ...entry,
@@ -218,16 +221,42 @@ function exportLootFilterProfile(settings, profileId) {
   };
 }
 
-function importLootFilterProfile(settings, payload) {
+function createLootFilterProfileImportPreview(settings, payload, options = {}) {
   const current = normalizeLootFilterSettings(settings.lootFilter);
-  const rawEntry = unwrapImportedProfile(payload);
-  const baseName = normalizeProfileName(rawEntry.name || rawEntry.profile?.name || 'Imported Filter');
+  const prepared = prepareImportedProfileEntry(current, payload, options);
+  return {
+    status: 'preview',
+    kind: prepared.kind,
+    filePath: options.filePath,
+    profileName: prepared.entry.name,
+    outputPath: prepared.entry.outputPath,
+    importedSummary: prepared.summary,
+    migration: prepared.migration,
+    diff: diffLootFilterProfiles(current.profile, prepared.entry.profile)
+  };
+}
+
+function importLootFilterProfile(settings, payload, options = {}) {
+  const current = normalizeLootFilterSettings(settings.lootFilter);
+  const { entry } = prepareImportedProfileEntry(current, payload, options);
+
+  return normalizeLootFilterSettings({
+    ...current,
+    activeProfileId: entry.id,
+    profiles: [...current.profiles, entry]
+  });
+}
+
+function prepareImportedProfileEntry(current, payload, options = {}) {
+  const migration = migrateImportedProfilePayload(payload);
+  const rawEntry = migration.entry;
+  const baseName = normalizeProfileName(rawEntry.name || rawEntry.profile?.name || getImportNameFromPath(options.filePath) || 'Imported Filter');
   const name = getUniqueProfileName(baseName, current.profiles);
   const entry = normalizeProfileEntry({
     ...rawEntry,
     id: createProfileId(name),
     name,
-    outputPath: getDefaultFilterPath(name),
+    outputPath: rawEntry.outputPath || getDefaultFilterPath(name),
     profile: {
       ...(rawEntry.profile || rawEntry),
       name
@@ -235,11 +264,106 @@ function importLootFilterProfile(settings, payload) {
     importedAt: new Date().toISOString()
   });
 
-  return normalizeLootFilterSettings({
-    ...current,
-    activeProfileId: entry.id,
-    profiles: [...current.profiles, entry]
-  });
+  return {
+    kind: migration.kind,
+    migration: migration.migration,
+    summary: createImportedProfileSummary(entry.profile, migration),
+    entry
+  };
+}
+
+function migrateImportedProfilePayload(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  if (source.kind === 'poehelper-raw-filter-import') {
+    return {
+      kind: 'filter',
+      migration: {
+        sourceKind: source.kind,
+        fromVersion: Number(source.version) || 1,
+        toVersion: LOOT_FILTER_PROFILE_EXPORT_VERSION,
+        warnings: []
+      },
+      entry: createRawFilterProfileEntry(source)
+    };
+  }
+
+  const rawEntry = unwrapImportedProfile(source);
+  const fromVersion = Number(source.version) || 1;
+  return {
+    kind: 'json',
+    migration: {
+      sourceKind: source.kind || 'legacy-profile-json',
+      fromVersion,
+      toVersion: LOOT_FILTER_PROFILE_EXPORT_VERSION,
+      warnings: fromVersion > LOOT_FILTER_PROFILE_EXPORT_VERSION
+        ? [`Profile export version ${fromVersion} is newer than this app understands; unsupported fields may be ignored.`]
+        : []
+    },
+    entry: rawEntry
+  };
+}
+
+function createRawFilterImportPayload(filePath, rawText) {
+  const parsed = parseLootFilter(rawText, { sourcePath: filePath });
+  return {
+    kind: 'poehelper-raw-filter-import',
+    version: 1,
+    importedAt: new Date().toISOString(),
+    sourcePath: filePath,
+    fileName: path.basename(filePath || 'Imported.filter'),
+    summary: parsed.summary,
+    rawText
+  };
+}
+
+function createRawFilterProfileEntry(source) {
+  const fileName = String(source.fileName || path.basename(source.sourcePath || 'Imported.filter'));
+  const name = normalizeProfileName(fileName.replace(/\.filter$/i, ''));
+  return {
+    name,
+    profile: normalizeLootFilterProfile({
+      name,
+      mode: 'raw-reference',
+      userRules: [],
+      importedFilter: {
+        mode: 'raw-reference',
+        fileName,
+        sourcePath: source.sourcePath,
+        importedAt: source.importedAt,
+        summary: source.summary,
+        rawText: String(source.rawText || '')
+      }
+    })
+  };
+}
+
+function createImportedProfileSummary(profile, migration) {
+  const importedFilter = profile.importedFilter;
+  if (importedFilter?.mode === 'raw-reference') {
+    return {
+      type: 'Raw .filter',
+      blocks: importedFilter.summary?.blocks || 0,
+      showBlocks: importedFilter.summary?.showBlocks || 0,
+      hideBlocks: importedFilter.summary?.hideBlocks || 0,
+      lines: importedFilter.summary?.lines || 0,
+      bytes: importedFilter.summary?.bytes || 0,
+      preservesOriginalText: true
+    };
+  }
+
+  return {
+    type: 'POEHelper JSON profile',
+    version: migration.migration?.fromVersion,
+    capturedRules: profile.userRules?.length || 0,
+    customRules: profile.specialItems?.entries?.length || 0,
+    economyEntries: profile.economyHighlights?.entries?.length || 0,
+    chanceBases: profile.chanceBases?.bases?.length || 0
+  };
+}
+
+function getImportNameFromPath(filePath) {
+  const baseName = path.basename(String(filePath || ''), path.extname(String(filePath || '')));
+  return baseName || undefined;
 }
 
 function addCapturedItemRule(settings, item, options = {}) {
@@ -619,7 +743,9 @@ function unwrapImportedProfile(payload) {
 module.exports = {
   addCapturedItemRule,
   clearLootFilterRules,
+  createLootFilterProfileImportPreview,
   createLootFilterProfile,
+  createRawFilterImportPayload,
   deleteLootFilterProfile,
   exportLootFilterProfile,
   generateLootFilter,

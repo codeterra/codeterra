@@ -746,6 +746,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     enabled: true,
     entries: []
   },
+  importedFilter: undefined,
   economyHighlights: {
     enabled: true,
     tiers: [
@@ -818,6 +819,7 @@ function normalizeLootFilterProfile(profile) {
     chanceBases: normalizeChanceBases(source.chanceBases, styles),
     miscRules: normalizeMiscRules(source.miscRules),
     specialItems: normalizeSpecialItems(source.specialItems),
+    importedFilter: normalizeImportedFilter(source.importedFilter),
     economyHighlights: normalizeEconomyHighlights(source.economyHighlights, styles),
     rarityVisibility: normalizeRarityVisibility(source.rarityVisibility),
     userRules: Array.isArray(source.userRules) ? source.userRules.map(normalizeRule).filter(Boolean) : []
@@ -1321,6 +1323,46 @@ function normalizeSpecialItem(entry) {
   }
 
   return rule;
+}
+
+function normalizeImportedFilter(importedFilter) {
+  if (!importedFilter || typeof importedFilter !== 'object') {
+    return undefined;
+  }
+
+  if (importedFilter.mode !== 'raw-reference') {
+    return undefined;
+  }
+
+  const rawText = typeof importedFilter.rawText === 'string' ? importedFilter.rawText : '';
+  if (!rawText) {
+    return undefined;
+  }
+
+  return {
+    mode: 'raw-reference',
+    fileName: String(importedFilter.fileName || 'Imported.filter'),
+    sourcePath: importedFilter.sourcePath ? String(importedFilter.sourcePath) : undefined,
+    importedAt: importedFilter.importedAt ? String(importedFilter.importedAt) : undefined,
+    summary: importedFilter.summary && typeof importedFilter.summary === 'object'
+      ? normalizeImportedFilterSummary(importedFilter.summary)
+      : undefined,
+    rawText
+  };
+}
+
+function normalizeImportedFilterSummary(summary) {
+  return {
+    bytes: normalizeOptionalCount(summary.bytes),
+    lines: normalizeOptionalCount(summary.lines),
+    blocks: normalizeOptionalCount(summary.blocks),
+    showBlocks: normalizeOptionalCount(summary.showBlocks),
+    hideBlocks: normalizeOptionalCount(summary.hideBlocks),
+    commentLines: normalizeOptionalCount(summary.commentLines),
+    blankLines: normalizeOptionalCount(summary.blankLines),
+    unknownLines: normalizeOptionalCount(summary.unknownLines),
+    directiveCounts: normalizeCountMap(summary.directiveCounts)
+  };
 }
 
 function normalizeEconomyHighlights(economyHighlights, styles = DEFAULT_LOOT_FILTER_PROFILE.styles) {

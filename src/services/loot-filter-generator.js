@@ -24,6 +24,10 @@ const INHERIT_STYLE = '__inherit';
 
 function generateLootFilter(profileLike) {
   const profile = normalizeLootFilterProfile(profileLike);
+  if (profile.importedFilter?.mode === 'raw-reference' && typeof profile.importedFilter.rawText === 'string') {
+    return profile.importedFilter.rawText;
+  }
+
   const lines = [
     '# POEHelper generated loot filter',
     `# Profile: ${profile.name}`,

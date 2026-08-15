@@ -22,6 +22,8 @@ const { summarizeFilterFileDiff } = require('../src/services/loot-filter-diff');
 const { generateLootFilter } = require('../src/services/loot-filter-generator');
 const { formatFilterSummary, summarizeGeneratedFilter } = require('../src/services/loot-filter-summary');
 const { getCatalogMetadata } = require('../src/services/catalog-metadata');
+const { diffLootFilterProfiles } = require('../src/services/loot-filter-profile-diff');
+const { parseLootFilter, serializeLootFilterAst } = require('../src/services/loot-filter-parser');
 const { getSelectedEquipmentIndexes } = require('../src/shared/equipment-selection');
 
 function fixture(name) {
@@ -448,6 +450,38 @@ const quietFragmentCategoryProfile = normalizeLootFilterProfile({
 });
 const quietFragmentBlock = getRuleBlock(generateLootFilter(quietFragmentCategoryProfile), 'Quiet fragments');
 assert.doesNotMatch(quietFragmentBlock, /PlayAlertSound|CustomAlertSound|DisableDropSoundIfAlertSound/);
+
+const importedFilterText = [
+  '# Friend filter',
+  'Continue',
+  '',
+  'Show',
+  '    Class "Stackable Currency"',
+  '    BaseType "Divine Orb"',
+  '    SetTextColor 80 255 120 255',
+  '',
+  '# Unknown directives should survive'
+].join('\r\n');
+const importedFilterAst = parseLootFilter(importedFilterText, { sourcePath: 'Friend.filter' });
+assert.equal(serializeLootFilterAst(importedFilterAst), importedFilterText);
+assert.equal(importedFilterAst.summary.showBlocks, 1);
+assert.equal(importedFilterAst.summary.unknownLines, 1);
+const rawReferenceProfile = normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  name: 'Friend',
+  importedFilter: {
+    mode: 'raw-reference',
+    fileName: 'Friend.filter',
+    sourcePath: 'C:\\Filters\\Friend.filter',
+    summary: importedFilterAst.summary,
+    rawText: importedFilterText
+  }
+});
+assert.equal(generateLootFilter(rawReferenceProfile), importedFilterText);
+assert.equal(rawReferenceProfile.importedFilter.summary.showBlocks, 1);
+const rawImportDiff = diffLootFilterProfiles(DEFAULT_LOOT_FILTER_PROFILE, rawReferenceProfile);
+assert.equal(rawImportDiff.status, 'changed');
+assert.ok(rawImportDiff.changes.some((change) => change.label === 'Raw imported filter' && change.after === 'yes'));
 
 const economyRules = createEconomyRulesFromOverviews([
   {

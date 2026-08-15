@@ -13,7 +13,9 @@ const { getRelatedOutcomes } = require('./services/related-outcomes');
 const {
   addCapturedItemRule,
   clearLootFilterRules,
+  createLootFilterProfileImportPreview,
   createLootFilterProfile,
+  createRawFilterImportPayload,
   deleteLootFilterProfile,
   exportLootFilterProfile,
   getLootFilterSummary,
@@ -56,6 +58,7 @@ let settings;
 let overlayBoundsSaveTimer;
 let registeredHideShortcut;
 let activeLookupId = 0;
+let pendingLootFilterProfileImport;
 let updateState = {
   status: 'idle',
   message: 'Updates have not been checked yet.',
@@ -1251,17 +1254,19 @@ ipcMain.handle('export-loot-filter-profile', async (_event, profileId) => {
   };
 });
 
-ipcMain.handle('import-loot-filter-profile', async () => {
+ipcMain.handle('preview-loot-filter-profile-import', async () => {
   const result = await dialog.showOpenDialog(settingsWindow || overlayWindow, {
-    title: 'Import loot filter profile',
+    title: 'Import loot filter profile or filter file',
     properties: ['openFile'],
     filters: [
-      { name: 'POEHelper Profile', extensions: ['json'] },
+      { name: 'POEHelper Profile or Filter', extensions: ['json', 'filter'] },
+      { name: 'POE Item Filter', extensions: ['filter'] },
       { name: 'JSON', extensions: ['json'] }
     ]
   });
 
   if (result.canceled || !result.filePaths?.[0]) {
+    pendingLootFilterProfileImport = undefined;
     return {
       status: 'cancelled',
       state: await getLootFilterState(settings)
@@ -1269,16 +1274,48 @@ ipcMain.handle('import-loot-filter-profile', async () => {
   }
 
   const filePath = result.filePaths[0];
-  const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const text = fs.readFileSync(filePath, 'utf8');
+  const payload = /\.filter$/i.test(filePath)
+    ? createRawFilterImportPayload(filePath, text)
+    : JSON.parse(text);
+  const preview = createLootFilterProfileImportPreview(settings, payload, { filePath });
+  pendingLootFilterProfileImport = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    filePath,
+    payload
+  };
+  return {
+    ...preview,
+    importId: pendingLootFilterProfileImport.id
+  };
+});
+
+ipcMain.handle('confirm-loot-filter-profile-import', async (_event, importId) => {
+  if (!pendingLootFilterProfileImport || pendingLootFilterProfileImport.id !== String(importId || '')) {
+    return {
+      status: 'missing',
+      state: await getLootFilterState(settings)
+    };
+  }
+
+  const pending = pendingLootFilterProfileImport;
+  pendingLootFilterProfileImport = undefined;
   settings = writeSettings({
     ...settings,
-    lootFilter: importLootFilterProfile(settings, payload)
+    lootFilter: importLootFilterProfile(settings, pending.payload, { filePath: pending.filePath })
   });
   publishSettings();
   return {
     status: 'imported',
-    filePath,
+    filePath: pending.filePath,
     state: await getLootFilterState(settings)
+  };
+});
+
+ipcMain.handle('import-loot-filter-profile', async () => {
+  return {
+    status: 'unsupported',
+    message: 'Use preview-loot-filter-profile-import followed by confirm-loot-filter-profile-import.'
   };
 });
 

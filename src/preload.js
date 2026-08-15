@@ -91,6 +91,12 @@ contextBridge.exposeInMainWorld('poehelper', {
   exportLootFilterProfile(profileId) {
     return ipcRenderer.invoke('export-loot-filter-profile', profileId);
   },
+  previewLootFilterProfileImport() {
+    return ipcRenderer.invoke('preview-loot-filter-profile-import');
+  },
+  confirmLootFilterProfileImport(importId) {
+    return ipcRenderer.invoke('confirm-loot-filter-profile-import', importId);
+  },
   importLootFilterProfile() {
     return ipcRenderer.invoke('import-loot-filter-profile');
   },

@@ -39,6 +39,12 @@ const duplicateFilterProfileButton = document.querySelector('#duplicate-filter-p
 const deleteFilterProfileButton = document.querySelector('#delete-filter-profile-button');
 const importFilterProfileButton = document.querySelector('#import-filter-profile-button');
 const exportFilterProfileButton = document.querySelector('#export-filter-profile-button');
+const filterImportReviewPanel = document.querySelector('#filter-import-review-panel');
+const filterImportReviewTitle = document.querySelector('#filter-import-review-title');
+const filterImportReviewSummary = document.querySelector('#filter-import-review-summary');
+const filterImportReviewList = document.querySelector('#filter-import-review-list');
+const confirmFilterImportButton = document.querySelector('#confirm-filter-import-button');
+const cancelFilterImportButton = document.querySelector('#cancel-filter-import-button');
 const filterOutputPathInput = document.querySelector('#filter-output-path-input');
 const filterQuickActionInput = document.querySelector('#filter-quick-action-input');
 const saveFilterConfigButton = document.querySelector('#save-filter-config-button');
@@ -181,6 +187,7 @@ let chanceBaseOptions = [];
 let lootFilterSoundFiles = [];
 let lootFilterDirty = false;
 let renderingLootFilter = false;
+let pendingFilterImportPreview;
 let previewAudio;
 let previewAudioContext;
 const FILTER_FONT_SIZE_MIN = 18;
@@ -749,6 +756,59 @@ function renderProfileControls(state) {
   filterProfileSelect.value = state.activeProfileId || profiles[0]?.id || '';
   filterProfileNameInput.value = state.profileName || state.profile?.name || '';
   deleteFilterProfileButton.disabled = profiles.length <= 1;
+}
+
+function renderFilterImportReview(preview) {
+  pendingFilterImportPreview = preview?.status === 'preview' ? preview : undefined;
+  if (!filterImportReviewPanel) {
+    return;
+  }
+
+  filterImportReviewPanel.hidden = !pendingFilterImportPreview;
+  filterImportReviewList.innerHTML = '';
+  if (!pendingFilterImportPreview) {
+    return;
+  }
+
+  const summary = pendingFilterImportPreview.importedSummary || {};
+  filterImportReviewTitle.textContent = `Import ${pendingFilterImportPreview.profileName || 'profile'}`;
+  filterImportReviewSummary.textContent = [
+    `${summary.type || 'Profile'} from ${pendingFilterImportPreview.filePath || 'selected file'}.`,
+    pendingFilterImportPreview.migration
+      ? `Version ${pendingFilterImportPreview.migration.fromVersion || '?'} -> ${pendingFilterImportPreview.migration.toVersion || '?'}.`
+      : undefined,
+    summary.preservesOriginalText ? 'Raw filter text will be preserved exactly.' : undefined
+  ].filter(Boolean).join(' ');
+
+  appendImportReviewRow('Output path', pendingFilterImportPreview.outputPath || 'default filter path');
+  if (summary.type === 'Raw .filter') {
+    appendImportReviewRow('Filter blocks', `${summary.blocks || 0} total, ${summary.showBlocks || 0} Show, ${summary.hideBlocks || 0} Hide`);
+    appendImportReviewRow('Filter size', `${summary.lines || 0} lines, ${summary.bytes || 0} bytes`);
+  } else {
+    appendImportReviewRow('Imported content', `${summary.capturedRules || 0} captured, ${summary.customRules || 0} custom, ${summary.economyEntries || 0} economy, ${summary.chanceBases || 0} chance bases`);
+  }
+
+  const warnings = pendingFilterImportPreview.migration?.warnings || [];
+  for (const warning of warnings) {
+    appendImportReviewRow('Warning', warning, true);
+  }
+
+  for (const change of pendingFilterImportPreview.diff?.changes || []) {
+    appendImportReviewRow(change.label, `${change.before} -> ${change.after}`);
+  }
+}
+
+function appendImportReviewRow(label, value, warn = false) {
+  const row = document.createElement('div');
+  row.className = 'filter-import-review-row';
+  row.classList.toggle('filter-import-review-row--warn', warn);
+  const name = document.createElement('span');
+  name.textContent = label;
+  const text = document.createElement('strong');
+  text.textContent = String(value || '');
+  row.appendChild(name);
+  row.appendChild(text);
+  filterImportReviewList.appendChild(row);
 }
 
 function normalizeBaseKey(value) {
@@ -3792,16 +3852,46 @@ deleteFilterProfileButton.addEventListener('click', () => {
 });
 
 importFilterProfileButton.addEventListener('click', () => {
-  runButton(importFilterProfileButton, filterStatus, 'Importing...', async () => {
-    const result = await window.poehelper.importLootFilterProfile();
+  runButton(importFilterProfileButton, filterStatus, 'Reading import...', async () => {
+    const result = await window.poehelper.previewLootFilterProfileImport();
     if (result.status === 'cancelled') {
       setStatus(filterStatus, 'Profile import cancelled.');
       return;
     }
 
+    if (result.status !== 'preview') {
+      setStatus(filterStatus, result.message || 'Profile import could not be previewed.', true);
+      return;
+    }
+
+    renderFilterImportReview(result);
+    setStatus(filterStatus, `Review ${result.profileName} before importing.`);
+  });
+});
+
+confirmFilterImportButton.addEventListener('click', () => {
+  if (!pendingFilterImportPreview?.importId) {
+    setStatus(filterStatus, 'No pending import to confirm.', true);
+    return;
+  }
+
+  runButton(confirmFilterImportButton, filterStatus, 'Importing...', async () => {
+    const result = await window.poehelper.confirmLootFilterProfileImport(pendingFilterImportPreview.importId);
+    if (result.status !== 'imported') {
+      setStatus(filterStatus, 'Pending import is no longer available. Choose the file again.', true);
+      renderFilterImportReview();
+      return;
+    }
+
+    renderFilterImportReview();
     renderLootFilterState(result.state);
     setStatus(filterStatus, `Imported ${result.state.profileName}.`);
   });
+});
+
+cancelFilterImportButton.addEventListener('click', () => {
+  renderFilterImportReview();
+  setStatus(filterStatus, 'Profile import review cancelled.');
 });
 
 exportFilterProfileButton.addEventListener('click', () => {

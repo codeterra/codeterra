@@ -227,23 +227,23 @@ Exit criteria:
 - ~~Economy highlights are explainable and conservative.~~
 - ~~Low-value variants do not trigger high-value rules merely because a different variant is expensive.~~
 
-### Milestone 6: Import, Migration, And Interop
+### ~~Milestone 6: Import, Migration, And Interop~~
 
-Goal: let users bring in existing filters or share filters without making POEHelper depend on another tool's model.
+Goal: ~~let users bring in existing filters or share filters without making POEHelper depend on another tool's model.~~
 
 Work:
 
-- Build a loss-preserving filter parser/AST.
-- Import an existing `.filter` into either raw-reference mode or translated POEHelper profile mode.
-- Preserve comments and unknown directives when exporting imported filters.
-- Add JSON profile import/export version migration.
-- Add profile diffing.
-- Add a friend-import review screen that shows what will change before accepting it.
+- ~~Build a loss-preserving filter parser/AST.~~
+- ~~Import an existing `.filter` into either raw-reference mode or translated POEHelper profile mode.~~
+- ~~Preserve comments and unknown directives when exporting imported filters.~~
+- ~~Add JSON profile import/export version migration.~~
+- ~~Add profile diffing.~~
+- ~~Add a friend-import review screen that shows what will change before accepting it.~~
 
 Exit criteria:
 
-- A user can import/share profiles safely.
-- Imported filter text is not corrupted by a no-op import/export cycle.
+- ~~A user can import/share profiles safely.~~
+- ~~Imported filter text is not corrupted by a no-op import/export cycle.~~
 
 ### Milestone 7: Architecture Upgrade
 
