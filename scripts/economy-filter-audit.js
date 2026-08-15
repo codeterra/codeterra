@@ -1,4 +1,4 @@
-const { DEFAULT_ECONOMY_TYPES, createEconomyRulesFromOverviews } = require('../src/services/economy-highlights');
+const { DEFAULT_ECONOMY_TYPES, createEconomyRuleSnapshotFromOverviews } = require('../src/services/economy-highlights');
 const { fetchPoeNinjaOverview, getPoeNinjaEndpoint } = require('../src/services/pricing');
 
 const USER_AGENT = 'poehelper-local economy-audit';
@@ -60,7 +60,8 @@ async function main() {
     fetchOfficialItemCatalog(),
     fetchEconomyOverviews()
   ]);
-  const rules = createEconomyRulesFromOverviews(overviews, { tiers });
+  const snapshot = createEconomyRuleSnapshotFromOverviews(overviews, { tiers });
+  const rules = snapshot.entries;
   const invalidBaseTypes = [];
   let transfigured = 0;
   let skillGemRules = 0;
@@ -104,6 +105,9 @@ async function main() {
   }
 
   console.log(`Generated rules: ${rules.length}`);
+  console.log(`Economy candidates: ${snapshot.candidateCount}`);
+  console.log(`Economy selected: ${snapshot.selectedCount}`);
+  console.log(`Skipped rows: ${JSON.stringify(snapshot.skippedEntries)}`);
   console.log(`Transfigured gem rules: ${transfigured}`);
   console.log(`Skill gem rules: ${skillGemRules}`);
   console.log(`Skill gem rules with GemLevel: ${skillGemRulesWithLevel}`);

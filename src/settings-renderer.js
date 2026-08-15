@@ -110,6 +110,9 @@ const refreshDiagnosticsButton = document.querySelector('#refresh-diagnostics-bu
 const clearDiagnosticsButton = document.querySelector('#clear-diagnostics-button');
 const diagnosticsOutput = document.querySelector('#diagnostics-output');
 const diagnosticsStatus = document.querySelector('#diagnostics-status');
+const refreshCatalogMetadataButton = document.querySelector('#refresh-catalog-metadata-button');
+const catalogMetadataOutput = document.querySelector('#catalog-metadata-output');
+const catalogMetadataStatus = document.querySelector('#catalog-metadata-status');
 const settingsTabButtons = [...document.querySelectorAll('[data-settings-tab]')];
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')];
 const lootFilterPanel = document.querySelector('[data-settings-panel="loot-filter"]');
@@ -3189,10 +3192,48 @@ function formatDiagnostics(diagnostics) {
   return lines.length ? lines.join('\n\n') : 'No diagnostics captured yet.';
 }
 
+function formatCatalogMetadata(metadata) {
+  const lines = [];
+  for (const catalog of metadata?.catalogs || []) {
+    lines.push(`${catalog.id}: ${catalog.dataVersion || 'unversioned'} / ${catalog.gameVersion || 'unknown game version'}`);
+    if (catalog.entries !== undefined) {
+      lines.push(`  entries: ${catalog.entries}${catalog.groups !== undefined ? ` across ${catalog.groups} groups` : ''}`);
+    }
+    if (catalog.source) {
+      lines.push(`  source: ${catalog.source}`);
+    }
+    if (catalog.sourceRevision) {
+      lines.push(`  source revision: ${catalog.sourceRevision}`);
+    }
+    if (catalog.updatePolicy) {
+      lines.push(`  update: ${catalog.updatePolicy}`);
+    }
+    if (catalog.manualOverrides?.length) {
+      lines.push(`  manual overrides: ${catalog.manualOverrides.join(' | ')}`);
+    }
+    lines.push('');
+  }
+
+  if (metadata?.releaseChecklist?.length) {
+    lines.push('League update checklist:');
+    for (const command of metadata.releaseChecklist) {
+      lines.push(`  ${command}`);
+    }
+  }
+
+  return lines.join('\n').trim() || 'No catalog metadata available.';
+}
+
 async function refreshDiagnostics() {
   const diagnostics = await window.poehelper.getDiagnostics();
   diagnosticsOutput.textContent = formatDiagnostics(diagnostics);
   setStatus(diagnosticsStatus, `Diagnostics refreshed with ${(diagnostics.events || []).length} events.`);
+}
+
+async function refreshCatalogMetadata() {
+  const metadata = await window.poehelper.getCatalogMetadata();
+  catalogMetadataOutput.textContent = formatCatalogMetadata(metadata);
+  setStatus(catalogMetadataStatus, `Catalog metadata refreshed with ${(metadata.catalogs || []).length} catalogs.`);
 }
 
 async function runButton(button, statusElement, workingText, action) {
@@ -3215,6 +3256,7 @@ window.poehelper.getSettings().then((settings) => {
   applySettingsPayload({ settings });
   refreshLootFilterState(false);
   refreshDiagnostics();
+  refreshCatalogMetadata();
 });
 
 window.poehelper.getUpdateStatus().then(renderUpdateStatus);
@@ -3849,6 +3891,12 @@ testExchangeButton.addEventListener('click', () => {
 refreshDiagnosticsButton.addEventListener('click', () => {
   runButton(refreshDiagnosticsButton, diagnosticsStatus, 'Refreshing...', refreshDiagnostics);
 });
+
+if (refreshCatalogMetadataButton) {
+  refreshCatalogMetadataButton.addEventListener('click', () => {
+    runButton(refreshCatalogMetadataButton, catalogMetadataStatus, 'Refreshing...', refreshCatalogMetadata);
+  });
+}
 
 clearDiagnosticsButton.addEventListener('click', () => {
   runButton(clearDiagnosticsButton, diagnosticsStatus, 'Clearing...', async () => {

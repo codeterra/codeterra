@@ -12,6 +12,7 @@ const {
   createRuleFromItem,
   normalizeLootFilterProfile
 } = require('../src/domain/loot-filter');
+const { getCanonicalBaseType } = require('../src/data/catalog-ambiguity-rules');
 const { EQUIPMENT_BASE_REQUIREMENTS } = require('../src/data/equipment-base-requirements');
 const {
   createEconomyRuleSnapshotFromOverviews,
@@ -20,6 +21,7 @@ const {
 const { summarizeFilterFileDiff } = require('../src/services/loot-filter-diff');
 const { generateLootFilter } = require('../src/services/loot-filter-generator');
 const { formatFilterSummary, summarizeGeneratedFilter } = require('../src/services/loot-filter-summary');
+const { getCatalogMetadata } = require('../src/services/catalog-metadata');
 const { getSelectedEquipmentIndexes } = require('../src/shared/equipment-selection');
 
 function fixture(name) {
@@ -40,6 +42,10 @@ assert.equal(currencyRule.style, 'currency');
 assert.equal(currencyRule.conditions.some((condition) => condition.key === 'Class'), true);
 assert.equal(normalizeLootFilterProfile({}).economyHighlights.cacheVersion, ECONOMY_HIGHLIGHT_CACHE_VERSION);
 assert.equal(EQUIPMENT_MISC_VISIBILITY_GROUPS.some((group) => group.id === 'jewels'), false);
+assert.equal(getCanonicalBaseType('Two-Toned Boots (Armour/Evasion)'), 'Two-Toned Boots');
+const catalogMetadata = getCatalogMetadata();
+assert.equal(catalogMetadata.catalogs.some((catalog) => catalog.id === 'equipmentBaseRequirements' && catalog.dataVersion), true);
+assert.equal(catalogMetadata.catalogs.some((catalog) => catalog.id === 'catalogAmbiguityRules' && catalog.entries >= 1), true);
 assert.equal(
   [...RARE_ARMOR_GROUPS, ...RARE_SHIELD_GROUPS]
     .flatMap((group) => group.bases)
@@ -219,6 +225,15 @@ assert.equal(emptyMapRulesProfile.categoryRules.maps.rules.length, 0);
 assert.equal(emptyMapRulesProfile.categoryRules.oils.rules.length > 0, true);
 const output = generateLootFilter(profile);
 const outputSummary = summarizeGeneratedFilter(output, profile);
+const ambiguousBaseOutput = generateLootFilter(normalizeLootFilterProfile({
+  ...DEFAULT_LOOT_FILTER_PROFILE,
+  chanceBases: {
+    enabled: true,
+    bases: ['Two-Toned Boots (Armour/Evasion)']
+  }
+}));
+assert.match(ambiguousBaseOutput, /BaseType "Two-Toned Boots"/);
+assert.doesNotMatch(ambiguousBaseOutput, /Two-Toned Boots \(Armour\/Evasion\)/);
 
 assert.match(output, /# POEHelper generated loot filter/);
 assert.match(output, /# Hand-picked special items\n# Special Gold Ring\nShow\n    BaseType "Gold Ring"\n    Rarity Rare\n    ItemLevel >= 84\n    LinkedSockets >= 5\n    HasInfluence Shaper Elder\n    Corrupted False\n    Identified True\n    FracturedItem True\n    SynthesisedItem True/);

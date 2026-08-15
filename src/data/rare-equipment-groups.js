@@ -1,4 +1,19 @@
 // Generated from RePoE PoE1 base_items plus GGG trade item names, then curated into UI groups.
+const RARE_EQUIPMENT_GROUPS_METADATA = {
+  schemaVersion: 1,
+  dataVersion: 'rare-equipment-groups-2026-08-14',
+  gameVersion: 'release-reviewed-2026-08-14',
+  generatedAt: '2026-08-14',
+  source: 'RePoE PoE1 base_items, GGG trade item names, and local UI curation',
+  sourceUrl: 'https://www.pathofexile.com/api/trade/data/items',
+  sourceRevision: 'GGG trade catalog reviewed 2026-08-14',
+  manualOverrides: [
+    'Armour, shield, weapon, jewelry, flask, and jewel groups are curated for loot-filter UI ergonomics.',
+    'Two-Toned Boots appears in multiple attribute groups because item-filter BaseType cannot distinguish its defensive variant.'
+  ],
+  updatePolicy: 'Run npm run validate:equipment after every catalog refresh and before publishing a release.'
+};
+
 const EQUIPMENT_ARMOR_GROUPS = [
   {
     id: 'str',
@@ -424,6 +439,7 @@ const FLASK_EQUIPMENT_GROUP_IDS = [
 module.exports = {
   EQUIPMENT_MISC_GROUPS,
   FLASK_EQUIPMENT_GROUP_IDS,
+  RARE_EQUIPMENT_GROUPS_METADATA,
   RARE_ARMOR_GROUPS,
   RARE_SHIELD_GROUPS,
   RARE_WEAPON_GROUPS

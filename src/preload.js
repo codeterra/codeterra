@@ -61,6 +61,9 @@ contextBridge.exposeInMainWorld('poehelper', {
   clearDiagnostics() {
     return ipcRenderer.invoke('clear-diagnostics');
   },
+  getCatalogMetadata() {
+    return ipcRenderer.invoke('get-catalog-metadata');
+  },
   setLeague(league) {
     return ipcRenderer.invoke('set-league', league);
   },

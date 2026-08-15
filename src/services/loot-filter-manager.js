@@ -12,6 +12,7 @@ const {
 const { EQUIPMENT_BASE_REQUIREMENTS } = require('../data/equipment-base-requirements');
 const { refreshEconomyHighlightRules } = require('./economy-highlights');
 const { getChanceBaseOptions } = require('./base-type-catalog');
+const { getCatalogMetadata } = require('./catalog-metadata');
 const { generateLootFilter } = require('./loot-filter-generator');
 const { summarizeFilterFileDiff } = require('./loot-filter-diff');
 const { summarizeGeneratedFilter } = require('./loot-filter-summary');
@@ -311,7 +312,8 @@ function writeLootFilter(settings) {
     bytes: summary.bytes,
     userRuleCount: lootFilter.profile.userRules.length,
     summary,
-    previousDiff
+    previousDiff,
+    catalogMetadata: getCatalogMetadata()
   };
 }
 

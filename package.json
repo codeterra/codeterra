@@ -17,7 +17,10 @@
     "phase3": "node scripts/start-electron.js .",
     "watch-dev": "node scripts/watch-electron.js .",
     "report:chance": "node scripts/chance-catalog-report.js",
+    "audit:chance": "node scripts/chance-catalog-report.js",
     "audit:economy": "node scripts/economy-filter-audit.js",
+    "catalog:refresh-equipment": "node scripts/refresh-equipment-base-requirements.js",
+    "catalog:audit": "node scripts/catalog-audit.js",
     "validate:equipment": "node scripts/validate-equipment-groups.js",
     "release:check": "node scripts/check-release-ready.js",
     "release:ensure": "node scripts/ensure-github-release.js",
@@ -28,7 +31,7 @@
     "release:patch": "npm run check && npm version patch -m \"Release v%s\" && git push --follow-tags && npm run release:win",
     "release:win": "npm run release:check && npm run release:ensure && electron-builder --win nsis --publish always",
     "pack:win": "electron-builder --win --dir --publish never",
-    "check": "node --check scripts/start-electron.js && node --check scripts/watch-electron.js && node --check scripts/chance-catalog-report.js && node --check scripts/economy-filter-audit.js && node --check scripts/validate-equipment-groups.js && node --check scripts/check-release-ready.js && node --check scripts/ensure-github-release.js && node --check scripts/phase2-smoke.js && node --check scripts/phase3-smoke.js && node --check scripts/settings-workbench-ui-smoke.js && node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/settings-renderer.js && node --check src/domain/loot-filter.js && node --check src/services/diagnostics.js && node --check src/services/errors.js && node --check src/services/ggg-oauth.js && node --check src/services/base-type-catalog.js && node --check src/services/chance-base-catalog.js && node --check src/services/economy-highlights.js && node --check src/services/related-outcomes.js && node --check src/services/loot-filter-diff.js && node --check src/services/loot-filter-generator.js && node --check src/services/loot-filter-manager.js && node --check src/services/loot-filter-summary.js && node --check src/shared/equipment-selection.js && node scripts/phase2-smoke.js && node scripts/phase3-smoke.js && node scripts/settings-workbench-ui-smoke.js"
+    "check": "node --check scripts/start-electron.js && node --check scripts/watch-electron.js && node --check scripts/chance-catalog-report.js && node --check scripts/economy-filter-audit.js && node --check scripts/refresh-equipment-base-requirements.js && node --check scripts/catalog-audit.js && node --check scripts/validate-equipment-groups.js && node --check scripts/check-release-ready.js && node --check scripts/ensure-github-release.js && node --check scripts/phase2-smoke.js && node --check scripts/phase3-smoke.js && node --check scripts/settings-workbench-ui-smoke.js && node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/settings-renderer.js && node --check src/domain/loot-filter.js && node --check src/services/diagnostics.js && node --check src/services/errors.js && node --check src/services/ggg-oauth.js && node --check src/services/base-type-catalog.js && node --check src/services/catalog-metadata.js && node --check src/services/chance-base-catalog.js && node --check src/services/economy-highlights.js && node --check src/services/related-outcomes.js && node --check src/services/loot-filter-diff.js && node --check src/services/loot-filter-generator.js && node --check src/services/loot-filter-manager.js && node --check src/services/loot-filter-summary.js && node --check src/data/catalog-ambiguity-rules.js && node --check src/shared/equipment-selection.js && node scripts/catalog-audit.js && node scripts/phase2-smoke.js && node scripts/phase3-smoke.js && node scripts/settings-workbench-ui-smoke.js"
   },
   "build": {
     "appId": "com.poehelper.app",

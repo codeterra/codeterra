@@ -155,14 +155,14 @@ Goal: make game-data-driven features safe to maintain each league.
 
 Work:
 
-- Move generated game data into clearly versioned local catalogs.
-- Add a script to refresh equipment base requirements from Path of Building data.
-- Add a script to audit chance-base curation after a new league.
-- Add a script to audit economy item normalization across poe.ninja categories.
-- Store catalog metadata: source, source revision/date, PoE release, generated date, and manual overrides.
-- Add a settings diagnostics panel for catalog versions.
-- Add a release checklist that includes catalog refresh/audit.
-- Define rules for ambiguous display names such as `Two-Toned Boots`.
+- ~~Move generated game data into clearly versioned local catalogs.~~
+- ~~Add a script to refresh equipment base requirements from Path of Building data.~~
+- ~~Add a script to audit chance-base curation after a new league.~~
+- ~~Add a script to audit economy item normalization across poe.ninja categories.~~
+- ~~Store catalog metadata: source, source revision/date, PoE release, generated date, and manual overrides.~~
+- ~~Add a settings diagnostics panel for catalog versions.~~
+- ~~Add a release checklist that includes catalog refresh/audit.~~
+- ~~Define rules for ambiguous display names such as `Two-Toned Boots`.~~
 
 Exit criteria:
 

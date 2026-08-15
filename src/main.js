@@ -29,6 +29,7 @@ const {
   writeLootFilter
 } = require('./services/loot-filter-manager');
 const { classifyError, formatErrorMessage } = require('./services/errors');
+const { getCatalogMetadata } = require('./services/catalog-metadata');
 const {
   clearDiagnostics,
   getDiagnostics,
@@ -1110,6 +1111,8 @@ ipcMain.handle('install-update', () => {
 ipcMain.handle('get-diagnostics', () => getDiagnostics());
 
 ipcMain.handle('clear-diagnostics', () => clearDiagnostics());
+
+ipcMain.handle('get-catalog-metadata', () => getCatalogMetadata());
 
 ipcMain.handle('set-shortcuts', (_event, shortcuts) => {
   return applyShortcutSettings(shortcuts);

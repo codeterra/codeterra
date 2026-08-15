@@ -1,5 +1,19 @@
 // Generated from Path of Building Community Fork src/Data/Bases on 2026-08-14.
 // Item data copyright Grinding Gear Games; used here only for local UI base-tier ordering.
+const EQUIPMENT_BASE_REQUIREMENTS_METADATA = {
+  schemaVersion: 1,
+  dataVersion: 'equipment-base-requirements-2026-08-14',
+  gameVersion: 'release-reviewed-2026-08-14',
+  generatedAt: '2026-08-14',
+  source: 'Path of Building Community Fork src/Data/Bases',
+  sourceUrl: 'https://github.com/PathOfBuildingCommunity/PathOfBuilding/tree/dev/src/Data/Bases',
+  sourceRevision: 'dev snapshot reviewed 2026-08-14',
+  manualOverrides: [
+    'Two-Toned Boots internal defensive variants are catalog-only labels and must be canonicalized before filter output.'
+  ],
+  updatePolicy: 'Run npm run catalog:refresh-equipment after Path of Exile or Path of Building base-data updates, then run npm run catalog:audit.'
+};
+
 const EQUIPMENT_BASE_REQUIREMENTS = {
   "Aetherwind Gloves": {"level":40,"defenses":32,"energyShield":[28,32]},
   "Alder Spiked Shield": {"level":58,"defenses":289,"evasion":[209,240],"energyShield":[43,49]},
@@ -482,5 +496,6 @@ const EQUIPMENT_BASE_REQUIREMENTS = {
 };
 
 module.exports = {
+  EQUIPMENT_BASE_REQUIREMENTS_METADATA,
   EQUIPMENT_BASE_REQUIREMENTS
 };

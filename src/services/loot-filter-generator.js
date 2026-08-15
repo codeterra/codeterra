@@ -5,6 +5,7 @@ const {
   RARE_WEAPON_GROUPS,
   normalizeLootFilterProfile
 } = require('../domain/loot-filter');
+const { getCanonicalBaseType } = require('../data/catalog-ambiguity-rules');
 
 const RARITY_VISIBILITY_EQUIPMENT_CLASSES = [
   'Body Armours',
@@ -569,11 +570,24 @@ function escapeFilterString(value) {
 
 function renderCondition(condition) {
   const operator = condition.operator ? ` ${condition.operator}` : '';
-  if (Array.isArray(condition.value)) {
-    return `${condition.key}${operator} ${condition.value.map(renderValue).join(' ')}`;
+  const value = normalizeConditionValue(condition);
+  if (Array.isArray(value)) {
+    return `${condition.key}${operator} ${value.map(renderValue).join(' ')}`;
   }
 
-  return `${condition.key}${operator} ${renderValue(condition.value)}`;
+  return `${condition.key}${operator} ${renderValue(value)}`;
+}
+
+function normalizeConditionValue(condition) {
+  if (condition.key !== 'BaseType') {
+    return condition.value;
+  }
+
+  if (Array.isArray(condition.value)) {
+    return [...new Set(condition.value.map(getCanonicalBaseType))];
+  }
+
+  return getCanonicalBaseType(condition.value);
 }
 
 function renderValue(value) {

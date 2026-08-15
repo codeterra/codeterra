@@ -13,6 +13,8 @@ function assertContains(source, text, label = text) {
 
 assertContains(html, 'id="filter-summary-panel"', 'filter summary panel');
 assertContains(html, 'id="filter-dirty-indicator"', 'filter dirty indicator');
+assertContains(html, 'id="catalog-metadata-output"', 'catalog metadata output');
+assertContains(html, 'id="refresh-catalog-metadata-button"', 'catalog metadata refresh button');
 assertContains(html, 'Save Settings');
 assertContains(html, 'Save Profile');
 assertContains(html, 'Write Filter File');
@@ -31,12 +33,16 @@ assertContains(css, '.filter-dirty-indicator.is-dirty');
 
 assertContains(renderer, "document.querySelector('#filter-summary-panel')");
 assertContains(renderer, "document.querySelector('#filter-dirty-indicator')");
+assertContains(renderer, "document.querySelector('#catalog-metadata-output')");
 assertContains(renderer, 'function renderFilterSummaryPanel');
+assertContains(renderer, 'function formatCatalogMetadata');
+assertContains(renderer, 'function refreshCatalogMetadata');
 assertContains(renderer, 'function setLootFilterDirty');
 assertContains(renderer, 'function markLootFilterDirty');
 assertContains(renderer, 'skipped economy rows');
 assertContains(renderer, 'Save Profile to keep');
 assertContains(renderer, 'Write Filter File');
+assertContains(renderer, 'Catalog metadata refreshed');
 assertContains(renderer, 'poehelperEquipmentSelection');
 
 console.log('Settings workbench UI smoke tests passed.');
