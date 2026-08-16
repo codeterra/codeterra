@@ -19,6 +19,7 @@
 
         <nav class="settings-tabs" aria-label="Settings sections">
           <button class="is-active" type="button" data-settings-tab="general">General</button>
+          <button type="button" data-settings-tab="buff-mirror">Buff Mirror</button>
           <button type="button" data-settings-tab="loot-filter">Loot Filter</button>
           <button type="button" data-settings-tab="stash">Stash</button>
           <button type="button" data-settings-tab="account">Account</button>
@@ -105,6 +106,113 @@
                 The price lookup shortcut sends one Ctrl+C copy command to the active window, then reads the copied item text.
                 Keep Path of Exile in Windowed or Windowed Fullscreen mode for the overlay to appear reliably.
               </p>
+            </section>
+          </section>
+
+          <section class="settings-page" data-settings-panel="buff-mirror">
+            <section class="panel">
+              <div class="section-heading-row">
+                <h2>Buff Mirror</h2>
+                <label class="inline-toggle">
+                  <input id="buff-mirror-enabled-input" type="checkbox">
+                  Enabled
+                </label>
+              </div>
+              <p>
+                Mirrors a detected buff icon from the top buff bar to a fixed screen position near the HP globe.
+                This only reads pixels already visible on screen and draws a passive overlay.
+              </p>
+              <div class="buff-mirror-actions">
+                <button id="select-buff-scan-button" type="button">Set Scan Area</button>
+                <label>
+                  Buff name
+                  <input id="buff-template-name-input" type="text" value="Target buff" autocomplete="off" spellcheck="false">
+                </label>
+                <button id="capture-buff-template-button" type="button">Add Tracked Buff</button>
+                <button id="save-buff-mirror-button" type="button">Save Mirror</button>
+              </div>
+              <div class="shortcut-grid">
+                <label>
+                  Icon size
+                  <input id="buff-mirror-size-input" type="number" min="16" max="96" step="1">
+                </label>
+                <label>
+                  Bar layout
+                  <select id="buff-bar-orientation-input">
+                    <option value="horizontal">Horizontal</option>
+                    <option value="vertical">Vertical</option>
+                  </select>
+                </label>
+                <label class="inline-toggle">
+                  Placement mode
+                  <input id="buff-placement-mode-input" type="checkbox">
+                </label>
+                <label>
+                  Match threshold
+                  <input id="buff-threshold-input" type="number" min="0.5" max="0.99" step="0.01">
+                </label>
+                <label>
+                  Scan interval
+                  <input id="buff-interval-input" type="number" min="1000" max="5000" step="250">
+                </label>
+              </div>
+              <details class="settings-disclosure">
+                <summary>Advanced coordinates</summary>
+                <div class="settings-disclosure__body">
+                  <div class="shortcut-grid">
+                    <label>
+                      Scan X
+                      <input id="buff-scan-x-input" type="number" min="0" step="1">
+                    </label>
+                    <label>
+                      Scan Y
+                      <input id="buff-scan-y-input" type="number" min="0" step="1">
+                    </label>
+                    <label>
+                      Scan width
+                      <input id="buff-scan-width-input" type="number" min="24" step="1">
+                    </label>
+                    <label>
+                      Scan height
+                      <input id="buff-scan-height-input" type="number" min="24" step="1">
+                    </label>
+                  </div>
+                  <div class="shortcut-grid">
+                    <label>
+                      Buff icon X
+                      <input id="buff-template-x-input" type="number" min="0" step="1">
+                    </label>
+                    <label>
+                      Buff icon Y
+                      <input id="buff-template-y-input" type="number" min="0" step="1">
+                    </label>
+                    <label>
+                      Buff icon width
+                      <input id="buff-template-width-input" type="number" min="8" step="1">
+                    </label>
+                    <label>
+                      Buff icon height
+                      <input id="buff-template-height-input" type="number" min="8" step="1">
+                    </label>
+                  </div>
+                  <div class="shortcut-grid">
+                    <label>
+                      Bar X
+                      <input id="buff-mirror-x-input" type="number" min="0" step="1">
+                    </label>
+                    <label>
+                      Bar Y
+                      <input id="buff-mirror-y-input" type="number" min="0" step="1">
+                    </label>
+                    <label>
+                      Buff icon area
+                      <button id="select-buff-template-button" type="button">Set Buff Icon Area Only</button>
+                    </label>
+                  </div>
+                </div>
+              </details>
+              <p id="buff-mirror-status" class="status-line">Use Add Tracked Buff to select the full icon, then the stable detection area inside it.</p>
+              <div id="buff-template-list" class="buff-template-list"></div>
             </section>
           </section>
 

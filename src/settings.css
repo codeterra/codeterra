@@ -347,6 +347,56 @@ button:hover {
   gap: 8px;
 }
 
+.buff-mirror-actions {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.buff-mirror-actions label {
+  display: grid;
+  gap: 5px;
+  color: #aeb8c4;
+  font-size: 11px;
+}
+
+.settings-disclosure {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.settings-disclosure summary {
+  padding: 8px 10px;
+  color: #d4dde8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.settings-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-disclosure summary::before {
+  content: "+";
+  display: inline-block;
+  width: 16px;
+  color: #e3c875;
+}
+
+.settings-disclosure[open] summary::before {
+  content: "-";
+}
+
+.settings-disclosure__body {
+  display: grid;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
 .update-meta {
   display: flex;
   flex-wrap: wrap;
@@ -542,6 +592,42 @@ button:hover {
 }
 
 .filter-history-row__text {
+  min-width: 0;
+  overflow: hidden;
+  color: #dce4ec;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buff-template-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.buff-template-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.buff-template-row img {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(137, 214, 255, 0.55);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+
+.buff-template-row__label {
   min-width: 0;
   overflow: hidden;
   color: #dce4ec;
@@ -1488,6 +1574,7 @@ button:hover {
 
   .settings-page.is-active,
   .loot-command-bar,
+  .buff-mirror-actions,
   .profile-command-grid,
   .loot-command-grid,
   .stash-search-grid,

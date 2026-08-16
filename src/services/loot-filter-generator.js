@@ -1,4 +1,5 @@
 const {
+  BOSS_FRAGMENT_BASE_TYPES,
   EQUIPMENT_MISC_VISIBILITY_GROUPS,
   RARE_ARMOR_GROUPS,
   RARE_SHIELD_GROUPS,
@@ -110,7 +111,7 @@ function generateLootFilter(profileLike) {
       action: 'Show',
       label: 'Map fragments and invitations',
       style: 'fragments',
-      conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+      conditions: [{ key: 'BaseType', value: BOSS_FRAGMENT_BASE_TYPES }]
     }, profile));
     lines.push('');
     lines.push(...renderRule({

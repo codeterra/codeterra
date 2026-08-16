@@ -38,11 +38,56 @@ const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) =>
 ));
 const FLASK_CLASSES = [...new Set(FLASK_GROUPS.flatMap((group) => group.classes || []))];
 const FLASK_BASE_TYPES = [...new Set(FLASK_GROUPS.flatMap((group) => group.bases || []))];
+const BOSS_FRAGMENT_BASE_TYPES = [
+  'Sacrifice at Dusk',
+  'Sacrifice at Dawn',
+  'Sacrifice at Noon',
+  'Sacrifice at Midnight',
+  'Mortal Grief',
+  'Mortal Rage',
+  'Mortal Hope',
+  'Mortal Ignorance',
+  'Fragment of the Hydra',
+  'Fragment of the Phoenix',
+  'Fragment of the Minotaur',
+  'Fragment of the Chimera',
+  'Fragment of Purification',
+  'Fragment of Enslavement',
+  'Fragment of Eradication',
+  'Fragment of Constriction',
+  'Fragment of Knowledge',
+  'Fragment of Shape',
+  'Fragment of Terror',
+  'Fragment of Emptiness',
+  "Al-Hezmin's Crest",
+  "Baran's Crest",
+  "Drox's Crest",
+  "Veritania's Crest",
+  "The Maven's Writ",
+  'Screaming Invitation',
+  'Incandescent Invitation',
+  'Polaric Invitation',
+  'Writhing Invitation',
+  'Cosmic Fragment',
+  'Decaying Fragment',
+  'Awakening Fragment',
+  'Synthesising Fragment',
+  'Reality Fragment',
+  'Devouring Fragment',
+  'Blazing Fragment',
+  'Traumatic Fragment',
+  'Reverent Fragment',
+  'Lonely Fragment',
+  'Hivebrain Gland',
+  'Sacred Blossom',
+  'An Audience With The King',
+  'The Black Barya'
+];
 const FRAGMENT_TYPE_DEFINITIONS = [
   {
     id: 'boss-fragments',
     label: 'Boss fragments and invitations',
-    conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+    conditions: [{ key: 'BaseType', value: BOSS_FRAGMENT_BASE_TYPES }]
   },
   {
     id: 'scarabs',
@@ -458,18 +503,9 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
     },
     fragments: {
       enabled: true,
+      style: 'fragments',
+      tier: 'baseline',
       rules: [
-        {
-          id: 'fragments-baseline',
-          enabled: true,
-          action: 'Show',
-          label: 'Boss fragments and invitations',
-          source: 'category-rule',
-          fragmentType: 'boss-fragments',
-          style: 'fragments',
-          tier: 'baseline',
-          conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
-        },
         {
           id: 'fragments-scarabs',
           enabled: true,
@@ -477,7 +513,7 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
           label: 'Scarabs',
           source: 'category-rule',
           fragmentType: 'scarabs',
-          style: 'fragments',
+          style: 'scarabs',
           tier: 'baseline',
           conditions: [{ key: 'BaseType', value: 'Scarab' }]
         },
@@ -491,6 +527,17 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
           style: 'fragments',
           tier: 'baseline',
           conditions: [{ key: 'Class', value: 'Wombgifts' }]
+        },
+        {
+          id: 'fragments-baseline',
+          enabled: true,
+          action: 'Show',
+          label: 'Boss fragments and invitations',
+          source: 'category-rule',
+          fragmentType: 'boss-fragments',
+          style: 'fragments',
+          tier: 'baseline',
+          conditions: [{ key: 'BaseType', value: BOSS_FRAGMENT_BASE_TYPES }]
         }
       ]
     },
@@ -900,6 +947,7 @@ function normalizeCategoryRules(categoryRules, styles = DEFAULT_LOOT_FILTER_PROF
       : (fallback.rules || []).map(normalizeCategoryRule).filter(Boolean);
     if (categoryId === 'fragments') {
       ensureDefaultFragmentRules(rules);
+      sortFragmentRulesBySpecificity(rules);
     }
     for (const rule of rules) {
       if (rule.style === fallbackStyle) {
@@ -936,7 +984,7 @@ function getCategorySourceRules(categoryId, category, allCategories) {
     ...rule,
     id: String(rule.id || `scarab-${Date.now()}`).replace(/^scarabs?/, 'fragments-scarabs'),
     label: rule.label || 'Scarabs',
-    style: 'fragments',
+    style: 'scarabs',
     fragmentType: 'scarabs',
     source: 'category-rule',
     conditions: normalizeFragmentTypeConditions('scarabs', rule.conditions)
@@ -953,6 +1001,19 @@ function ensureDefaultFragmentRules(rules) {
       existingTypes.add(fallback.fragmentType);
     }
   }
+}
+
+function sortFragmentRulesBySpecificity(rules) {
+  rules.sort((left, right) => getFragmentRuleSortScore(left) - getFragmentRuleSortScore(right));
+}
+
+function getFragmentRuleSortScore(rule) {
+  const fragmentType = rule.fragmentType || inferFragmentType(rule.conditions);
+  if (fragmentType === 'boss-fragments') {
+    return 100;
+  }
+
+  return 0;
 }
 
 function normalizeCategoryRule(entry) {
@@ -972,6 +1033,9 @@ function normalizeCategoryRule(entry) {
 
   if (fragmentType) {
     rule.fragmentType = fragmentType;
+    if (fragmentType === 'scarabs' && rule.style === 'fragments') {
+      rule.style = 'scarabs';
+    }
     rule.conditions = normalizeFragmentTypeConditions(fragmentType, rule.conditions);
   }
 
@@ -1026,6 +1090,7 @@ function inferFragmentType(conditions = []) {
   if (hasBase('Breachstone')) return 'breachstones';
   if (hasBase('Emblem')) return 'legion-emblems';
   if (hasBase('Simulacrum') || hasBase('Simulacrum Splinter')) return 'simulacrum';
+  if (BOSS_FRAGMENT_BASE_TYPES.some((base) => hasBase(base))) return 'boss-fragments';
   if (hasClass('Map Fragments') || hasClass('Misc Map Items')) return 'boss-fragments';
   return undefined;
 }
@@ -1036,6 +1101,10 @@ function conditionValueIncludes(value, needle) {
 }
 
 function getFallbackCategoryStyle(categoryId) {
+  if (DEFAULT_LOOT_FILTER_PROFILE.categoryRules[categoryId]?.style) {
+    return DEFAULT_LOOT_FILTER_PROFILE.categoryRules[categoryId].style;
+  }
+
   const fallbackRule = DEFAULT_LOOT_FILTER_PROFILE.categoryRules[categoryId]?.rules?.[0];
   return fallbackRule?.style || 'default';
 }
@@ -1836,7 +1905,7 @@ function normalizeCondition(condition) {
 }
 
 function getStyleForItem(item) {
-  if (isScarabItem(item)) return 'fragments';
+  if (isScarabItem(item)) return 'scarabs';
   if (isOilItem(item)) return 'oils';
   if (isFlaskItem(item) && item.rarity !== 'Unique') return 'flasks';
   if (item.category === 'currency') return 'currency';
@@ -1947,6 +2016,7 @@ module.exports = {
   EQUIPMENT_MISC_VISIBILITY_GROUPS,
   FLASK_BASE_TYPES,
   FLASK_CLASSES,
+  BOSS_FRAGMENT_BASE_TYPES,
   FRAGMENT_TYPE_DEFINITIONS,
   LOOT_FILTER_PROFILE_SCHEMA_VERSION,
   OIL_BASE_TYPES,

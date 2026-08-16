@@ -13,3 +13,6 @@ Thumbs.db
 Desktop.ini
 oauth-lambda/
 oauth-cloudflare/
+native/capture-helper/bin/
+native/capture-helper/obj/
+native/capture-helper/publish/

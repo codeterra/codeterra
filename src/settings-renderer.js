@@ -4,6 +4,29 @@ const saveStatus = document.querySelector('#save-status');
 const listingCountInput = document.querySelector('#listing-count-input');
 const saveListingCountButton = document.querySelector('#save-listing-count-button');
 const listingStatus = document.querySelector('#listing-status');
+const buffMirrorEnabledInput = document.querySelector('#buff-mirror-enabled-input');
+const buffScanXInput = document.querySelector('#buff-scan-x-input');
+const buffScanYInput = document.querySelector('#buff-scan-y-input');
+const buffScanWidthInput = document.querySelector('#buff-scan-width-input');
+const buffScanHeightInput = document.querySelector('#buff-scan-height-input');
+const buffTemplateXInput = document.querySelector('#buff-template-x-input');
+const buffTemplateYInput = document.querySelector('#buff-template-y-input');
+const buffTemplateWidthInput = document.querySelector('#buff-template-width-input');
+const buffTemplateHeightInput = document.querySelector('#buff-template-height-input');
+const buffMirrorXInput = document.querySelector('#buff-mirror-x-input');
+const buffMirrorYInput = document.querySelector('#buff-mirror-y-input');
+const buffMirrorSizeInput = document.querySelector('#buff-mirror-size-input');
+const buffBarOrientationInput = document.querySelector('#buff-bar-orientation-input');
+const buffPlacementModeInput = document.querySelector('#buff-placement-mode-input');
+const buffThresholdInput = document.querySelector('#buff-threshold-input');
+const buffIntervalInput = document.querySelector('#buff-interval-input');
+const buffTemplateNameInput = document.querySelector('#buff-template-name-input');
+const captureBuffTemplateButton = document.querySelector('#capture-buff-template-button');
+const saveBuffMirrorButton = document.querySelector('#save-buff-mirror-button');
+const selectBuffScanButton = document.querySelector('#select-buff-scan-button');
+const selectBuffTemplateButton = document.querySelector('#select-buff-template-button');
+const buffMirrorStatus = document.querySelector('#buff-mirror-status');
+const buffTemplateList = document.querySelector('#buff-template-list');
 const lookupShortcutInput = document.querySelector('#lookup-shortcut-input');
 const relatedOutcomesShortcutInput = document.querySelector('#related-outcomes-shortcut-input');
 const filterRuleShortcutInput = document.querySelector('#filter-rule-shortcut-input');
@@ -279,17 +302,63 @@ const FLASK_BASE_TYPES = [
   'Jade Flask',
   'Quartz Flask'
 ];
+const BOSS_FRAGMENT_BASE_TYPES = [
+  'Sacrifice at Dusk',
+  'Sacrifice at Dawn',
+  'Sacrifice at Noon',
+  'Sacrifice at Midnight',
+  'Mortal Grief',
+  'Mortal Rage',
+  'Mortal Hope',
+  'Mortal Ignorance',
+  'Fragment of the Hydra',
+  'Fragment of the Phoenix',
+  'Fragment of the Minotaur',
+  'Fragment of the Chimera',
+  'Fragment of Purification',
+  'Fragment of Enslavement',
+  'Fragment of Eradication',
+  'Fragment of Constriction',
+  'Fragment of Knowledge',
+  'Fragment of Shape',
+  'Fragment of Terror',
+  'Fragment of Emptiness',
+  "Al-Hezmin's Crest",
+  "Baran's Crest",
+  "Drox's Crest",
+  "Veritania's Crest",
+  "The Maven's Writ",
+  'Screaming Invitation',
+  'Incandescent Invitation',
+  'Polaric Invitation',
+  'Writhing Invitation',
+  'Cosmic Fragment',
+  'Decaying Fragment',
+  'Awakening Fragment',
+  'Synthesising Fragment',
+  'Reality Fragment',
+  'Devouring Fragment',
+  'Blazing Fragment',
+  'Traumatic Fragment',
+  'Reverent Fragment',
+  'Lonely Fragment',
+  'Hivebrain Gland',
+  'Sacred Blossom',
+  'An Audience With The King',
+  'The Black Barya'
+];
 const FRAGMENT_TYPE_OPTIONS = [
   {
     value: 'boss-fragments',
     label: 'Boss fragments and invitations',
-    conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }],
+    conditions: [{ key: 'BaseType', value: BOSS_FRAGMENT_BASE_TYPES }],
     sample: 'Screaming Invitation',
-    placeholder: 'Leave blank to match all boss fragments and invitations.\nScreaming Invitation\nFragment of the Hydra'
+    placeholder: `Leave blank to match curated boss fragments and invitations.\n${BOSS_FRAGMENT_BASE_TYPES.join('\n')}`
   },
   {
     value: 'scarabs',
     label: 'Scarabs',
+    style: 'scarabs',
     conditions: [{ key: 'BaseType', value: 'Scarab' }],
     sample: 'Cartography Scarab',
     placeholder: 'Leave blank to match all scarabs.\nAmbush Scarab\nCartography Scarab'
@@ -420,14 +489,14 @@ const CATEGORY_RULE_DEFINITIONS = {
     addButton: addFragmentRuleButton,
     defaultStyle: 'fragments',
     defaultTier: 'baseline',
-    baseConditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }],
+    baseConditions: [{ key: 'BaseType', value: BOSS_FRAGMENT_BASE_TYPES }],
     defaultRule: {
       action: 'Show',
       label: 'New fragment rule',
       fragmentType: 'boss-fragments',
       style: 'fragments',
       tier: 'baseline',
-      conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+      conditions: [{ key: 'BaseType', value: BOSS_FRAGMENT_BASE_TYPES }]
     },
     fields: ['fragmentType', 'baseTypes']
   },
@@ -945,6 +1014,145 @@ function getOauthForm() {
   };
 }
 
+function renderBuffMirrorSettings(buffMirror = {}) {
+  if (!buffMirrorEnabledInput) {
+    return;
+  }
+
+  const scan = buffMirror.scanRegion || {};
+  const template = buffMirror.templateRegion || {};
+  const mirror = buffMirror.barPosition || buffMirror.mirrorPosition || {};
+  buffMirrorEnabledInput.checked = buffMirror.enabled === true;
+  buffScanXInput.value = scan.x ?? 0;
+  buffScanYInput.value = scan.y ?? 24;
+  buffScanWidthInput.value = scan.width ?? 900;
+  buffScanHeightInput.value = scan.height ?? 96;
+  buffTemplateXInput.value = template.x ?? 20;
+  buffTemplateYInput.value = template.y ?? 24;
+  buffTemplateWidthInput.value = template.width ?? 32;
+  buffTemplateHeightInput.value = template.height ?? 32;
+  buffMirrorXInput.value = mirror.x ?? 132;
+  buffMirrorYInput.value = mirror.y ?? 760;
+  buffMirrorSizeInput.value = buffMirror.mirrorSize ?? 34;
+  buffBarOrientationInput.value = buffMirror.barOrientation === 'vertical' ? 'vertical' : 'horizontal';
+  buffPlacementModeInput.checked = buffMirror.placementMode === true;
+  buffThresholdInput.value = buffMirror.threshold ?? 0.88;
+  buffIntervalInput.value = buffMirror.intervalMs ?? 1500;
+  renderBuffTemplateList(buffMirror.templates || []);
+  setStatus(
+    buffMirrorStatus,
+    buffMirror.enabled
+      ? `Buff Mirror is enabled with ${(buffMirror.templates || []).length} template(s).`
+      : 'Buff Mirror is disabled.'
+  );
+}
+
+function renderBuffTemplateList(templates = []) {
+  buffTemplateList.innerHTML = '';
+  if (templates.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No buff templates captured yet.';
+    buffTemplateList.appendChild(empty);
+    return;
+  }
+
+  for (const template of templates) {
+    const row = document.createElement('div');
+    row.className = 'buff-template-row';
+    const img = document.createElement('img');
+    img.src = template.dataUrl;
+    img.alt = '';
+    const label = document.createElement('div');
+    label.className = 'buff-template-row__label';
+    const match = template.matchRegion || {};
+    label.textContent = `${template.name || 'Buff template'} (${template.width || 0}x${template.height || 0}, detection ${match.width || 0}x${match.height || 0})`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'danger-button';
+    remove.dataset.removeBuffTemplate = template.id;
+    remove.textContent = 'Remove';
+    row.appendChild(img);
+    row.appendChild(label);
+    row.appendChild(remove);
+    buffTemplateList.appendChild(row);
+  }
+}
+
+function collectBuffMirrorConfig() {
+  return {
+    enabled: buffMirrorEnabledInput.checked,
+    scanRegion: {
+      x: Number(buffScanXInput.value),
+      y: Number(buffScanYInput.value),
+      width: Number(buffScanWidthInput.value),
+      height: Number(buffScanHeightInput.value)
+    },
+    templateRegion: {
+      x: Number(buffTemplateXInput.value),
+      y: Number(buffTemplateYInput.value),
+      width: Number(buffTemplateWidthInput.value),
+      height: Number(buffTemplateHeightInput.value)
+    },
+    barPosition: {
+      x: Number(buffMirrorXInput.value),
+      y: Number(buffMirrorYInput.value)
+    },
+    mirrorPosition: {
+      x: Number(buffMirrorXInput.value),
+      y: Number(buffMirrorYInput.value)
+    },
+    placementMode: buffPlacementModeInput.checked,
+    barOrientation: buffBarOrientationInput.value === 'vertical' ? 'vertical' : 'horizontal',
+    mirrorSize: Number(buffMirrorSizeInput.value),
+    threshold: Number(buffThresholdInput.value),
+    intervalMs: Number(buffIntervalInput.value)
+  };
+}
+
+function applyBuffMirrorSelection(mode, selection) {
+  if (selection?.cancelled) {
+    setStatus(buffMirrorStatus, 'Buff Mirror selection cancelled.');
+    return;
+  }
+
+  if ((mode === 'scan' || mode === 'template') && selection?.rect) {
+    const targets = mode === 'scan'
+      ? [buffScanXInput, buffScanYInput, buffScanWidthInput, buffScanHeightInput]
+      : [buffTemplateXInput, buffTemplateYInput, buffTemplateWidthInput, buffTemplateHeightInput];
+    targets[0].value = selection.rect.x;
+    targets[1].value = selection.rect.y;
+    targets[2].value = selection.rect.width;
+    targets[3].value = selection.rect.height;
+    setStatus(buffMirrorStatus, mode === 'scan' ? 'Scan area selected.' : 'Buff icon area selected.');
+    return;
+  }
+
+  if (mode === 'mirror' && selection?.point) {
+    buffMirrorXInput.value = selection.point.x;
+    buffMirrorYInput.value = selection.point.y;
+    setStatus(buffMirrorStatus, 'Mirror position selected.');
+  }
+}
+
+function clampRelativeBuffMatchRegion(screenRect) {
+  const template = collectBuffMirrorConfig().templateRegion;
+  const relative = {
+    x: Math.round(Number(screenRect.x) - Number(template.x)),
+    y: Math.round(Number(screenRect.y) - Number(template.y)),
+    width: Math.round(Number(screenRect.width)),
+    height: Math.round(Number(screenRect.height))
+  };
+  const x = Math.max(0, Math.min(relative.x, Math.max(0, template.width - 1)));
+  const y = Math.max(0, Math.min(relative.y, Math.max(0, template.height - 1)));
+  return {
+    x,
+    y,
+    width: Math.max(4, Math.min(relative.width, template.width - x)),
+    height: Math.max(4, Math.min(relative.height, template.height - y))
+  };
+}
+
 function applySettingsPayload(payload) {
   const appSettings = payload?.settings || payload;
   if (appSettings?.league) {
@@ -961,6 +1169,10 @@ function applySettingsPayload(payload) {
       ...appSettings.shortcuts
     };
     renderShortcuts();
+  }
+
+  if (appSettings?.buffMirror) {
+    renderBuffMirrorSettings(appSettings.buffMirror);
   }
 
   if (appSettings?.oauth) {
@@ -1005,6 +1217,11 @@ function applySettingsPayload(payload) {
     settingsShortcutInput.value = payload.shortcuts.settings;
     clickThroughShortcutInput.value = payload.shortcuts.clickThrough;
     hideShortcutInput.value = payload.shortcuts.hideOverlay;
+  }
+
+  if (payload?.shortcutRegistration?.failed?.length) {
+    const failed = payload.shortcutRegistration.failed.map((shortcut) => `${shortcut.name}: ${shortcut.label}`).join(', ');
+    setStatus(shortcutStatus, `Shortcut conflict: ${failed}. Change the conflicting keybind and save.`, true);
   }
 }
 
@@ -1799,9 +2016,7 @@ function renderCategoryRuleList(categoryId, category = {}) {
 
     row.appendChild(header);
     row.appendChild(editGrid);
-    const previewStyle = rule.overrideCategoryStyle
-      ? mergeInlineStyleConfig(category.styleConfig, rule.styleOverride || rule.styleConfig)
-      : category.styleConfig;
+    const previewStyle = getCategoryRulePreviewStyle(categoryId, category, rule);
     row.appendChild(createStyleOverridePanel(
       previewStyle,
       !rule.overrideCategoryStyle
@@ -1851,6 +2066,35 @@ function getSampleLabelForCategory(categoryId, rule = {}) {
     jewels: firstBase || 'Cobalt Jewel'
   };
   return samples[categoryId] || firstBase || 'Sample item';
+}
+
+function getCategoryRulePreviewStyle(categoryId, category = {}, rule = {}) {
+  if (rule.overrideCategoryStyle) {
+    return mergeInlineStyleConfig(category.styleConfig, rule.styleOverride || rule.styleConfig);
+  }
+
+  const ruleStyle = getCategoryRuleDefaultStyle(categoryId, rule.fragmentType, rule.style);
+  if (ruleStyle && ruleStyle !== INHERIT_STYLE) {
+    return lootFilterState?.profile?.styles?.[ruleStyle] || category.styleConfig;
+  }
+
+  return category.styleConfig;
+}
+
+function getCategoryRuleDefaultStyle(categoryId, fragmentType, existingStyle) {
+  if (categoryId === 'fragments' && fragmentType === 'scarabs' && existingStyle === 'fragments') {
+    return 'scarabs';
+  }
+
+  if (existingStyle && existingStyle !== INHERIT_STYLE) {
+    return existingStyle;
+  }
+
+  if (categoryId === 'fragments') {
+    return FRAGMENT_TYPE_BY_ID.get(fragmentType)?.style || INHERIT_STYLE;
+  }
+
+  return INHERIT_STYLE;
 }
 
 function appendCategoryConditionControls(container, categoryId, definition, rule) {
@@ -1943,6 +2187,7 @@ function getFragmentTypeForRule(rule = {}) {
   if (hasBase('Breachstone')) return 'breachstones';
   if (hasBase('Emblem')) return 'legion-emblems';
   if (hasBase('Simulacrum') || hasBase('Simulacrum Splinter')) return 'simulacrum';
+  if (BOSS_FRAGMENT_BASE_TYPES.some((base) => hasBase(base))) return 'boss-fragments';
   return 'boss-fragments';
 }
 
@@ -3633,7 +3878,7 @@ function collectCategoryRuleRow(categoryId, row) {
     enabled: get('enabled')?.checked !== false,
     label: get('label')?.value?.trim() || existing.label || `${definition.label} rule`,
     action: get('action')?.value || existing.action || 'Show',
-    style: INHERIT_STYLE,
+    style: getCategoryRuleDefaultStyle(categoryId, fragmentType, existing.style),
     tier: 'baseline',
     overrideCategoryStyle,
     styleOverride: overrideCategoryStyle ? collectInlineStyleConfig(row, categoryStyle) : undefined,
@@ -4136,6 +4381,104 @@ saveListingCountButton.addEventListener('click', async () => {
   const settings = await window.poehelper.setListingCount(listingCountInput.value);
   listingCountInput.value = settings.listingCount;
   setStatus(listingStatus, `Showing top ${settings.listingCount} instant-buyout listings.`);
+});
+
+saveBuffMirrorButton.addEventListener('click', () => {
+  runButton(saveBuffMirrorButton, buffMirrorStatus, 'Saving...', async () => {
+    const settings = await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    applySettingsPayload({ settings });
+    setStatus(
+      buffMirrorStatus,
+      settings.buffMirror.enabled
+        ? 'Buff Mirror saved and running when a template matches.'
+        : 'Buff Mirror saved and disabled.'
+    );
+  });
+});
+
+buffPlacementModeInput.addEventListener('change', async () => {
+  const desired = buffPlacementModeInput.checked;
+  setStatus(buffMirrorStatus, desired ? 'Placement mode enabled. Drag the buff bar to position it.' : 'Placement mode disabled.');
+  try {
+    const settings = await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    applySettingsPayload({ settings });
+    setStatus(
+      buffMirrorStatus,
+      settings.buffMirror.placementMode
+        ? 'Placement mode enabled. Drag the buff bar to position it.'
+        : 'Placement mode disabled.'
+    );
+  } catch (error) {
+    buffPlacementModeInput.checked = !desired;
+    setStatus(buffMirrorStatus, error.message || 'Could not update placement mode.', true);
+  }
+});
+
+buffBarOrientationInput.addEventListener('change', async () => {
+  const desired = buffBarOrientationInput.value === 'vertical' ? 'vertical' : 'horizontal';
+  const previous = desired === 'vertical' ? 'horizontal' : 'vertical';
+  setStatus(buffMirrorStatus, `Buff bar layout set to ${desired}.`);
+  try {
+    const settings = await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    applySettingsPayload({ settings });
+    setStatus(buffMirrorStatus, `Buff bar layout set to ${settings.buffMirror.barOrientation}.`);
+  } catch (error) {
+    buffBarOrientationInput.value = previous;
+    setStatus(buffMirrorStatus, error.message || 'Could not update buff bar layout.', true);
+  }
+});
+
+captureBuffTemplateButton.addEventListener('click', () => {
+  runButton(captureBuffTemplateButton, buffMirrorStatus, 'Select the buff icon...', async () => {
+    await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    const selection = await window.poehelper.selectBuffMirrorRegion('template');
+    applyBuffMirrorSelection('template', selection);
+    if (selection?.cancelled) {
+      return;
+    }
+
+    await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    setStatus(buffMirrorStatus, 'Select the stable detection area inside that buff icon...');
+    const matchSelection = await window.poehelper.selectBuffMirrorRegion('match');
+    if (matchSelection?.cancelled) {
+      setStatus(buffMirrorStatus, 'Buff template capture cancelled.');
+      return;
+    }
+
+    const matchRegion = clampRelativeBuffMatchRegion(matchSelection.rect);
+    const settings = await window.poehelper.captureBuffMirrorTemplate(buffTemplateNameInput.value, matchRegion);
+    applySettingsPayload({ settings });
+    setStatus(buffMirrorStatus, `Captured ${settings.buffMirror.templates[0]?.name || 'buff template'}.`);
+  });
+});
+
+selectBuffScanButton.addEventListener('click', () => {
+  runButton(selectBuffScanButton, buffMirrorStatus, 'Select the scan area...', async () => {
+    await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    const selection = await window.poehelper.selectBuffMirrorRegion('scan');
+    applyBuffMirrorSelection('scan', selection);
+  });
+});
+
+selectBuffTemplateButton.addEventListener('click', () => {
+  runButton(selectBuffTemplateButton, buffMirrorStatus, 'Select the buff icon...', async () => {
+    await window.poehelper.setBuffMirrorConfig(collectBuffMirrorConfig());
+    const selection = await window.poehelper.selectBuffMirrorRegion('template');
+    applyBuffMirrorSelection('template', selection);
+  });
+});
+
+buffTemplateList.addEventListener('click', (event) => {
+  const templateId = event.target?.dataset?.removeBuffTemplate;
+  if (!templateId) {
+    return;
+  }
+
+  runButton(event.target, buffMirrorStatus, 'Removing...', async () => {
+    const settings = await window.poehelper.removeBuffMirrorTemplate(templateId);
+    applySettingsPayload({ settings });
+    setStatus(buffMirrorStatus, 'Buff template removed.');
+  });
 });
 
 filterProfileSelect.addEventListener('change', async () => {

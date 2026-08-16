@@ -1,6 +1,6 @@
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { parseCopiedItem } = require('./domain/item-parser');
@@ -66,16 +66,44 @@ const POE_PROCESS_PATTERN = 'PathOfExile|PathOfExileSteam|PathOfExile_x64|PathOf
 
 let overlayWindow;
 let settingsWindow;
+let buffMirrorWindow;
+let buffCalibrationWindow;
 let tray;
 let clickThrough = false;
 let overlayReady;
 let settingsReady;
+let buffMirrorReady;
+let buffCalibrationReady;
 let currentLookup;
 let settings;
 let overlayBoundsSaveTimer;
+let buffMirrorPositionSaveTimer;
+let lastBuffMirrorFrame = { visible: false };
+let pendingBuffCalibration;
+let buffMirrorHelper;
+let buffMirrorHelperLineBuffer = '';
+let buffMirrorConfigId = 0;
+let lastBuffMirrorStateSignature = '';
+const pendingBuffMirrorHelperRequests = new Map();
+let lastShortcutRegistration = { registered: [], failed: [] };
 let registeredHideShortcut;
 let activeLookupId = 0;
 let pendingLootFilterProfileImport;
+
+const BUFF_MIRROR_BAR_LAYOUT = {
+  inset: 6,
+  safety: 8,
+  paddingX: 10,
+  paddingY: 10,
+  border: 2,
+  iconGap: 5,
+  gripWidth: 8,
+  gripGap: 6,
+  minWidth: 52,
+  minHeight: 42,
+  maxBuffs: 12,
+  maxWidth: 1100
+};
 let updateState = {
   status: 'idle',
   message: 'Updates have not been checked yet.',
@@ -111,14 +139,19 @@ function getPublicSettings() {
 function createSettingsPayload() {
   return {
     settings: getPublicSettings(),
-    shortcuts: getShortcutLabels()
+    shortcuts: getShortcutLabels(),
+    shortcutRegistration: lastShortcutRegistration
   };
 }
 
 function publishSettings() {
   const payload = createSettingsPayload();
+  if (buffMirrorWindow) {
+    updateBuffMirrorWindowBounds(lastBuffMirrorFrame.buffCount || 0);
+  }
   settingsWindow?.webContents.send('settings-updated', payload);
   overlayWindow?.webContents.send('settings-updated', payload);
+  buffMirrorWindow?.webContents.send('settings-updated', payload);
 }
 
 function getUpdateStatus() {
@@ -443,6 +476,624 @@ function createSettingsWindow() {
     settingsWindow = undefined;
     settingsReady = undefined;
   });
+}
+
+function createBuffMirrorWindow() {
+  buffMirrorWindow = new BrowserWindow({
+    ...getBuffMirrorWindowBounds(0),
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: true,
+    focusable: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    fullscreenable: false,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  buffMirrorWindow.setAlwaysOnTop(true, 'screen-saver');
+  buffMirrorWindow.setIgnoreMouseEvents(true, { forward: true });
+  buffMirrorReady = buffMirrorWindow.loadFile(path.join(__dirname, 'buff-mirror.html'));
+
+  buffMirrorWindow.on('closed', () => {
+    buffMirrorWindow = undefined;
+    buffMirrorReady = undefined;
+    stopBuffMirrorLoop();
+  });
+
+  buffMirrorWindow.on('moved', () => {
+    scheduleBuffMirrorPositionSave();
+  });
+}
+
+function createBuffCalibrationWindow() {
+  const display = screen.getPrimaryDisplay();
+  buffCalibrationWindow = new BrowserWindow({
+    ...display.bounds,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    focusable: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    fullscreenable: false,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  buffCalibrationWindow.setAlwaysOnTop(true, 'screen-saver');
+  buffCalibrationReady = buffCalibrationWindow.loadFile(path.join(__dirname, 'buff-calibration.html'));
+
+  buffCalibrationWindow.on('closed', () => {
+    if (pendingBuffCalibration) {
+      pendingBuffCalibration.resolve({ cancelled: true });
+      pendingBuffCalibration = undefined;
+    }
+
+    buffCalibrationWindow = undefined;
+    buffCalibrationReady = undefined;
+  });
+}
+
+async function ensureBuffMirrorWindow() {
+  if (!buffMirrorWindow) {
+    createBuffMirrorWindow();
+  }
+
+  await buffMirrorReady;
+  return buffMirrorWindow;
+}
+
+async function ensureBuffCalibrationWindow() {
+  if (!buffCalibrationWindow) {
+    createBuffCalibrationWindow();
+  }
+
+  await buffCalibrationReady;
+  return buffCalibrationWindow;
+}
+
+function getBuffMirrorPosition() {
+  const position = settings?.buffMirror?.barPosition || settings?.buffMirror?.mirrorPosition || { x: 132, y: 760 };
+  return {
+    x: Math.max(0, Math.round(Number(position.x) || 132)),
+    y: Math.max(0, Math.round(Number(position.y) || 760))
+  };
+}
+
+function getBuffMirrorWindowBounds(buffCount = 0) {
+  const currentBounds = buffMirrorWindow?.getBounds();
+  const placementMode = settings?.buffMirror?.placementMode === true;
+  const vertical = settings?.buffMirror?.barOrientation === 'vertical';
+  const position = placementMode && currentBounds
+    ? { x: currentBounds.x, y: currentBounds.y }
+    : getBuffMirrorPosition();
+  const size = Math.max(16, Math.min(96, Number(settings?.buffMirror?.mirrorSize) || 34));
+  const count = Math.max(0, Math.min(BUFF_MIRROR_BAR_LAYOUT.maxBuffs, Math.round(Number(buffCount) || 0)));
+  const horizontalListWidth = count > 0
+    ? count * size + (count - 1) * BUFF_MIRROR_BAR_LAYOUT.iconGap
+    : 0;
+  const verticalListHeight = count > 0
+    ? count * size + (count - 1) * BUFF_MIRROR_BAR_LAYOUT.iconGap
+    : 0;
+  const listWidth = vertical && count > 0 ? size : horizontalListWidth;
+  const listHeight = vertical && count > 0 ? verticalListHeight : (count > 0 ? size : 0);
+  const gripWidth = placementMode
+    ? BUFF_MIRROR_BAR_LAYOUT.gripWidth + BUFF_MIRROR_BAR_LAYOUT.gripGap
+    : 0;
+  const contentWidth = gripWidth + listWidth;
+  const contentHeight = listHeight;
+  const width = Math.max(
+    BUFF_MIRROR_BAR_LAYOUT.minWidth,
+    Math.min(
+      BUFF_MIRROR_BAR_LAYOUT.maxWidth,
+      contentWidth + BUFF_MIRROR_BAR_LAYOUT.paddingX + BUFF_MIRROR_BAR_LAYOUT.border
+    )
+  ) + BUFF_MIRROR_BAR_LAYOUT.inset * 2 + BUFF_MIRROR_BAR_LAYOUT.safety;
+  const height = Math.max(
+    BUFF_MIRROR_BAR_LAYOUT.minHeight,
+    contentHeight + BUFF_MIRROR_BAR_LAYOUT.paddingY + BUFF_MIRROR_BAR_LAYOUT.border
+  ) + BUFF_MIRROR_BAR_LAYOUT.inset * 2 + BUFF_MIRROR_BAR_LAYOUT.safety;
+  return {
+    x: position.x,
+    y: position.y,
+    width,
+    height
+  };
+}
+
+function updateBuffMirrorWindowBounds(buffCount = 0) {
+  if (!buffMirrorWindow) {
+    return;
+  }
+
+  buffMirrorWindow.setBounds(getBuffMirrorWindowBounds(buffCount), false);
+}
+
+function scheduleBuffMirrorPositionSave() {
+  if (!settings?.buffMirror?.placementMode || !buffMirrorWindow) {
+    return;
+  }
+
+  clearTimeout(buffMirrorPositionSaveTimer);
+  buffMirrorPositionSaveTimer = setTimeout(() => {
+    if (!buffMirrorWindow || !settings?.buffMirror?.placementMode) {
+      return;
+    }
+
+    const bounds = buffMirrorWindow.getBounds();
+    const position = { x: bounds.x, y: bounds.y };
+    settings = writeSettings({
+      ...settings,
+      buffMirror: {
+        ...settings.buffMirror,
+        barPosition: position,
+        mirrorPosition: position
+      }
+    });
+    publishSettings();
+  }, 250);
+}
+
+async function syncBuffMirror() {
+  const configId = ++buffMirrorConfigId;
+  sendBuffMirrorHidden({ force: true });
+  const placementMode = settings?.buffMirror?.placementMode === true;
+
+  if (!placementMode && (!settings?.buffMirror?.enabled || settings.buffMirror.templates.length === 0)) {
+    stopBuffMirrorLoop();
+    buffMirrorWindow?.hide();
+    return;
+  }
+
+  const window = await ensureBuffMirrorWindow();
+  updateBuffMirrorWindowBounds(0);
+  window.setIgnoreMouseEvents(!placementMode, { forward: true });
+  window.webContents.send('settings-updated', createSettingsPayload());
+  window.showInactive();
+
+  if (!settings?.buffMirror?.enabled || settings.buffMirror.templates.length === 0) {
+    stopBuffMirrorLoop();
+    return;
+  }
+
+  sendBuffMirrorHelperCommand({
+    type: 'configure',
+    configId,
+    enabled: true,
+    scanRegion: settings.buffMirror.scanRegion,
+    threshold: settings.buffMirror.threshold,
+    intervalMs: settings.buffMirror.intervalMs,
+    templates: settings.buffMirror.templates
+  });
+}
+
+function stopBuffMirrorLoop() {
+  const configId = ++buffMirrorConfigId;
+  sendBuffMirrorHelperCommand({ type: 'configure', configId, enabled: false });
+}
+
+function sendBuffMirrorHidden(options = {}) {
+  if (!options.force && !lastBuffMirrorFrame.visible) {
+    return;
+  }
+
+  buffMirrorWindow?.webContents.send('buff-mirror-frame', { visible: false, buffs: [] });
+  lastBuffMirrorFrame = { visible: false, buffCount: 0 };
+}
+
+async function captureBuffMirrorTemplate(name, matchRegion) {
+  stopBuffMirrorLoop();
+  sendBuffMirrorHidden({ force: true });
+  const template = await captureBuffMirrorTemplateWithHelper(name, settings.buffMirror.templateRegion, matchRegion);
+
+  settings = writeSettings({
+    ...settings,
+    buffMirror: {
+      ...settings.buffMirror,
+      templates: [template, ...(settings.buffMirror.templates || [])].slice(0, 12)
+    }
+  });
+  await syncBuffMirror();
+  publishSettings();
+  return getPublicSettings();
+}
+
+function resolveBuffMirrorHelperPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'capture-helper', 'POEHelper.CaptureHelper.exe');
+  }
+
+  return path.join(__dirname, '..', 'native', 'capture-helper', 'publish', 'win-x64', 'POEHelper.CaptureHelper.exe');
+}
+
+function ensureBuffMirrorHelper() {
+  if (buffMirrorHelper && !buffMirrorHelper.killed) {
+    return buffMirrorHelper;
+  }
+
+  const helperPath = resolveBuffMirrorHelperPath();
+  if (!fs.existsSync(helperPath)) {
+    throw new Error(`Buff Mirror native helper is missing. Run npm run build:capture-helper, then restart POEHelper. Expected: ${helperPath}`);
+  }
+
+  buffMirrorHelperLineBuffer = '';
+  buffMirrorHelper = spawn(helperPath, [], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true
+  });
+
+  buffMirrorHelper.stdout.setEncoding('utf8');
+  buffMirrorHelper.stdout.on('data', handleBuffMirrorHelperStdout);
+  buffMirrorHelper.stderr.setEncoding('utf8');
+  buffMirrorHelper.stderr.on('data', (chunk) => {
+    const message = String(chunk || '').trim();
+    if (message) {
+      recordEvent('buff-mirror-helper-stderr', { message });
+    }
+  });
+  buffMirrorHelper.on('exit', (code, signal) => {
+    recordEvent('buff-mirror-helper-exit', { code, signal });
+    buffMirrorHelper = undefined;
+    buffMirrorHelperLineBuffer = '';
+    rejectPendingBuffMirrorRequests(new Error('Buff Mirror native helper exited.'));
+    sendBuffMirrorHidden();
+  });
+  buffMirrorHelper.on('error', (error) => {
+    recordEvent('buff-mirror-helper-error', { message: error.message });
+    rejectPendingBuffMirrorRequests(error);
+  });
+
+  return buffMirrorHelper;
+}
+
+function sendBuffMirrorHelperCommand(command) {
+  let helper;
+  try {
+    helper = ensureBuffMirrorHelper();
+  } catch (error) {
+    recordEvent('buff-mirror-helper-missing', { message: error.message });
+    if (command?.enabled !== false) {
+      throw error;
+    }
+    return;
+  }
+
+  helper.stdin.write(`${JSON.stringify(command)}\n`);
+}
+
+function handleBuffMirrorHelperStdout(chunk) {
+  buffMirrorHelperLineBuffer += String(chunk || '');
+  const lines = buffMirrorHelperLineBuffer.split(/\r?\n/);
+  buffMirrorHelperLineBuffer = lines.pop() || '';
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      continue;
+    }
+
+    try {
+      handleBuffMirrorHelperMessage(JSON.parse(line));
+    } catch (error) {
+      recordEvent('buff-mirror-helper-parse-error', {
+        message: error.message,
+        line: line.slice(0, 300)
+      });
+    }
+  }
+}
+
+function handleBuffMirrorHelperMessage(message = {}) {
+  if (message.type === 'state') {
+    handleBuffMirrorHelperState(message);
+    return;
+  }
+
+  if (message.type === 'match') {
+    handleBuffMirrorHelperMatch(message);
+    return;
+  }
+
+  if (message.type === 'missing') {
+    if (message.configId !== undefined && message.configId !== buffMirrorConfigId) {
+      return;
+    }
+    if (lastBuffMirrorStateSignature !== 'missing') {
+      lastBuffMirrorStateSignature = 'missing';
+      recordEvent('buff-mirror-helper-state', {
+        configId: message.configId,
+        matches: [],
+        candidates: message.candidates || []
+      });
+    }
+    sendBuffMirrorHidden();
+    return;
+  }
+
+  if (message.type === 'templateCaptured' || message.type === 'error') {
+    const pending = pendingBuffMirrorHelperRequests.get(message.requestId);
+    if (!pending) {
+      return;
+    }
+
+    pendingBuffMirrorHelperRequests.delete(message.requestId);
+    if (message.type === 'error') {
+      pending.reject(new Error(message.message || 'Buff Mirror native helper failed.'));
+      return;
+    }
+
+    pending.resolve(message.template);
+    return;
+  }
+
+  if (message.type === 'log') {
+    recordEvent('buff-mirror-helper-log', { message: message.message });
+  }
+}
+
+function handleBuffMirrorHelperState(message) {
+  if (message.configId !== undefined && message.configId !== buffMirrorConfigId) {
+    return;
+  }
+
+  const matches = Array.isArray(message.matches) ? message.matches : [];
+  const signature = matches.map((match) => `${match.templateId}:${Math.round((Number(match.score) || 0) * 1000)}`).join('|');
+  if (signature !== lastBuffMirrorStateSignature) {
+    lastBuffMirrorStateSignature = signature;
+    recordEvent('buff-mirror-helper-state', {
+      configId: message.configId,
+      matches: matches.map((match) => ({
+        templateId: match.templateId,
+        score: match.score
+      })),
+      candidates: message.candidates || []
+    });
+  }
+
+  if (matches.length === 0) {
+    sendBuffMirrorHidden();
+    return;
+  }
+
+  const templateById = new Map((settings?.buffMirror?.templates || []).map((template) => [template.id, template]));
+  const buffs = matches.map((match) => {
+    const template = templateById.get(match.templateId);
+    if (!template?.dataUrl) {
+      return undefined;
+    }
+
+    return {
+      id: template.id,
+      name: template.name,
+      dataUrl: match.dataUrl || template.dataUrl,
+      score: match.score
+    };
+  }).filter(Boolean);
+
+  if (buffs.length === 0) {
+    sendBuffMirrorHidden({ force: true });
+    return;
+  }
+
+  sendBuffMirrorBar(buffs);
+}
+
+function handleBuffMirrorHelperMatch(message) {
+  if (message.configId !== undefined && message.configId !== buffMirrorConfigId) {
+    return;
+  }
+
+  if (!buffMirrorWindow) {
+    return;
+  }
+  const template = (settings.buffMirror.templates || []).find((entry) => entry.id === message.templateId);
+  if (!template?.dataUrl) {
+    sendBuffMirrorHidden({ force: true });
+    return;
+  }
+
+  sendBuffMirrorBar([{
+    id: template.id,
+    name: template.name,
+    dataUrl: template.dataUrl,
+    score: message.score
+  }]);
+}
+
+function sendBuffMirrorBar(buffs) {
+  if (!buffMirrorWindow) {
+    return;
+  }
+
+  updateBuffMirrorWindowBounds(buffs.length);
+  buffMirrorWindow.webContents.send('buff-mirror-frame', {
+    visible: true,
+    buffs,
+    x: 0,
+    y: 0,
+    size: settings.buffMirror.mirrorSize,
+    placementMode: settings.buffMirror.placementMode === true,
+    orientation: settings.buffMirror.barOrientation === 'vertical' ? 'vertical' : 'horizontal'
+  });
+  lastBuffMirrorFrame = {
+    visible: true,
+    templateId: buffs.map((buff) => buff.id).join('|'),
+    buffCount: buffs.length,
+    sentAt: Date.now()
+  };
+}
+
+function captureBuffMirrorTemplateWithHelper(name, region, matchRegion) {
+  const requestId = `capture-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const request = {
+    type: 'captureTemplate',
+    requestId,
+    name: String(name || 'Buff template').trim() || 'Buff template',
+    region,
+    matchRegion
+  };
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingBuffMirrorHelperRequests.delete(requestId);
+      reject(new Error('Timed out waiting for Buff Mirror native helper.'));
+    }, 8000);
+
+    pendingBuffMirrorHelperRequests.set(requestId, {
+      resolve(template) {
+        clearTimeout(timeout);
+        resolve(template);
+      },
+      reject(error) {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    });
+
+    try {
+      sendBuffMirrorHelperCommand(request);
+    } catch (error) {
+      clearTimeout(timeout);
+      pendingBuffMirrorHelperRequests.delete(requestId);
+      reject(error);
+    }
+  });
+}
+
+function rejectPendingBuffMirrorRequests(error) {
+  for (const [requestId, pending] of pendingBuffMirrorHelperRequests.entries()) {
+    pending.reject(error);
+    pendingBuffMirrorHelperRequests.delete(requestId);
+  }
+}
+
+function stopBuffMirrorHelper() {
+  stopBuffMirrorLoop();
+  rejectPendingBuffMirrorRequests(new Error('Buff Mirror native helper stopped.'));
+  if (!buffMirrorHelper || buffMirrorHelper.killed) {
+    return;
+  }
+
+  try {
+    buffMirrorHelper.stdin.write(`${JSON.stringify({ type: 'exit' })}\n`);
+    buffMirrorHelper.stdin.end();
+  } catch {
+    buffMirrorHelper.kill();
+  }
+}
+
+async function updateBuffMirrorConfig(config = {}) {
+  settings = writeSettings({
+    ...settings,
+    buffMirror: {
+      ...settings.buffMirror,
+      ...config,
+      templates: settings.buffMirror?.templates || []
+    }
+  });
+  await syncBuffMirror();
+  publishSettings();
+  return getPublicSettings();
+}
+
+async function removeBuffMirrorTemplate(templateId) {
+  settings = writeSettings({
+    ...settings,
+    buffMirror: {
+      ...settings.buffMirror,
+      templates: (settings.buffMirror.templates || []).filter((template) => template.id !== templateId)
+    }
+  });
+  await syncBuffMirror();
+  publishSettings();
+  return getPublicSettings();
+}
+
+async function selectBuffMirrorScreenRegion(mode) {
+  const normalizedMode = mode === 'scan' || mode === 'template' || mode === 'match' || mode === 'mirror' ? mode : 'template';
+  if (pendingBuffCalibration) {
+    throw new Error('A buff mirror screen selection is already active.');
+  }
+
+  stopBuffMirrorLoop();
+  sendBuffMirrorHidden();
+  buffMirrorWindow?.hide();
+
+  const display = screen.getPrimaryDisplay();
+  const window = await ensureBuffCalibrationWindow();
+  window.setBounds(display.bounds, false);
+  window.show();
+  window.focus();
+  window.webContents.send('buff-calibration-start', {
+    mode: normalizedMode,
+    bounds: display.bounds
+  });
+
+  const result = await new Promise((resolve) => {
+    pendingBuffCalibration = {
+      mode: normalizedMode,
+      bounds: display.bounds,
+      resolve
+    };
+  });
+
+  await syncBuffMirror();
+  return result;
+}
+
+function completeBuffCalibration(payload = {}) {
+  if (!pendingBuffCalibration) {
+    return { cancelled: true };
+  }
+
+  const pending = pendingBuffCalibration;
+  pendingBuffCalibration = undefined;
+  buffCalibrationWindow?.hide();
+
+  if (payload.cancelled) {
+    pending.resolve({ cancelled: true, mode: pending.mode });
+    return { cancelled: true };
+  }
+
+  const bounds = pending.bounds;
+  if (pending.mode === 'mirror') {
+    const point = payload.point || {};
+    pending.resolve({
+      cancelled: false,
+      mode: pending.mode,
+      point: {
+        x: bounds.x + Math.max(0, Math.round(Number(point.x) || 0)),
+        y: bounds.y + Math.max(0, Math.round(Number(point.y) || 0))
+      }
+    });
+    return { cancelled: false };
+  }
+
+  const rect = payload.rect || {};
+  pending.resolve({
+    cancelled: false,
+    mode: pending.mode,
+    rect: {
+      x: Math.max(0, Math.round(Number(rect.x) || 0)),
+      y: Math.max(0, Math.round(Number(rect.y) || 0)),
+      width: Math.max(1, Math.round(Number(rect.width) || 1)),
+      height: Math.max(1, Math.round(Number(rect.height) || 1))
+    }
+  });
+  return { cancelled: false };
 }
 
 async function showSettingsWindow() {
@@ -1264,10 +1915,12 @@ function registerOverlayHideShortcut() {
   }
 }
 
-function registerShortcuts() {
+function registerShortcuts(options = {}) {
+  const strict = options.strict === true;
   validateShortcutConfig(settings.shortcuts);
   globalShortcut.unregisterAll();
   registeredHideShortcut = undefined;
+  lastShortcutRegistration = { registered: [], failed: [] };
 
   const registrations = [
     ['lookup', getShortcut('lookup'), () => showLookupOverlay({ copyHighlightedItem: true })],
@@ -1279,14 +1932,45 @@ function registerShortcuts() {
 
   for (const [name, accelerator, handler] of registrations) {
     if (!globalShortcut.register(accelerator, handler)) {
+      lastShortcutRegistration.failed.push({
+        name,
+        accelerator,
+        label: getShortcutLabel(accelerator)
+      });
+      continue;
+    }
+
+    lastShortcutRegistration.registered.push({
+      name,
+      accelerator,
+      label: getShortcutLabel(accelerator)
+    });
+  }
+
+  if (lastShortcutRegistration.failed.length) {
+    recordEvent('shortcut-registration-warning', {
+      failed: lastShortcutRegistration.failed,
+      registered: lastShortcutRegistration.registered
+    });
+    if (strict) {
       globalShortcut.unregisterAll();
-      throw new Error(`Could not register ${name} shortcut (${getShortcutLabel(accelerator)}). It may be used by another app.`);
+      registeredHideShortcut = undefined;
+      throw new Error(formatShortcutRegistrationError(lastShortcutRegistration.failed));
     }
   }
 
   if (overlayWindow?.isVisible()) {
     registerOverlayHideShortcut();
   }
+
+  return lastShortcutRegistration;
+}
+
+function formatShortcutRegistrationError(failed = []) {
+  const details = failed
+    .map((shortcut) => `${shortcut.name} (${shortcut.label})`)
+    .join(', ');
+  return `Could not register shortcut${failed.length === 1 ? '' : 's'}: ${details}. They may be used by another app.`;
 }
 
 function applyShortcutSettings(shortcuts) {
@@ -1301,13 +1985,17 @@ function applyShortcutSettings(shortcuts) {
 
   settings = nextSettings;
   try {
-    registerShortcuts();
+    registerShortcuts({ strict: true });
   } catch (error) {
     settings = writeSettings({
       ...settings,
       shortcuts: previousShortcuts
     });
-    registerShortcuts();
+    try {
+      registerShortcuts();
+    } catch (restoreError) {
+      recordEvent('shortcut-restore-warning', { message: restoreError.message });
+    }
     throw error;
   }
 
@@ -1391,6 +2079,16 @@ ipcMain.handle('set-listing-count', (_event, listingCount) => {
 
   return getPublicSettings();
 });
+
+ipcMain.handle('set-buff-mirror-config', (_event, config) => updateBuffMirrorConfig(config));
+
+ipcMain.handle('capture-buff-mirror-template', (_event, name, matchRegion) => captureBuffMirrorTemplate(name, matchRegion));
+
+ipcMain.handle('remove-buff-mirror-template', (_event, templateId) => removeBuffMirrorTemplate(String(templateId || '')));
+
+ipcMain.handle('select-buff-mirror-region', (_event, mode) => selectBuffMirrorScreenRegion(String(mode || 'template')));
+
+ipcMain.handle('complete-buff-calibration', (_event, payload) => completeBuffCalibration(payload));
 
 ipcMain.handle('set-loot-filter-config', (_event, config) => {
   settings = writeSettings({
@@ -2025,26 +2723,44 @@ ipcMain.handle('apply-search-preset', (_event, presetId) => {
   };
 });
 
-app.whenReady().then(() => {
-  settings = readSettings();
-  configureAutoUpdates();
-  createOverlayWindow();
-  createTray();
-  try {
-    registerShortcuts();
-  } catch {
-    settings = writeSettings({
-      ...settings,
-      shortcuts: DEFAULT_SETTINGS.shortcuts
-    });
-    registerShortcuts();
-    updateTrayMenu();
-  }
-  setTimeout(() => checkForAppUpdates(), 5000);
-});
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    showSettingsWindow().catch((error) => recordEvent('second-instance-focus-error', { message: error.message }));
+  });
+
+  app.whenReady().then(() => {
+    settings = readSettings();
+    configureAutoUpdates();
+    createOverlayWindow();
+    syncBuffMirror().catch((error) => recordEvent('buff-mirror-start-error', { message: error.message }));
+    createTray();
+    try {
+      registerShortcuts();
+    } catch (error) {
+      recordEvent('shortcut-settings-invalid', { message: error.message });
+      settings = writeSettings({
+        ...settings,
+        shortcuts: DEFAULT_SETTINGS.shortcuts
+      });
+      try {
+        registerShortcuts();
+      } catch (defaultError) {
+        recordEvent('shortcut-default-registration-error', { message: defaultError.message });
+      }
+      updateTrayMenu();
+    }
+    setTimeout(() => checkForAppUpdates(), 5000);
+  });
+}
 
 app.on('will-quit', () => {
   clearTimeout(overlayBoundsSaveTimer);
+  clearTimeout(buffMirrorPositionSaveTimer);
+  stopBuffMirrorHelper();
   saveOverlayBounds();
   globalShortcut.unregisterAll();
 });

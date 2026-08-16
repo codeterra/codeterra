@@ -4,6 +4,19 @@ const { app } = require('electron');
 const { normalizeLootFilterSettings } = require('./loot-filter-manager');
 
 const SETTINGS_SCHEMA_VERSION = 4;
+const DEFAULT_BUFF_MIRROR = {
+  enabled: false,
+  scanRegion: { x: 0, y: 24, width: 900, height: 96 },
+  templateRegion: { x: 20, y: 24, width: 32, height: 32 },
+  barPosition: { x: 132, y: 760 },
+  mirrorPosition: { x: 132, y: 760 },
+  placementMode: false,
+  barOrientation: 'horizontal',
+  mirrorSize: 34,
+  threshold: 0.88,
+  intervalMs: 1500,
+  templates: []
+};
 
 const DEFAULT_SETTINGS = {
   schemaVersion: SETTINGS_SCHEMA_VERSION,
@@ -36,6 +49,7 @@ const DEFAULT_SETTINGS = {
     lastError: undefined
   },
   lootFilter: undefined,
+  buffMirror: DEFAULT_BUFF_MIRROR,
   presets: []
 };
 
@@ -88,8 +102,101 @@ function normalizeSettings(nextSettings = {}) {
     oauth: normalizeOAuth(nextSettings.oauth),
     gggSession: normalizeGggSession(nextSettings.gggSession),
     lootFilter: normalizeLootFilterSettings(nextSettings.lootFilter),
+    buffMirror: normalizeBuffMirror(nextSettings.buffMirror),
     presets: Array.isArray(nextSettings.presets) ? nextSettings.presets : []
   };
+}
+
+function normalizeBuffMirror(buffMirror) {
+  const source = buffMirror && typeof buffMirror === 'object' ? buffMirror : {};
+  return {
+    enabled: source.enabled === true,
+    scanRegion: normalizeRect(source.scanRegion, DEFAULT_BUFF_MIRROR.scanRegion, { minWidth: 24, minHeight: 24 }),
+    templateRegion: normalizeRect(source.templateRegion, DEFAULT_BUFF_MIRROR.templateRegion, { minWidth: 8, minHeight: 8 }),
+    barPosition: normalizePoint(source.barPosition || source.mirrorPosition, DEFAULT_BUFF_MIRROR.barPosition),
+    mirrorPosition: normalizePoint(source.barPosition || source.mirrorPosition, DEFAULT_BUFF_MIRROR.mirrorPosition),
+    placementMode: source.placementMode === true,
+    barOrientation: source.barOrientation === 'vertical' ? 'vertical' : 'horizontal',
+    mirrorSize: normalizeNumber(source.mirrorSize, DEFAULT_BUFF_MIRROR.mirrorSize, 16, 96),
+    threshold: normalizeNumber(source.threshold, DEFAULT_BUFF_MIRROR.threshold, 0.5, 0.99),
+    intervalMs: normalizeNumber(source.intervalMs, DEFAULT_BUFF_MIRROR.intervalMs, 1000, 5000),
+    templates: Array.isArray(source.templates)
+      ? source.templates.map(normalizeBuffTemplate).filter(Boolean).slice(0, 12)
+      : []
+  };
+}
+
+function normalizeBuffTemplate(template) {
+  if (!template || typeof template !== 'object') {
+    return undefined;
+  }
+
+  const dataUrl = String(template.dataUrl || '').trim();
+  if (!dataUrl.startsWith('data:image/')) {
+    return undefined;
+  }
+
+  const width = normalizeNumber(template.width, 32, 1, 128);
+  const height = normalizeNumber(template.height, 32, 1, 128);
+  const fallbackMatchRegion = {
+    x: Math.max(0, Math.round(width * 0.2)),
+    y: Math.max(0, Math.round(height * 0.2)),
+    width: Math.max(4, Math.round(width * 0.6)),
+    height: Math.max(4, Math.round(height * 0.6))
+  };
+  const matchRegion = clampRectToBounds(
+    normalizeRect(template.matchRegion, fallbackMatchRegion, { minWidth: 4, minHeight: 4 }),
+    width,
+    height
+  );
+
+  return {
+    id: String(template.id || `buff-${Date.now()}`).trim(),
+    name: String(template.name || 'Buff template').trim().slice(0, 80) || 'Buff template',
+    dataUrl,
+    width,
+    height,
+    matchRegion,
+    capturedAt: template.capturedAt ? String(template.capturedAt) : new Date().toISOString()
+  };
+}
+
+function clampRectToBounds(rect, width, height) {
+  const x = Math.max(0, Math.min(rect.x, Math.max(0, width - 1)));
+  const y = Math.max(0, Math.min(rect.y, Math.max(0, height - 1)));
+  return {
+    x,
+    y,
+    width: Math.max(1, Math.min(rect.width, width - x)),
+    height: Math.max(1, Math.min(rect.height, height - y))
+  };
+}
+
+function normalizeRect(rect, fallback, { minWidth = 1, minHeight = 1 } = {}) {
+  const source = rect && typeof rect === 'object' ? rect : {};
+  return {
+    x: Math.max(0, Math.round(Number.isFinite(Number(source.x)) ? Number(source.x) : fallback.x)),
+    y: Math.max(0, Math.round(Number.isFinite(Number(source.y)) ? Number(source.y) : fallback.y)),
+    width: Math.max(minWidth, Math.round(Number.isFinite(Number(source.width)) ? Number(source.width) : fallback.width)),
+    height: Math.max(minHeight, Math.round(Number.isFinite(Number(source.height)) ? Number(source.height) : fallback.height))
+  };
+}
+
+function normalizePoint(point, fallback) {
+  const source = point && typeof point === 'object' ? point : {};
+  return {
+    x: Math.max(0, Math.round(Number.isFinite(Number(source.x)) ? Number(source.x) : fallback.x)),
+    y: Math.max(0, Math.round(Number.isFinite(Number(source.y)) ? Number(source.y) : fallback.y))
+  };
+}
+
+function normalizeNumber(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, number));
 }
 
 function normalizeOAuth(oauth) {

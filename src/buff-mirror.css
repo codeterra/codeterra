@@ -1,0 +1,98 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+body.is-placement-mode {
+  pointer-events: auto;
+}
+
+.buff-mirror-bar {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 52px;
+  min-height: 42px;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+body.is-placement-mode .buff-mirror-bar {
+  border-color: rgba(137, 214, 255, 0.8);
+  border-style: dashed;
+  background: rgba(0, 0, 0, 0.68);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 18px rgba(100, 190, 255, 0.28);
+  cursor: move;
+  pointer-events: auto;
+  -webkit-app-region: drag;
+}
+
+.buff-mirror-grip {
+  display: none;
+  width: 8px;
+  align-self: stretch;
+  border-radius: 4px;
+  background: linear-gradient(
+    to bottom,
+    rgba(240, 211, 106, 0.9) 0 15%,
+    transparent 15% 30%,
+    rgba(240, 211, 106, 0.9) 30% 45%,
+    transparent 45% 60%,
+    rgba(240, 211, 106, 0.9) 60% 75%,
+    transparent 75% 100%
+  );
+}
+
+body.is-placement-mode .buff-mirror-grip {
+  display: block;
+}
+
+.buff-mirror-list {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+body.is-vertical .buff-mirror-list {
+  flex-direction: column;
+}
+
+.buff-mirror-icon {
+  display: grid;
+  place-items: center;
+  width: var(--buff-size, 34px);
+  height: var(--buff-size, 34px);
+  flex: 0 0 auto;
+  border: 2px solid rgba(137, 214, 255, 0.95);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.9), 0 0 14px rgba(100, 190, 255, 0.46);
+  -webkit-app-region: no-drag;
+}
+
+.buff-mirror-icon img {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  image-rendering: auto;
+  object-fit: contain;
+}

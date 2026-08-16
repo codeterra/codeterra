@@ -25,6 +25,15 @@ contextBridge.exposeInMainWorld('poehelper', {
   onUpdateStatus(callback) {
     ipcRenderer.on('update-status', (_event, payload) => callback(payload));
   },
+  onBuffMirrorFrame(callback) {
+    ipcRenderer.on('buff-mirror-frame', (_event, payload) => callback(payload));
+  },
+  onBuffCalibrationStart(callback) {
+    ipcRenderer.on('buff-calibration-start', (_event, payload) => callback(payload));
+  },
+  completeBuffCalibration(payload) {
+    return ipcRenderer.invoke('complete-buff-calibration', payload);
+  },
   hideOverlay() {
     return ipcRenderer.invoke('hide-overlay');
   },
@@ -69,6 +78,18 @@ contextBridge.exposeInMainWorld('poehelper', {
   },
   setListingCount(listingCount) {
     return ipcRenderer.invoke('set-listing-count', listingCount);
+  },
+  setBuffMirrorConfig(config) {
+    return ipcRenderer.invoke('set-buff-mirror-config', config);
+  },
+  captureBuffMirrorTemplate(name, matchRegion) {
+    return ipcRenderer.invoke('capture-buff-mirror-template', name, matchRegion);
+  },
+  removeBuffMirrorTemplate(templateId) {
+    return ipcRenderer.invoke('remove-buff-mirror-template', templateId);
+  },
+  selectBuffMirrorRegion(mode) {
+    return ipcRenderer.invoke('select-buff-mirror-region', mode);
   },
   setLootFilterConfig(config) {
     return ipcRenderer.invoke('set-loot-filter-config', config);
