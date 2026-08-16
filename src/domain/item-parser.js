@@ -125,10 +125,6 @@ function classifyItem({ rarity, itemClass, name }) {
     return 'unknown';
   }
 
-  if (rarity === 'Currency' || itemClass === 'Stackable Currency' || itemClass === 'Delve Stackable Socketable Currency') {
-    return 'currency';
-  }
-
   if (rarity === 'Divination Card' || itemClass === 'Divination Cards') {
     return 'divination-card';
   }
@@ -141,8 +137,12 @@ function classifyItem({ rarity, itemClass, name }) {
     return rarity === 'Unique' ? 'unique-map' : 'map';
   }
 
-  if (itemClass === 'Map Fragments' || itemClass === 'Misc Map Items') {
+  if (itemClass === 'Map Fragments' || itemClass === 'Misc Map Items' || itemClass === 'Wombgifts') {
     return 'fragment';
+  }
+
+  if (rarity === 'Currency' || itemClass === 'Stackable Currency' || itemClass === 'Delve Stackable Socketable Currency') {
+    return 'currency';
   }
 
   if (rarity === 'Unique') {

@@ -791,7 +791,7 @@ button:hover {
 
 .loot-workbench-tabs {
   position: sticky;
-  top: 142px;
+  top: var(--loot-subnav-sticky-top, 142px);
   z-index: 4;
   align-self: stretch;
   overflow-x: auto;

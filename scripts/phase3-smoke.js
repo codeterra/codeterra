@@ -107,7 +107,19 @@ const scarabRule = createRuleFromItem({
   rarity: 'Normal',
   itemClass: 'Map Fragments'
 }, { action: 'Show' });
-assert.equal(scarabRule.style, 'scarabs');
+assert.equal(scarabRule.style, 'fragments');
+
+const wombgift = parseCopiedItem(`Item Class: Wombgifts
+Rarity: Currency
+Lavish Wombgift
+--------
+Item Level: 72
+Requires 591 Hiveblood
+--------
+Can grow into a Currency item on the Genesis Tree`);
+assert.equal(wombgift.category, 'fragment');
+const wombgiftRule = createRuleFromItem(wombgift, { action: 'Show' });
+assert.equal(wombgiftRule.style, 'fragments');
 
 const rareWand = parseCopiedItem(fixture('rare-omen-wand.txt'));
 const wandRule = createRuleFromItem(rareWand, { action: 'Hide' });
@@ -259,8 +271,10 @@ assert.match(output, /# Maps tier 1-5\nShow\n    Class Maps\n    MapTier <= 5/);
 assert.match(output, /# Premium oils\nShow\n    Class "Stackable Currency"\n    BaseType "Golden Oil" "Silver Oil" "Opalescent Oil"/);
 assert.match(output, /# All oils\nShow\n    Class "Stackable Currency"\n    BaseType .*"Clear Oil"/);
 assert.ok(output.indexOf('# Category rules') < output.indexOf('# Currency tiers'));
-assert.match(output, /# Fragments and invitations\nShow\n    Class "Map Fragments" "Misc Map Items"/);
+assert.match(output, /# Boss fragments and invitations\nShow\n    Class "Map Fragments" "Misc Map Items"/);
 assert.match(output, /SetBorderColor 130 110 255 255/);
+assert.match(output, /# Scarabs\nShow\n    BaseType Scarab/);
+assert.match(output, /# Wombgifts\nShow\n    Class Wombgifts/);
 assert.match(output, /# Blueprints ilvl 83\+\nShow\n    Class Blueprints\n    ItemLevel >= 83/);
 assert.match(output, /# Blueprints\nShow\n    Class Blueprints/);
 assert.match(output, /SetTextColor 185 235 255 255/);
@@ -268,9 +282,8 @@ assert.match(output, /# Quality gems\nShow\n    Class "Skill Gems" "Support Gems
 assert.match(output, /# All gems\nShow\n    Class "Skill Gems" "Support Gems"/);
 assert.match(output, /# Divination cards\nShow\n    Class "Divination Cards"/);
 assert.match(output, /SetBackgroundColor 210 235 255 235/);
-assert.match(output, /# Scarabs\nShow\n    BaseType Scarab/);
 assert.doesNotMatch(output, /Class Scarabs/);
-assert.match(output, /SetBorderColor 220 170 70 255/);
+assert.doesNotMatch(output, /# Category rules[\s\S]*style: scarabs/);
 assert.doesNotMatch(output, /# Jewels by rarity/);
 assert.match(output, /# Normal jewels\nShow\n    Class Jewels\n    Rarity Normal/);
 assert.match(output, /# Rare jewels\nShow\n    Class Jewels\n    Rarity Rare/);

@@ -113,6 +113,20 @@ function generateLootFilter(profileLike) {
       conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
     }, profile));
     lines.push('');
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Scarabs',
+      style: 'fragments',
+      conditions: [{ key: 'BaseType', value: 'Scarab' }]
+    }, profile));
+    lines.push('');
+    lines.push(...renderRule({
+      action: 'Show',
+      label: 'Wombgifts',
+      style: 'fragments',
+      conditions: [{ key: 'Class', value: 'Wombgifts' }]
+    }, profile));
+    lines.push('');
   }
 
   if (!isCategoryEnabled(profile, 'blueprints')) {
@@ -141,16 +155,6 @@ function generateLootFilter(profileLike) {
       label: 'Divination cards',
       style: 'divinationCards',
       conditions: [{ key: 'Class', value: 'Divination Cards' }]
-    }, profile));
-    lines.push('');
-  }
-
-  if (!isCategoryEnabled(profile, 'scarabs')) {
-    lines.push(...renderRule({
-      action: 'Show',
-      label: 'Scarabs',
-      style: 'scarabs',
-      conditions: [{ key: 'BaseType', value: 'Scarab' }]
     }, profile));
     lines.push('');
   }

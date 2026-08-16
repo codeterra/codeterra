@@ -38,6 +38,57 @@ const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) =>
 ));
 const FLASK_CLASSES = [...new Set(FLASK_GROUPS.flatMap((group) => group.classes || []))];
 const FLASK_BASE_TYPES = [...new Set(FLASK_GROUPS.flatMap((group) => group.bases || []))];
+const FRAGMENT_TYPE_DEFINITIONS = [
+  {
+    id: 'boss-fragments',
+    label: 'Boss fragments and invitations',
+    conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+  },
+  {
+    id: 'scarabs',
+    label: 'Scarabs',
+    conditions: [{ key: 'BaseType', value: 'Scarab' }]
+  },
+  {
+    id: 'wombgifts',
+    label: 'Wombgifts',
+    conditions: [{ key: 'Class', value: 'Wombgifts' }]
+  },
+  {
+    id: 'divine-vessels',
+    label: 'Divine Vessels',
+    conditions: [{ key: 'BaseType', value: 'Divine Vessel' }]
+  },
+  {
+    id: 'timeless-jewels',
+    label: 'Timeless Jewels',
+    conditions: [
+      { key: 'Class', value: 'Jewels' },
+      { key: 'BaseType', value: 'Timeless Jewel' }
+    ]
+  },
+  {
+    id: 'ritual',
+    label: 'Ritual vessels and splinters',
+    conditions: [{ key: 'BaseType', value: ['Blood-filled Vessel', 'Ritual Splinter'] }]
+  },
+  {
+    id: 'breachstones',
+    label: 'Breachstones',
+    conditions: [{ key: 'BaseType', value: 'Breachstone' }]
+  },
+  {
+    id: 'legion-emblems',
+    label: 'Legion Emblems',
+    conditions: [{ key: 'BaseType', value: 'Emblem' }]
+  },
+  {
+    id: 'simulacrum',
+    label: 'Simulacrum',
+    conditions: [{ key: 'BaseType', value: ['Simulacrum', 'Simulacrum Splinter'] }]
+  }
+];
+const FRAGMENT_TYPE_BY_ID = new Map(FRAGMENT_TYPE_DEFINITIONS.map((entry) => [entry.id, entry]));
 
 const DEFAULT_LOOT_FILTER_PROFILE = {
   schemaVersion: LOOT_FILTER_PROFILE_SCHEMA_VERSION,
@@ -412,11 +463,34 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
           id: 'fragments-baseline',
           enabled: true,
           action: 'Show',
-          label: 'Fragments and invitations',
+          label: 'Boss fragments and invitations',
           source: 'category-rule',
+          fragmentType: 'boss-fragments',
           style: 'fragments',
           tier: 'baseline',
           conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
+        },
+        {
+          id: 'fragments-scarabs',
+          enabled: true,
+          action: 'Show',
+          label: 'Scarabs',
+          source: 'category-rule',
+          fragmentType: 'scarabs',
+          style: 'fragments',
+          tier: 'baseline',
+          conditions: [{ key: 'BaseType', value: 'Scarab' }]
+        },
+        {
+          id: 'fragments-wombgifts',
+          enabled: true,
+          action: 'Show',
+          label: 'Wombgifts',
+          source: 'category-rule',
+          fragmentType: 'wombgifts',
+          style: 'fragments',
+          tier: 'baseline',
+          conditions: [{ key: 'Class', value: 'Wombgifts' }]
         }
       ]
     },
@@ -488,21 +562,6 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
           style: 'divinationCards',
           tier: 'baseline',
           conditions: [{ key: 'Class', value: 'Divination Cards' }]
-        }
-      ]
-    },
-    scarabs: {
-      enabled: true,
-      rules: [
-        {
-          id: 'scarabs-baseline',
-          enabled: true,
-          action: 'Show',
-          label: 'Scarabs',
-          source: 'category-rule',
-          style: 'scarabs',
-          tier: 'baseline',
-          conditions: [{ key: 'BaseType', value: 'Scarab' }]
         }
       ]
     },
@@ -835,9 +894,13 @@ function normalizeCategoryRules(categoryRules, styles = DEFAULT_LOOT_FILTER_PROF
   for (const [categoryId, fallback] of Object.entries(DEFAULT_LOOT_FILTER_PROFILE.categoryRules)) {
     const category = source[categoryId] && typeof source[categoryId] === 'object' ? source[categoryId] : {};
     const fallbackStyle = getFallbackCategoryStyle(categoryId);
-    const rules = Array.isArray(category.rules)
-      ? category.rules.map(normalizeCategoryRule).filter(Boolean)
+    const sourceRules = getCategorySourceRules(categoryId, category, source);
+    const rules = Array.isArray(sourceRules)
+      ? sourceRules.map(normalizeCategoryRule).filter(Boolean)
       : (fallback.rules || []).map(normalizeCategoryRule).filter(Boolean);
+    if (categoryId === 'fragments') {
+      ensureDefaultFragmentRules(rules);
+    }
     for (const rule of rules) {
       if (rule.style === fallbackStyle) {
         rule.style = INHERIT_STYLE;
@@ -858,7 +921,42 @@ function normalizeCategoryRules(categoryRules, styles = DEFAULT_LOOT_FILTER_PROF
   return output;
 }
 
+function getCategorySourceRules(categoryId, category, allCategories) {
+  const rules = Array.isArray(category.rules) ? [...category.rules] : undefined;
+  if (categoryId !== 'fragments') {
+    return rules;
+  }
+
+  const scarabs = allCategories?.scarabs;
+  if (!scarabs || scarabs.enabled === false || !Array.isArray(scarabs.rules)) {
+    return rules;
+  }
+
+  const migrated = scarabs.rules.map((rule) => ({
+    ...rule,
+    id: String(rule.id || `scarab-${Date.now()}`).replace(/^scarabs?/, 'fragments-scarabs'),
+    label: rule.label || 'Scarabs',
+    style: 'fragments',
+    fragmentType: 'scarabs',
+    source: 'category-rule',
+    conditions: normalizeFragmentTypeConditions('scarabs', rule.conditions)
+  }));
+
+  return [...(rules || []), ...migrated];
+}
+
+function ensureDefaultFragmentRules(rules) {
+  const existingTypes = new Set(rules.map((rule) => rule.fragmentType || inferFragmentType(rule.conditions)));
+  for (const fallback of DEFAULT_LOOT_FILTER_PROFILE.categoryRules.fragments.rules) {
+    if (!existingTypes.has(fallback.fragmentType)) {
+      rules.push(normalizeCategoryRule(fallback));
+      existingTypes.add(fallback.fragmentType);
+    }
+  }
+}
+
 function normalizeCategoryRule(entry) {
+  const fragmentType = entry?.fragmentType ? normalizeFragmentTypeId(entry.fragmentType) : inferFragmentType(entry?.conditions);
   const rule = normalizeRule({
     ...entry,
     action: entry?.action || 'Show',
@@ -872,7 +970,69 @@ function normalizeCategoryRule(entry) {
     return undefined;
   }
 
+  if (fragmentType) {
+    rule.fragmentType = fragmentType;
+    rule.conditions = normalizeFragmentTypeConditions(fragmentType, rule.conditions);
+  }
+
   return rule;
+}
+
+function normalizeFragmentTypeId(value) {
+  const id = String(value || '').trim();
+  return FRAGMENT_TYPE_BY_ID.has(id) ? id : undefined;
+}
+
+function normalizeFragmentTypeConditions(fragmentType, currentConditions = []) {
+  const definition = FRAGMENT_TYPE_BY_ID.get(fragmentType);
+  if (!definition) {
+    return currentConditions;
+  }
+
+  const typedBase = currentConditions.find((condition) => condition.key === 'BaseType');
+  const conditions = structuredClone(definition.conditions);
+  if (typedBase) {
+    for (let index = conditions.length - 1; index >= 0; index -= 1) {
+      if (conditions[index].key === 'BaseType') {
+        conditions.splice(index, 1);
+      }
+    }
+    conditions.push(typedBase);
+  }
+
+  for (const condition of currentConditions) {
+    if (condition.key === 'Class' || condition.key === 'BaseType') {
+      continue;
+    }
+    conditions.push(condition);
+  }
+
+  return conditions;
+}
+
+function inferFragmentType(conditions = []) {
+  const hasClass = (value) => conditions.some((condition) => (
+    condition.key === 'Class' && conditionValueIncludes(condition.value, value)
+  ));
+  const hasBase = (value) => conditions.some((condition) => (
+    condition.key === 'BaseType' && conditionValueIncludes(condition.value, value)
+  ));
+
+  if (hasClass('Wombgifts')) return 'wombgifts';
+  if (hasBase('Scarab')) return 'scarabs';
+  if (hasBase('Divine Vessel')) return 'divine-vessels';
+  if (hasBase('Timeless Jewel')) return 'timeless-jewels';
+  if (hasBase('Blood-filled Vessel') || hasBase('Ritual Splinter')) return 'ritual';
+  if (hasBase('Breachstone')) return 'breachstones';
+  if (hasBase('Emblem')) return 'legion-emblems';
+  if (hasBase('Simulacrum') || hasBase('Simulacrum Splinter')) return 'simulacrum';
+  if (hasClass('Map Fragments') || hasClass('Misc Map Items')) return 'boss-fragments';
+  return undefined;
+}
+
+function conditionValueIncludes(value, needle) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.some((entry) => String(entry || '').toLowerCase() === String(needle || '').toLowerCase());
 }
 
 function getFallbackCategoryStyle(categoryId) {
@@ -978,6 +1138,10 @@ function normalizeRule(rule) {
     createdAt: rule.createdAt || new Date().toISOString(),
     itemSnapshot: rule.itemSnapshot && typeof rule.itemSnapshot === 'object' ? rule.itemSnapshot : undefined
   };
+
+  if (rule.fragmentType) {
+    output.fragmentType = String(rule.fragmentType);
+  }
 
   if (rule.economyTierId) {
     output.economyTierId = String(rule.economyTierId);
@@ -1672,7 +1836,7 @@ function normalizeCondition(condition) {
 }
 
 function getStyleForItem(item) {
-  if (isScarabItem(item)) return 'scarabs';
+  if (isScarabItem(item)) return 'fragments';
   if (isOilItem(item)) return 'oils';
   if (isFlaskItem(item) && item.rarity !== 'Unique') return 'flasks';
   if (item.category === 'currency') return 'currency';
@@ -1783,6 +1947,7 @@ module.exports = {
   EQUIPMENT_MISC_VISIBILITY_GROUPS,
   FLASK_BASE_TYPES,
   FLASK_CLASSES,
+  FRAGMENT_TYPE_DEFINITIONS,
   LOOT_FILTER_PROFILE_SCHEMA_VERSION,
   OIL_BASE_TYPES,
   createRuleFromItem,

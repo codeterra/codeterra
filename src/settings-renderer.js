@@ -111,10 +111,6 @@ const divinationCardRulesEnabledInput = document.querySelector('#divination-card
 const divinationCardRulesStatus = document.querySelector('#divination-card-rules-status');
 const divinationCardRuleList = document.querySelector('#divination-card-rule-list');
 const addDivinationCardRuleButton = document.querySelector('#add-divination-card-rule-button');
-const scarabRulesEnabledInput = document.querySelector('#scarab-rules-enabled-input');
-const scarabRulesStatus = document.querySelector('#scarab-rules-status');
-const scarabRuleList = document.querySelector('#scarab-rule-list');
-const addScarabRuleButton = document.querySelector('#add-scarab-rule-button');
 const oilRulesEnabledInput = document.querySelector('#oil-rules-enabled-input');
 const oilRulesStatus = document.querySelector('#oil-rules-status');
 const oilRuleList = document.querySelector('#oil-rule-list');
@@ -146,6 +142,7 @@ const catalogMetadataStatus = document.querySelector('#catalog-metadata-status')
 const settingsTabButtons = [...document.querySelectorAll('[data-settings-tab]')];
 const settingsPanels = [...document.querySelectorAll('[data-settings-panel]')];
 const lootFilterPanel = document.querySelector('[data-settings-panel="loot-filter"]');
+const lootCommandBar = document.querySelector('.loot-command-bar');
 const lootTabButtons = [...document.querySelectorAll('[data-loot-tab]')];
 const lootSections = [...document.querySelectorAll('[data-loot-section]')];
 const equipmentTabButtons = [...document.querySelectorAll('[data-equipment-tab]')];
@@ -282,6 +279,76 @@ const FLASK_BASE_TYPES = [
   'Jade Flask',
   'Quartz Flask'
 ];
+const FRAGMENT_TYPE_OPTIONS = [
+  {
+    value: 'boss-fragments',
+    label: 'Boss fragments and invitations',
+    conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }],
+    sample: 'Screaming Invitation',
+    placeholder: 'Leave blank to match all boss fragments and invitations.\nScreaming Invitation\nFragment of the Hydra'
+  },
+  {
+    value: 'scarabs',
+    label: 'Scarabs',
+    conditions: [{ key: 'BaseType', value: 'Scarab' }],
+    sample: 'Cartography Scarab',
+    placeholder: 'Leave blank to match all scarabs.\nAmbush Scarab\nCartography Scarab'
+  },
+  {
+    value: 'wombgifts',
+    label: 'Wombgifts',
+    conditions: [{ key: 'Class', value: 'Wombgifts' }],
+    sample: 'Lavish Wombgift',
+    placeholder: 'Leave blank to match all Wombgifts.\nLavish Wombgift'
+  },
+  {
+    value: 'divine-vessels',
+    label: 'Divine Vessels',
+    conditions: [{ key: 'BaseType', value: 'Divine Vessel' }],
+    sample: 'Divine Vessel',
+    placeholder: 'Leave blank to match Divine Vessels.'
+  },
+  {
+    value: 'timeless-jewels',
+    label: 'Timeless Jewels',
+    conditions: [
+      { key: 'Class', value: 'Jewels' },
+      { key: 'BaseType', value: 'Timeless Jewel' }
+    ],
+    sample: 'Timeless Jewel',
+    placeholder: 'Leave blank to match all Timeless Jewels.'
+  },
+  {
+    value: 'ritual',
+    label: 'Ritual vessels and splinters',
+    conditions: [{ key: 'BaseType', value: ['Blood-filled Vessel', 'Ritual Splinter'] }],
+    sample: 'Blood-filled Vessel',
+    placeholder: 'Leave blank to match ritual vessels and splinters.\nBlood-filled Vessel\nRitual Splinter'
+  },
+  {
+    value: 'breachstones',
+    label: 'Breachstones',
+    conditions: [{ key: 'BaseType', value: 'Breachstone' }],
+    sample: 'Breachstone',
+    placeholder: 'Leave blank to match all Breachstones.'
+  },
+  {
+    value: 'legion-emblems',
+    label: 'Legion Emblems',
+    conditions: [{ key: 'BaseType', value: 'Emblem' }],
+    sample: 'Timeless Karui Emblem',
+    placeholder: 'Leave blank to match all Legion Emblems.'
+  },
+  {
+    value: 'simulacrum',
+    label: 'Simulacrum',
+    conditions: [{ key: 'BaseType', value: ['Simulacrum', 'Simulacrum Splinter'] }],
+    sample: 'Simulacrum',
+    placeholder: 'Leave blank to match Simulacrum and splinters.'
+  }
+];
+const FRAGMENT_TYPE_SELECT_OPTIONS = FRAGMENT_TYPE_OPTIONS.map((entry) => ({ value: entry.value, label: entry.label }));
+const FRAGMENT_TYPE_BY_ID = new Map(FRAGMENT_TYPE_OPTIONS.map((entry) => [entry.value, entry]));
 const EQUIPMENT_SLOT_PATTERNS = [
   {
     id: 'helmets',
@@ -357,11 +424,12 @@ const CATEGORY_RULE_DEFINITIONS = {
     defaultRule: {
       action: 'Show',
       label: 'New fragment rule',
+      fragmentType: 'boss-fragments',
       style: 'fragments',
       tier: 'baseline',
       conditions: [{ key: 'Class', value: ['Map Fragments', 'Misc Map Items'] }]
     },
-    fields: ['baseTypes']
+    fields: ['fragmentType', 'baseTypes']
   },
   blueprints: {
     label: 'Blueprint',
@@ -414,24 +482,6 @@ const CATEGORY_RULE_DEFINITIONS = {
       style: 'divinationCards',
       tier: 'baseline',
       conditions: [{ key: 'Class', value: 'Divination Cards' }]
-    },
-    fields: ['baseTypes']
-  },
-  scarabs: {
-    label: 'Scarab',
-    enabledInput: scarabRulesEnabledInput,
-    status: scarabRulesStatus,
-    list: scarabRuleList,
-    addButton: addScarabRuleButton,
-    defaultStyle: 'scarabs',
-    defaultTier: 'baseline',
-    fallbackConditions: [{ key: 'BaseType', value: 'Scarab' }],
-    defaultRule: {
-      action: 'Show',
-      label: 'New scarab rule',
-      style: 'scarabs',
-      tier: 'baseline',
-      conditions: [{ key: 'BaseType', value: 'Scarab' }]
     },
     fields: ['baseTypes']
   },
@@ -1785,6 +1835,9 @@ function createCategoryBaselineRow(categoryId, definition, category = {}) {
 function getSampleLabelForCategory(categoryId, rule = {}) {
   const typedBase = (rule.conditions || []).find((condition) => condition.key === 'BaseType')?.value;
   const firstBase = Array.isArray(typedBase) ? typedBase[0] : typedBase;
+  if (categoryId === 'fragments') {
+    return firstBase || FRAGMENT_TYPE_BY_ID.get(getFragmentTypeForRule(rule))?.sample || 'Screaming Invitation';
+  }
   const samples = {
     uniques: firstBase || 'Unique Heavy Belt',
     maps: firstBase || 'Tier 16 Map',
@@ -1801,6 +1854,10 @@ function getSampleLabelForCategory(categoryId, rule = {}) {
 }
 
 function appendCategoryConditionControls(container, categoryId, definition, rule) {
+  if (definition.fields.includes('fragmentType')) {
+    appendLabeled(container, 'Fragment type', createOptionSelect(getFragmentTypeForRule(rule), FRAGMENT_TYPE_SELECT_OPTIONS, { categoryRuleField: 'fragmentType' }));
+  }
+
   if (definition.fields.includes('itemClass')) {
     appendLabeled(container, 'Class', createTextarea(getConditionText(rule, 'Class').replace(/,\s*/g, '\n'), { categoryRuleField: 'itemClass' }, 'Optional classes, one per line'));
   }
@@ -1853,10 +1910,9 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
     const value = getConditionText(rule, 'BaseType');
     const placeholders = {
       oils: `Leave blank only when this rule should be skipped.\n${OIL_BASE_TYPES.join('\n')}`,
-      scarabs: 'Leave blank to match all scarabs.\nAmbush Scarab\nCartography Scarab',
       divinationCards: 'Leave blank to match all divination cards.\nThe Doctor\nBrother\'s Gift',
       gems: 'Leave blank to match all gems.\nScorching Ray\nVaal Lightning Strike',
-      fragments: 'Leave blank to match all fragments and invitations.\nScreaming Invitation\nFragment of the Hydra',
+      fragments: FRAGMENT_TYPE_BY_ID.get(getFragmentTypeForRule(rule))?.placeholder || 'Leave blank to match this fragment type.',
       blueprints: 'Leave blank to match all blueprints.\nBlueprint\nRecords Office',
       uniques: 'Leave blank to match all unique items.\nLeather Belt\nHeavy Belt\nMageblood',
       flasks: `Leave blank to match all flasks.\n${FLASK_BASE_TYPES.join('\n')}`,
@@ -1864,6 +1920,35 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
     };
     appendLabeled(container, 'Only these names', createTextarea(value.replace(/,\s*/g, '\n'), { categoryRuleField: 'baseTypes' }, placeholders[categoryId] || 'Leave blank to match the whole category.'));
   }
+}
+
+function getFragmentTypeForRule(rule = {}) {
+  const explicit = rule.fragmentType && FRAGMENT_TYPE_BY_ID.has(rule.fragmentType) ? rule.fragmentType : undefined;
+  if (explicit) {
+    return explicit;
+  }
+
+  const hasClass = (value) => (rule.conditions || []).some((condition) => (
+    condition.key === 'Class' && conditionValueIncludes(condition.value, value)
+  ));
+  const hasBase = (value) => (rule.conditions || []).some((condition) => (
+    condition.key === 'BaseType' && conditionValueIncludes(condition.value, value)
+  ));
+
+  if (hasClass('Wombgifts')) return 'wombgifts';
+  if (hasBase('Scarab')) return 'scarabs';
+  if (hasBase('Divine Vessel')) return 'divine-vessels';
+  if (hasBase('Timeless Jewel')) return 'timeless-jewels';
+  if (hasBase('Blood-filled Vessel') || hasBase('Ritual Splinter')) return 'ritual';
+  if (hasBase('Breachstone')) return 'breachstones';
+  if (hasBase('Emblem')) return 'legion-emblems';
+  if (hasBase('Simulacrum') || hasBase('Simulacrum Splinter')) return 'simulacrum';
+  return 'boss-fragments';
+}
+
+function conditionValueIncludes(value, needle) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.some((entry) => String(entry || '').toLowerCase() === String(needle || '').toLowerCase());
 }
 
 function renderRareEquipment(profile, groups) {
@@ -3259,7 +3344,24 @@ function renderLootFilterState(state) {
   renderingLootFilter = false;
   setLootFilterDirty(false);
   setStatus(filterStatus, `${state.profileName || 'POEHelper filter'} has ${rules.length} captured rules. Preview is ${state.previewBytes || 0} bytes.`);
+  updateLootSubnavStickyOffset();
 }
+
+function updateLootSubnavStickyOffset() {
+  if (!lootFilterPanel || !document.body.contains(lootFilterPanel) || !lootCommandBar) {
+    return;
+  }
+
+  const commandBarHeight = Math.ceil(lootCommandBar.getBoundingClientRect().height || 0);
+  lootFilterPanel.style.setProperty('--loot-subnav-sticky-top', `${commandBarHeight + 8}px`);
+}
+
+if (typeof ResizeObserver !== 'undefined' && lootCommandBar) {
+  const lootCommandBarObserver = new ResizeObserver(() => updateLootSubnavStickyOffset());
+  lootCommandBarObserver.observe(lootCommandBar);
+}
+
+window.addEventListener('resize', updateLootSubnavStickyOffset);
 
 async function refreshLootFilterState(updateStatus = true) {
   const refreshToken = lootFilterRefreshToken + 1;
@@ -3480,7 +3582,12 @@ function collectCategoryRuleRow(categoryId, row) {
   const get = (field) => row.querySelector(`[data-category-rule-field="${field}"]`);
   const categoryStyle = lootFilterState?.profile?.categoryRules?.[categoryId]?.styleConfig || {};
   const overrideCategoryStyle = get('overrideCategoryStyle')?.checked === true;
-  const conditions = structuredClone(definition.baseConditions || []);
+  const fragmentType = definition.fields.includes('fragmentType')
+    ? getFragmentTypeForRule({ fragmentType: get('fragmentType')?.value })
+    : undefined;
+  const conditions = fragmentType
+    ? structuredClone(FRAGMENT_TYPE_BY_ID.get(fragmentType)?.conditions || [])
+    : structuredClone(definition.baseConditions || []);
 
   if (definition.fields.includes('itemClass')) {
     removeConditions(conditions, 'Class');
@@ -3503,7 +3610,13 @@ function collectCategoryRuleRow(categoryId, row) {
   pushBooleanCondition(conditions, 'Identified', get('identified')?.value);
 
   if (definition.fields.includes('baseTypes')) {
-    pushTextCondition(conditions, 'BaseType', get('baseTypes')?.value, true);
+    const typedBaseTypes = get('baseTypes')?.value || '';
+    if (typedBaseTypes.trim()) {
+      if (fragmentType) {
+        removeConditions(conditions, 'BaseType');
+      }
+      pushTextCondition(conditions, 'BaseType', typedBaseTypes, true);
+    }
   }
 
   if (definition.fallbackConditions?.length && !conditions.some((condition) => condition.key === 'BaseType')) {
@@ -3525,6 +3638,7 @@ function collectCategoryRuleRow(categoryId, row) {
     overrideCategoryStyle,
     styleOverride: overrideCategoryStyle ? collectInlineStyleConfig(row, categoryStyle) : undefined,
     source: 'category-rule',
+    fragmentType,
     conditions
   };
 }
