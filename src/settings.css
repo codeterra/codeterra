@@ -926,14 +926,16 @@ button:hover {
   flex: 0 0 auto;
 }
 
-.equipment-workbench {
+.equipment-workbench,
+.grouped-workbench {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
 }
 
-.equipment-subnav {
+.equipment-subnav,
+.grouped-subnav {
   display: grid;
   align-self: start;
   align-content: start;
@@ -945,28 +947,34 @@ button:hover {
   background: rgba(0, 0, 0, 0.18);
 }
 
-.equipment-subnav button {
+.equipment-subnav button,
+.grouped-subnav button {
   justify-content: flex-start;
   width: 100%;
 }
 
-.equipment-subnav button.is-active {
+.equipment-subnav button.is-active,
+.grouped-subnav button.is-active {
   border-color: rgba(227, 200, 117, 0.7);
   background: rgba(227, 200, 117, 0.14);
   color: #fff4c4;
 }
 
 .equipment-panes,
-.equipment-pane {
+.equipment-pane,
+.grouped-panes,
+.grouped-pane {
   min-width: 0;
 }
 
-.equipment-pane {
+.equipment-pane,
+.grouped-pane {
   display: none;
   gap: 10px;
 }
 
-.equipment-pane.is-active {
+.equipment-pane.is-active,
+.grouped-pane.is-active {
   display: grid;
 }
 
@@ -1581,6 +1589,7 @@ button:hover {
   .stash-report-grid,
   .loot-workbench,
   .equipment-workbench,
+  .grouped-workbench,
   .special-item-entry {
     grid-template-columns: 1fr;
   }
@@ -1606,11 +1615,13 @@ button:hover {
     text-align: center;
   }
 
-  .equipment-subnav {
+  .equipment-subnav,
+  .grouped-subnav {
     grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   }
 
-  .equipment-subnav button {
+  .equipment-subnav button,
+  .grouped-subnav button {
     justify-content: center;
   }
 }

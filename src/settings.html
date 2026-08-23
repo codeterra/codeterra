@@ -269,17 +269,10 @@
             <div class="loot-workbench">
               <nav class="loot-workbench-tabs" aria-label="Loot filter editors">
                 <button class="is-active" type="button" data-loot-tab="currency">Currency</button>
-                <button type="button" data-loot-tab="uniques">Uniques</button>
-                <button type="button" data-loot-tab="maps">Maps</button>
-                <button type="button" data-loot-tab="fragments">Fragments</button>
-                <button type="button" data-loot-tab="blueprints">Blueprints</button>
-                <button type="button" data-loot-tab="gems">Gems</button>
-                <button type="button" data-loot-tab="divination-cards">Div Cards</button>
-                <button type="button" data-loot-tab="oils">Oils</button>
-                <button type="button" data-loot-tab="jewels">Jewels</button>
+                <button type="button" data-loot-tab="atlas">Maps & Atlas</button>
+                <button type="button" data-loot-tab="league-items">League Items</button>
+                <button type="button" data-loot-tab="misc-items">Misc Items</button>
                 <button type="button" data-loot-tab="equipment">Equipment</button>
-                <button type="button" data-loot-tab="chance">Chancing</button>
-                <button type="button" data-loot-tab="misc">Misc</button>
                 <button type="button" data-loot-tab="economy">Economy</button>
                 <button type="button" data-loot-tab="custom">Custom Rules</button>
                 <button type="button" data-loot-tab="preview">Preview</button>
@@ -287,108 +280,265 @@
 
               <div class="loot-workbench-stage">
                 <section class="loot-workbench-section is-active" data-loot-section="currency">
-                  <div class="section-heading-row">
-                    <h3>Currency Rules</h3>
-                    <button id="add-currency-tier-button" type="button">Add Currency Rule</button>
+                  <div class="grouped-workbench">
+                    <nav class="grouped-subnav" aria-label="Currency sections">
+                      <button type="button" class="is-active" data-grouped-tab="currency" data-grouped-target="currency">Currency</button>
+                      <button type="button" data-grouped-tab="currency" data-grouped-target="currency-types">Currency Types</button>
+                      <button type="button" data-grouped-tab="currency" data-grouped-target="divination-cards">Div Cards</button>
+                    </nav>
+                    <div class="grouped-panes">
+                      <section class="grouped-pane is-active" data-grouped-pane="currency" data-grouped-panel="currency">
+                        <div class="section-heading-row">
+                          <h3>Currency Rules</h3>
+                          <button id="add-currency-tier-button" type="button">Add Currency Rule</button>
+                        </div>
+                        <div id="currency-baseline-style" class="category-baseline-list"></div>
+                        <div id="currency-tier-list" class="tier-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="currency" data-grouped-panel="currency-types">
+                        <div class="section-heading-row">
+                          <h3>Currency Type Rules</h3>
+                          <button id="add-currency-type-rule-button" type="button">Add Currency Type Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="currency-type-rules-enabled-input" type="checkbox">
+                          Enable currency type category rules
+                        </label>
+                        <p id="currency-type-rules-status" class="status-line">Style league currency families such as tattoos, catalysts, essences, fossils, resonators, omens, vials, blessings, artifacts, and splinters.</p>
+                        <div id="currency-type-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="currency" data-grouped-panel="divination-cards">
+                        <div class="section-heading-row">
+                          <h3>Divination Card Rules</h3>
+                          <button id="add-divination-card-rule-button" type="button">Add Div Card Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="divination-card-rules-enabled-input" type="checkbox">
+                          Enable divination card category rules
+                        </label>
+                        <p id="divination-card-rules-status" class="status-line">Style divination cards globally or by selected card names.</p>
+                        <div id="divination-card-rule-list" class="category-rule-list"></div>
+                      </section>
+                    </div>
                   </div>
-                  <div id="currency-baseline-style" class="category-baseline-list"></div>
-                  <div id="currency-tier-list" class="tier-list"></div>
                 </section>
-                <section class="loot-workbench-section" data-loot-section="uniques">
-                  <div class="section-heading-row">
-                    <h3>Unique Rules</h3>
-                    <button id="add-unique-rule-button" type="button">Add Unique Rule</button>
+                <section class="loot-workbench-section" data-loot-section="atlas">
+                  <div class="grouped-workbench">
+                    <nav class="grouped-subnav" aria-label="Maps and atlas sections">
+                      <button type="button" class="is-active" data-grouped-tab="atlas" data-grouped-target="maps">Maps</button>
+                      <button type="button" data-grouped-tab="atlas" data-grouped-target="atlas-items">Atlas Items</button>
+                      <button type="button" data-grouped-tab="atlas" data-grouped-target="fragments">Fragments</button>
+                    </nav>
+                    <div class="grouped-panes">
+                      <section class="grouped-pane is-active" data-grouped-pane="atlas" data-grouped-panel="maps">
+                        <div class="section-heading-row">
+                          <h3>Map Rules</h3>
+                          <button id="add-map-rule-button" type="button">Add Map Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="map-rules-enabled-input" type="checkbox">
+                          Enable map category rules
+                        </label>
+                        <p id="map-rules-status" class="status-line">Style maps using explicit MapTier thresholds.</p>
+                        <div id="map-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="atlas" data-grouped-panel="atlas-items">
+                        <div class="section-heading-row">
+                          <h3>Atlas Item Rules</h3>
+                          <button id="add-atlas-item-rule-button" type="button">Add Atlas Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="atlas-item-rules-enabled-input" type="checkbox">
+                          Enable atlas item category rules
+                        </label>
+                        <p id="atlas-item-rules-status" class="status-line">Style map-adjacent items such as Blighted maps, Logbooks, Memories, Valdo boxes, and Incursion Temples.</p>
+                        <div id="atlas-item-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="atlas" data-grouped-panel="fragments">
+                        <div class="section-heading-row">
+                          <h3>Fragment Rules</h3>
+                          <button id="add-fragment-rule-button" type="button">Add Fragment Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="fragment-rules-enabled-input" type="checkbox">
+                          Enable fragment category rules
+                        </label>
+                        <p id="fragment-rules-status" class="status-line">Style map fragments and boss invitations before broad fallback rules.</p>
+                        <div id="fragment-rule-list" class="category-rule-list"></div>
+                      </section>
+                    </div>
                   </div>
-                  <label class="inline-toggle">
-                    <input id="unique-rules-enabled-input" type="checkbox">
-                    Enable unique category rules
-                  </label>
-                  <p id="unique-rules-status" class="status-line">Style unique items by class, base type, item level, or other rule fields.</p>
-                  <div id="unique-rule-list" class="category-rule-list"></div>
                 </section>
-                <section class="loot-workbench-section" data-loot-section="maps">
-                  <div class="section-heading-row">
-                    <h3>Map Rules</h3>
-                    <button id="add-map-rule-button" type="button">Add Map Rule</button>
+                <section class="loot-workbench-section" data-loot-section="league-items">
+                  <div class="grouped-workbench">
+                    <nav class="grouped-subnav" aria-label="League item sections">
+                      <button type="button" class="is-active" data-grouped-tab="league-items" data-grouped-target="league-items">League Items</button>
+                      <button type="button" data-grouped-tab="league-items" data-grouped-target="tinctures">Tinctures</button>
+                      <button type="button" data-grouped-tab="league-items" data-grouped-target="heist-items">Heist</button>
+                      <button type="button" data-grouped-tab="league-items" data-grouped-target="blueprints">Blueprints</button>
+                      <button type="button" data-grouped-tab="league-items" data-grouped-target="sanctum-items">Sanctum</button>
+                      <button type="button" data-grouped-tab="league-items" data-grouped-target="oils">Oils</button>
+                    </nav>
+                    <div class="grouped-panes">
+                      <section class="grouped-pane is-active" data-grouped-pane="league-items" data-grouped-panel="league-items">
+                        <div class="section-heading-row">
+                          <h3>League Item Rules</h3>
+                          <button id="add-league-item-rule-button" type="button">Add League Item Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="league-item-rules-enabled-input" type="checkbox">
+                          Enable league item category rules
+                        </label>
+                        <p id="league-item-rules-status" class="status-line">Style incubators, vault keys, Allflame embers, corpses, and grafts.</p>
+                        <div id="league-item-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="league-items" data-grouped-panel="tinctures">
+                        <div class="section-heading-row">
+                          <h3>Tincture Rules</h3>
+                          <button id="add-tincture-rule-button" type="button">Add Tincture Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="tincture-rules-enabled-input" type="checkbox">
+                          Enable tincture category rules
+                        </label>
+                        <p id="tincture-rules-status" class="status-line">Style tinctures separately from normal flask drops.</p>
+                        <div id="tincture-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="league-items" data-grouped-panel="heist-items">
+                        <div class="section-heading-row">
+                          <h3>Heist Item Rules</h3>
+                          <button id="add-heist-item-rule-button" type="button">Add Heist Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="heist-item-rules-enabled-input" type="checkbox">
+                          Enable heist item category rules
+                        </label>
+                        <p id="heist-item-rules-status" class="status-line">Style contracts, rogue equipment, and heist targets.</p>
+                        <div id="heist-item-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="league-items" data-grouped-panel="blueprints">
+                        <div class="section-heading-row">
+                          <h3>Blueprint Rules</h3>
+                          <button id="add-blueprint-rule-button" type="button">Add Blueprint Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="blueprint-rules-enabled-input" type="checkbox">
+                          Enable blueprint category rules
+                        </label>
+                        <p id="blueprint-rules-status" class="status-line">Style Grand Heist blueprints by rarity, name, or item level.</p>
+                        <div id="blueprint-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="league-items" data-grouped-panel="sanctum-items">
+                        <div class="section-heading-row">
+                          <h3>Sanctum Item Rules</h3>
+                          <button id="add-sanctum-item-rule-button" type="button">Add Sanctum Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="sanctum-item-rules-enabled-input" type="checkbox">
+                          Enable sanctum item category rules
+                        </label>
+                        <p id="sanctum-item-rules-status" class="status-line">Style Forbidden Tomes, Sanctum Research, and Sanctum Relics.</p>
+                        <div id="sanctum-item-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="league-items" data-grouped-panel="oils">
+                        <div class="section-heading-row">
+                          <h3>Oil Rules</h3>
+                          <button id="add-oil-rule-button" type="button">Add Oil Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="oil-rules-enabled-input" type="checkbox">
+                          Enable oil category rules
+                        </label>
+                        <p id="oil-rules-status" class="status-line">Style oils before the broader currency rules match.</p>
+                        <div id="oil-rule-list" class="category-rule-list"></div>
+                      </section>
+                    </div>
                   </div>
-                  <label class="inline-toggle">
-                    <input id="map-rules-enabled-input" type="checkbox">
-                    Enable map category rules
-                  </label>
-                  <p id="map-rules-status" class="status-line">Style maps using explicit MapTier thresholds.</p>
-                  <div id="map-rule-list" class="category-rule-list"></div>
                 </section>
-                <section class="loot-workbench-section" data-loot-section="fragments">
-                  <div class="section-heading-row">
-                    <h3>Fragment Rules</h3>
-                    <button id="add-fragment-rule-button" type="button">Add Fragment Rule</button>
+                <section class="loot-workbench-section" data-loot-section="misc-items">
+                  <div class="grouped-workbench">
+                    <nav class="grouped-subnav" aria-label="Misc item sections">
+                      <button type="button" class="is-active" data-grouped-tab="misc-items" data-grouped-target="uniques">Uniques</button>
+                      <button type="button" data-grouped-tab="misc-items" data-grouped-target="gems">Gems</button>
+                      <button type="button" data-grouped-tab="misc-items" data-grouped-target="jewels">Jewels</button>
+                      <button type="button" data-grouped-tab="misc-items" data-grouped-target="chance">Chancing</button>
+                      <button type="button" data-grouped-tab="misc-items" data-grouped-target="misc">Misc</button>
+                    </nav>
+                    <div class="grouped-panes">
+                      <section class="grouped-pane is-active" data-grouped-pane="misc-items" data-grouped-panel="uniques">
+                        <div class="section-heading-row">
+                          <h3>Unique Rules</h3>
+                          <button id="add-unique-rule-button" type="button">Add Unique Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="unique-rules-enabled-input" type="checkbox">
+                          Enable unique category rules
+                        </label>
+                        <p id="unique-rules-status" class="status-line">Style unique items by class, base type, item level, or other rule fields.</p>
+                        <div id="unique-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="misc-items" data-grouped-panel="gems">
+                        <div class="section-heading-row">
+                          <h3>Gem Rules</h3>
+                          <button id="add-gem-rule-button" type="button">Add Gem Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="gem-rules-enabled-input" type="checkbox">
+                          Enable gem category rules
+                        </label>
+                        <p id="gem-rules-status" class="status-line">Style skill and support gems by level, quality, corruption, and base name.</p>
+                        <div id="gem-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="misc-items" data-grouped-panel="jewels">
+                        <div class="section-heading-row">
+                          <h3>Jewel Rules</h3>
+                          <button id="add-jewel-rule-button" type="button">Add Jewel Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="jewel-rules-enabled-input" type="checkbox">
+                          Enable jewel category rules
+                        </label>
+                        <p id="jewel-rules-status" class="status-line">Style jewels by rarity, base type, item level, and custom groupings.</p>
+                        <div id="jewel-rule-list" class="category-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="misc-items" data-grouped-panel="chance">
+                        <h3>Chance Bases</h3>
+                        <div id="chance-baseline-style" class="category-baseline-list"></div>
+                        <div class="toolbar-strip">
+                          <label class="inline-toggle">
+                            <input id="chance-bases-enabled-input" type="checkbox">
+                            Show selected normal bases
+                          </label>
+                          <div class="chance-base-entry">
+                            <input id="chance-base-input" list="chance-base-options" type="text" autocomplete="off" spellcheck="false" placeholder="Leather Belt">
+                            <button id="add-chance-base-button" type="button">Add Base</button>
+                          </div>
+                        </div>
+                        <datalist id="chance-base-options"></datalist>
+                        <p id="chance-base-status" class="status-line">Type a base name to check it against the local base catalog.</p>
+                        <div id="chance-base-list" class="token-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="misc-items" data-grouped-panel="misc">
+                        <h3>Misc Rules</h3>
+                        <label class="inline-toggle">
+                          <input id="misc-rules-enabled-input" type="checkbox">
+                          Enable misc socket and vendor rules
+                        </label>
+                        <p id="misc-rules-status" class="status-line">Show 6-links, 6-sockets, RGB links, and quality recipe items before equipment hiding rules.</p>
+                        <div id="misc-rule-list" class="misc-rule-list"></div>
+                        <div class="section-heading-row">
+                          <h3>Flask Rules</h3>
+                          <button id="add-flask-rule-button" type="button">Add Flask Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="flask-rules-enabled-input" type="checkbox">
+                          Enable flask category rules
+                        </label>
+                        <p id="flask-rules-status" class="status-line">Style flask drops from the Misc page instead of Equipment Visibility.</p>
+                        <div id="flask-rule-list" class="category-rule-list"></div>
+                      </section>
+                    </div>
                   </div>
-                  <label class="inline-toggle">
-                    <input id="fragment-rules-enabled-input" type="checkbox">
-                    Enable fragment category rules
-                  </label>
-                  <p id="fragment-rules-status" class="status-line">Style map fragments and boss invitations before broad fallback rules.</p>
-                  <div id="fragment-rule-list" class="category-rule-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="blueprints">
-                  <div class="section-heading-row">
-                    <h3>Blueprint Rules</h3>
-                    <button id="add-blueprint-rule-button" type="button">Add Blueprint Rule</button>
-                  </div>
-                  <label class="inline-toggle">
-                    <input id="blueprint-rules-enabled-input" type="checkbox">
-                    Enable blueprint category rules
-                  </label>
-                  <p id="blueprint-rules-status" class="status-line">Style Grand Heist blueprints by rarity, name, or item level.</p>
-                  <div id="blueprint-rule-list" class="category-rule-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="gems">
-                  <div class="section-heading-row">
-                    <h3>Gem Rules</h3>
-                    <button id="add-gem-rule-button" type="button">Add Gem Rule</button>
-                  </div>
-                  <label class="inline-toggle">
-                    <input id="gem-rules-enabled-input" type="checkbox">
-                    Enable gem category rules
-                  </label>
-                  <p id="gem-rules-status" class="status-line">Style skill and support gems by level, quality, corruption, and base name.</p>
-                  <div id="gem-rule-list" class="category-rule-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="divination-cards">
-                  <div class="section-heading-row">
-                    <h3>Divination Card Rules</h3>
-                    <button id="add-divination-card-rule-button" type="button">Add Div Card Rule</button>
-                  </div>
-                  <label class="inline-toggle">
-                    <input id="divination-card-rules-enabled-input" type="checkbox">
-                    Enable divination card category rules
-                  </label>
-                  <p id="divination-card-rules-status" class="status-line">Style divination cards globally or by selected card names.</p>
-                  <div id="divination-card-rule-list" class="category-rule-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="oils">
-                  <div class="section-heading-row">
-                    <h3>Oil Rules</h3>
-                    <button id="add-oil-rule-button" type="button">Add Oil Rule</button>
-                  </div>
-                  <label class="inline-toggle">
-                    <input id="oil-rules-enabled-input" type="checkbox">
-                    Enable oil category rules
-                  </label>
-                  <p id="oil-rules-status" class="status-line">Style oils before the broader currency rules match.</p>
-                  <div id="oil-rule-list" class="category-rule-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="jewels">
-                  <div class="section-heading-row">
-                    <h3>Jewel Rules</h3>
-                    <button id="add-jewel-rule-button" type="button">Add Jewel Rule</button>
-                  </div>
-                  <label class="inline-toggle">
-                    <input id="jewel-rules-enabled-input" type="checkbox">
-                    Enable jewel category rules
-                  </label>
-                  <p id="jewel-rules-status" class="status-line">Style jewels by rarity, base type, item level, and custom groupings.</p>
-                  <div id="jewel-rule-list" class="category-rule-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="equipment">
                   <div class="section-heading-row">
@@ -458,42 +608,6 @@
                       </section>
                     </div>
                   </div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="chance">
-                  <h3>Chance Bases</h3>
-                  <div id="chance-baseline-style" class="category-baseline-list"></div>
-                  <div class="toolbar-strip">
-                    <label class="inline-toggle">
-                      <input id="chance-bases-enabled-input" type="checkbox">
-                      Show selected normal bases
-                    </label>
-                    <div class="chance-base-entry">
-                      <input id="chance-base-input" list="chance-base-options" type="text" autocomplete="off" spellcheck="false" placeholder="Leather Belt">
-                      <button id="add-chance-base-button" type="button">Add Base</button>
-                    </div>
-                  </div>
-                  <datalist id="chance-base-options"></datalist>
-                  <p id="chance-base-status" class="status-line">Type a base name to check it against the local base catalog.</p>
-                  <div id="chance-base-list" class="token-list"></div>
-                </section>
-                <section class="loot-workbench-section" data-loot-section="misc">
-                  <h3>Misc Rules</h3>
-                  <label class="inline-toggle">
-                    <input id="misc-rules-enabled-input" type="checkbox">
-                    Enable misc socket and vendor rules
-                  </label>
-                  <p id="misc-rules-status" class="status-line">Show 6-links, 6-sockets, RGB links, and quality recipe items before equipment hiding rules.</p>
-                  <div id="misc-rule-list" class="misc-rule-list"></div>
-                  <div class="section-heading-row">
-                    <h3>Flask Rules</h3>
-                    <button id="add-flask-rule-button" type="button">Add Flask Rule</button>
-                  </div>
-                  <label class="inline-toggle">
-                    <input id="flask-rules-enabled-input" type="checkbox">
-                    Enable flask category rules
-                  </label>
-                  <p id="flask-rules-status" class="status-line">Style flask drops from the Misc page instead of Equipment Visibility.</p>
-                  <div id="flask-rule-list" class="category-rule-list"></div>
                 </section>
                 <section class="loot-workbench-section" data-loot-section="economy">
                   <div class="section-heading-row">

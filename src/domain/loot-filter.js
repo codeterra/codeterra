@@ -31,6 +31,47 @@ const OIL_BASE_TYPES = [
   'Reflective Oil',
   'Tainted Oil'
 ];
+const CURRENCY_SUBTYPE_RULES = [
+  ['currency-types-tattoos', 'Tattoos', 'Tattoo'],
+  ['currency-types-catalysts', 'Catalysts', 'Catalyst'],
+  ['currency-types-essences', 'Essences', 'Essence'],
+  ['currency-types-fossils', 'Fossils', 'Fossil'],
+  ['currency-types-resonators', 'Resonators', 'Resonator'],
+  ['currency-types-omens', 'Omens', 'Omen'],
+  ['currency-types-delirium-orbs', 'Delirium Orbs', 'Delirium Orb'],
+  ['currency-types-vials', 'Incursion Vials', 'Vial of'],
+  ['currency-types-blessings', 'Breach Blessings', 'Blessing of'],
+  ['currency-types-expedition-artifacts', 'Expedition Artifacts', 'Artifact'],
+  ['currency-types-runegrafts', 'Runegrafts', 'Runegraft'],
+  ['currency-types-splinters', 'Splinters', 'Splinter']
+];
+const ATLAS_ITEM_RULES = [
+  ['atlas-blighted-maps', 'Blighted Maps', [{ key: 'Class', value: 'Maps' }, { key: 'BlightedMap', value: true }]],
+  ['atlas-blight-ravaged-maps', 'Blight-ravaged Maps', [{ key: 'Class', value: 'Maps' }, { key: 'UberBlightedMap', value: true }]],
+  ['atlas-unique-maps', 'Unique Maps', [{ key: 'Class', value: 'Maps' }, { key: 'Rarity', value: 'Unique' }]],
+  ['atlas-valdo', 'Valdo Maps and Puzzle Boxes', [{ key: 'BaseType', value: "Valdo's Puzzle Box" }]],
+  ['atlas-memories', 'Atlas Memories', [{ key: 'ZanaMemory', value: true }]],
+  ['atlas-logbooks', 'Expedition Logbooks', [{ key: 'Class', value: 'Expedition Logbooks' }]],
+  ['atlas-incursion-temples', 'Incursion Temples', [{ key: 'Class', value: 'Misc Map Items' }, { key: 'BaseType', value: 'Chronicle of Atzoatl' }]]
+];
+const HEIST_ITEM_RULES = [
+  ['heist-contracts', 'Contracts', [{ key: 'Class', value: 'Contracts' }]],
+  ['heist-tools', 'Heist Tools', [{ key: 'Class', value: 'Heist Tools' }]],
+  ['heist-cloaks', 'Heist Cloaks', [{ key: 'Class', value: 'Heist Cloaks' }]],
+  ['heist-brooches', 'Heist Brooches', [{ key: 'Class', value: 'Heist Brooches' }]],
+  ['heist-targets', 'Heist Targets', [{ key: 'Class', value: 'Heist Targets' }]]
+];
+const SANCTUM_ITEM_RULES = [
+  ['sanctum-research', 'Forbidden Tomes and Sanctum Research', [{ key: 'Class', value: 'Sanctum Research' }]],
+  ['sanctum-relics', 'Sanctum Relics', [{ key: 'Class', value: 'Relic' }]]
+];
+const LEAGUE_ITEM_RULES = [
+  ['league-incubators', 'Incubators', [{ key: 'BaseType', value: 'Incubator' }]],
+  ['league-vault-keys', 'Vault and Reliquary Keys', [{ key: 'Class', value: 'Vault Keys' }]],
+  ['league-allflame-embers', 'Allflame Embers', [{ key: 'Class', value: 'Embers of the Allflame' }]],
+  ['league-corpses', 'Corpses', [{ key: 'Class', value: 'Corpses' }]],
+  ['league-grafts', 'Grafts', [{ key: 'Class', value: 'Grafts' }]]
+];
 const FLASK_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => FLASK_EQUIPMENT_GROUP_IDS.includes(group.id));
 const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => (
   !FLASK_EQUIPMENT_GROUP_IDS.includes(group.id)
@@ -131,9 +172,39 @@ const FRAGMENT_TYPE_DEFINITIONS = [
     id: 'simulacrum',
     label: 'Simulacrum',
     conditions: [{ key: 'BaseType', value: ['Simulacrum', 'Simulacrum Splinter'] }]
+  },
+  {
+    id: 'lures',
+    label: 'Lures',
+    conditions: [{ key: 'BaseType', value: 'Lure' }]
+  },
+  {
+    id: 'astrolabes',
+    label: 'Astrolabes',
+    conditions: [{ key: 'BaseType', value: 'Astrolabe' }]
   }
 ];
 const FRAGMENT_TYPE_BY_ID = new Map(FRAGMENT_TYPE_DEFINITIONS.map((entry) => [entry.id, entry]));
+
+function createCategoryRule(id, label, style, conditions, tier = 'baseline') {
+  return {
+    id,
+    enabled: true,
+    action: 'Show',
+    label,
+    source: 'category-rule',
+    style,
+    tier,
+    conditions: structuredClone(conditions)
+  };
+}
+
+function createStackableCurrencySubtypeRule([id, label, baseType]) {
+  return createCategoryRule(id, label, 'currencySpecials', [
+    { key: 'Class', value: 'Stackable Currency' },
+    { key: 'BaseType', value: baseType }
+  ]);
+}
 
 const DEFAULT_LOOT_FILTER_PROFILE = {
   schemaVersion: LOOT_FILTER_PROFILE_SCHEMA_VERSION,
@@ -278,6 +349,18 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         baseline: [95, 210, 120, 255]
       }
     },
+    currencySpecials: {
+      textColor: [120, 255, 175, 255],
+      backgroundColor: [4, 10, 8, 238],
+      borderColor: [55, 175, 105, 255],
+      fontSize: 36,
+      minimapIcon: { size: 1, color: 'Green', shape: 'Circle' },
+      tierBorders: {
+        high: [150, 255, 190, 255],
+        valuable: [80, 210, 130, 255],
+        baseline: [55, 175, 105, 255]
+      }
+    },
     flasks: {
       textColor: [185, 230, 255, 255],
       backgroundColor: [4, 16, 24, 235],
@@ -288,6 +371,66 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         high: [140, 220, 255, 255],
         valuable: [80, 180, 230, 255],
         baseline: [45, 110, 150, 255]
+      }
+    },
+    tinctures: {
+      textColor: [180, 245, 160, 255],
+      backgroundColor: [12, 20, 8, 238],
+      borderColor: [110, 200, 75, 255],
+      fontSize: 36,
+      minimapIcon: { size: 1, color: 'Green', shape: 'Raindrop' },
+      tierBorders: {
+        high: [180, 255, 120, 255],
+        valuable: [110, 200, 75, 255],
+        baseline: [70, 130, 55, 255]
+      }
+    },
+    atlasItems: {
+      textColor: [180, 225, 255, 255],
+      backgroundColor: [4, 12, 28, 238],
+      borderColor: [75, 160, 235, 255],
+      fontSize: 38,
+      minimapIcon: { size: 1, color: 'Cyan', shape: 'Square' },
+      tierBorders: {
+        high: [130, 220, 255, 255],
+        valuable: [75, 160, 235, 255],
+        baseline: [45, 95, 160, 255]
+      }
+    },
+    heistItems: {
+      textColor: [210, 235, 255, 255],
+      backgroundColor: [8, 14, 22, 238],
+      borderColor: [90, 155, 210, 255],
+      fontSize: 36,
+      minimapIcon: { size: 1, color: 'Cyan', shape: 'Triangle' },
+      tierBorders: {
+        high: [150, 220, 255, 255],
+        valuable: [90, 155, 210, 255],
+        baseline: [55, 95, 140, 255]
+      }
+    },
+    sanctumItems: {
+      textColor: [235, 220, 255, 255],
+      backgroundColor: [20, 10, 34, 238],
+      borderColor: [165, 105, 230, 255],
+      fontSize: 38,
+      minimapIcon: { size: 1, color: 'Purple', shape: 'Diamond' },
+      tierBorders: {
+        high: [210, 160, 255, 255],
+        valuable: [165, 105, 230, 255],
+        baseline: [95, 70, 145, 255]
+      }
+    },
+    leagueItems: {
+      textColor: [255, 235, 190, 255],
+      backgroundColor: [28, 18, 6, 238],
+      borderColor: [220, 155, 70, 255],
+      fontSize: 38,
+      minimapIcon: { size: 1, color: 'Orange', shape: 'Hexagon' },
+      tierBorders: {
+        high: [255, 205, 100, 255],
+        valuable: [220, 155, 70, 255],
+        baseline: [145, 95, 45, 255]
       }
     },
     jewelNormal: {
@@ -656,6 +799,12 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         }
       ]
     },
+    currencyTypes: {
+      enabled: true,
+      style: 'currencySpecials',
+      tier: 'baseline',
+      rules: CURRENCY_SUBTYPE_RULES.map(createStackableCurrencySubtypeRule)
+    },
     flasks: {
       enabled: true,
       rules: [
@@ -687,6 +836,38 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
           ]
         }
       ]
+    },
+    tinctures: {
+      enabled: true,
+      style: 'tinctures',
+      tier: 'baseline',
+      rules: [
+        createCategoryRule('tinctures-baseline', 'Tinctures', 'tinctures', [{ key: 'Class', value: 'Tinctures' }])
+      ]
+    },
+    atlasItems: {
+      enabled: true,
+      style: 'atlasItems',
+      tier: 'baseline',
+      rules: ATLAS_ITEM_RULES.map(([id, label, conditions]) => createCategoryRule(id, label, 'atlasItems', conditions))
+    },
+    heistItems: {
+      enabled: true,
+      style: 'heistItems',
+      tier: 'baseline',
+      rules: HEIST_ITEM_RULES.map(([id, label, conditions]) => createCategoryRule(id, label, 'heistItems', conditions))
+    },
+    sanctumItems: {
+      enabled: true,
+      style: 'sanctumItems',
+      tier: 'baseline',
+      rules: SANCTUM_ITEM_RULES.map(([id, label, conditions]) => createCategoryRule(id, label, 'sanctumItems', conditions))
+    },
+    leagueItems: {
+      enabled: true,
+      style: 'leagueItems',
+      tier: 'baseline',
+      rules: LEAGUE_ITEM_RULES.map(([id, label, conditions]) => createCategoryRule(id, label, 'leagueItems', conditions))
     },
     jewels: {
       enabled: true,
@@ -883,7 +1064,34 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         maxItems: 500
       }
     ],
-    types: ['Currency', 'Fragment', 'DivinationCard', 'Scarab', 'UniqueAccessory', 'UniqueArmour', 'UniqueWeapon', 'SkillGem'],
+    types: [
+      'Currency',
+      'Fragment',
+      'DivinationCard',
+      'Scarab',
+      'Oil',
+      'Essence',
+      'Fossil',
+      'Resonator',
+      'DeliriumOrb',
+      'Tattoo',
+      'Omen',
+      'Runegraft',
+      'Artifact',
+      'Incubator',
+      'Wombgift',
+      'Map',
+      'BlightedMap',
+      'BlightRavagedMap',
+      'Invitation',
+      'Memory',
+      'Vial',
+      'AllflameEmber',
+      'UniqueAccessory',
+      'UniqueArmour',
+      'UniqueWeapon',
+      'SkillGem'
+    ],
     style: 'highValue',
     entries: [],
     cacheVersion: ECONOMY_HIGHLIGHT_CACHE_VERSION,
@@ -1090,6 +1298,8 @@ function inferFragmentType(conditions = []) {
   if (hasBase('Breachstone')) return 'breachstones';
   if (hasBase('Emblem')) return 'legion-emblems';
   if (hasBase('Simulacrum') || hasBase('Simulacrum Splinter')) return 'simulacrum';
+  if (hasBase('Lure')) return 'lures';
+  if (hasBase('Astrolabe')) return 'astrolabes';
   if (BOSS_FRAGMENT_BASE_TYPES.some((base) => hasBase(base))) return 'boss-fragments';
   if (hasClass('Map Fragments') || hasClass('Misc Map Items')) return 'boss-fragments';
   return undefined;
@@ -1740,11 +1950,28 @@ function normalizeEconomyRule(rule) {
   }
 
   const classByType = {
+    AllflameEmber: 'Embers of the Allflame',
+    Artifact: 'Stackable Currency',
     Currency: 'Stackable Currency',
+    DeliriumOrb: 'Stackable Currency',
     DivinationCard: 'Divination Cards',
+    Essence: 'Stackable Currency',
+    Fossil: 'Stackable Currency',
     Fragment: 'Map Fragments',
+    Incubator: 'Stackable Currency',
+    Invitation: 'Misc Map Items',
     Map: 'Maps',
-    Scarab: 'Map Fragments'
+    BlightedMap: 'Maps',
+    BlightRavagedMap: 'Maps',
+    Memory: 'Misc Map Items',
+    Omen: 'Stackable Currency',
+    Oil: 'Stackable Currency',
+    Resonator: 'Stackable Currency',
+    Runegraft: 'Stackable Currency',
+    Scarab: 'Map Fragments',
+    Tattoo: 'Stackable Currency',
+    Vial: 'Stackable Currency',
+    Wombgift: 'Wombgifts'
   };
   const classValue = classByType[output.economyProviderType];
   const hasBaseType = output.conditions.some((condition) => condition.key === 'BaseType');
@@ -1762,11 +1989,28 @@ function normalizeEconomyRule(rule) {
 
 function getEconomyCategoryForProviderType(type) {
   const categories = {
+    AllflameEmber: 'league-items',
+    Artifact: 'stackables',
     Currency: 'stackables',
+    DeliriumOrb: 'stackables',
     DivinationCard: 'stackables',
+    Essence: 'stackables',
+    Fossil: 'stackables',
+    Incubator: 'league-items',
+    Omen: 'stackables',
+    Oil: 'stackables',
+    Resonator: 'stackables',
+    Runegraft: 'stackables',
     Scarab: 'stackables',
+    Tattoo: 'stackables',
+    Vial: 'stackables',
+    Wombgift: 'league-items',
     Fragment: 'maps-fragments',
     Map: 'maps-fragments',
+    BlightedMap: 'maps-fragments',
+    BlightRavagedMap: 'maps-fragments',
+    Invitation: 'maps-fragments',
+    Memory: 'maps-fragments',
     UniqueMap: 'maps-fragments',
     SkillGem: 'gems',
     UniqueJewel: 'jewels'

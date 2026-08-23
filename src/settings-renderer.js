@@ -118,6 +118,10 @@ const mapRulesEnabledInput = document.querySelector('#map-rules-enabled-input');
 const mapRulesStatus = document.querySelector('#map-rules-status');
 const mapRuleList = document.querySelector('#map-rule-list');
 const addMapRuleButton = document.querySelector('#add-map-rule-button');
+const atlasItemRulesEnabledInput = document.querySelector('#atlas-item-rules-enabled-input');
+const atlasItemRulesStatus = document.querySelector('#atlas-item-rules-status');
+const atlasItemRuleList = document.querySelector('#atlas-item-rule-list');
+const addAtlasItemRuleButton = document.querySelector('#add-atlas-item-rule-button');
 const fragmentRulesEnabledInput = document.querySelector('#fragment-rules-enabled-input');
 const fragmentRulesStatus = document.querySelector('#fragment-rules-status');
 const fragmentRuleList = document.querySelector('#fragment-rule-list');
@@ -126,6 +130,14 @@ const blueprintRulesEnabledInput = document.querySelector('#blueprint-rules-enab
 const blueprintRulesStatus = document.querySelector('#blueprint-rules-status');
 const blueprintRuleList = document.querySelector('#blueprint-rule-list');
 const addBlueprintRuleButton = document.querySelector('#add-blueprint-rule-button');
+const heistItemRulesEnabledInput = document.querySelector('#heist-item-rules-enabled-input');
+const heistItemRulesStatus = document.querySelector('#heist-item-rules-status');
+const heistItemRuleList = document.querySelector('#heist-item-rule-list');
+const addHeistItemRuleButton = document.querySelector('#add-heist-item-rule-button');
+const sanctumItemRulesEnabledInput = document.querySelector('#sanctum-item-rules-enabled-input');
+const sanctumItemRulesStatus = document.querySelector('#sanctum-item-rules-status');
+const sanctumItemRuleList = document.querySelector('#sanctum-item-rule-list');
+const addSanctumItemRuleButton = document.querySelector('#add-sanctum-item-rule-button');
 const gemRulesEnabledInput = document.querySelector('#gem-rules-enabled-input');
 const gemRulesStatus = document.querySelector('#gem-rules-status');
 const gemRuleList = document.querySelector('#gem-rule-list');
@@ -138,6 +150,10 @@ const oilRulesEnabledInput = document.querySelector('#oil-rules-enabled-input');
 const oilRulesStatus = document.querySelector('#oil-rules-status');
 const oilRuleList = document.querySelector('#oil-rule-list');
 const addOilRuleButton = document.querySelector('#add-oil-rule-button');
+const currencyTypeRulesEnabledInput = document.querySelector('#currency-type-rules-enabled-input');
+const currencyTypeRulesStatus = document.querySelector('#currency-type-rules-status');
+const currencyTypeRuleList = document.querySelector('#currency-type-rule-list');
+const addCurrencyTypeRuleButton = document.querySelector('#add-currency-type-rule-button');
 const jewelRulesEnabledInput = document.querySelector('#jewel-rules-enabled-input');
 const jewelRulesStatus = document.querySelector('#jewel-rules-status');
 const jewelRuleList = document.querySelector('#jewel-rule-list');
@@ -168,6 +184,8 @@ const lootFilterPanel = document.querySelector('[data-settings-panel="loot-filte
 const lootCommandBar = document.querySelector('.loot-command-bar');
 const lootTabButtons = [...document.querySelectorAll('[data-loot-tab]')];
 const lootSections = [...document.querySelectorAll('[data-loot-section]')];
+const groupedTabButtons = [...document.querySelectorAll('[data-grouped-tab]')];
+const groupedPanes = [...document.querySelectorAll('[data-grouped-pane]')];
 const equipmentTabButtons = [...document.querySelectorAll('[data-equipment-tab]')];
 const equipmentPanes = [...document.querySelectorAll('[data-equipment-pane]')];
 const chanceBasesEnabledInput = document.querySelector('#chance-bases-enabled-input');
@@ -184,6 +202,14 @@ const flaskRulesEnabledInput = document.querySelector('#flask-rules-enabled-inpu
 const flaskRulesStatus = document.querySelector('#flask-rules-status');
 const flaskRuleList = document.querySelector('#flask-rule-list');
 const addFlaskRuleButton = document.querySelector('#add-flask-rule-button');
+const tinctureRulesEnabledInput = document.querySelector('#tincture-rules-enabled-input');
+const tinctureRulesStatus = document.querySelector('#tincture-rules-status');
+const tinctureRuleList = document.querySelector('#tincture-rule-list');
+const addTinctureRuleButton = document.querySelector('#add-tincture-rule-button');
+const leagueItemRulesEnabledInput = document.querySelector('#league-item-rules-enabled-input');
+const leagueItemRulesStatus = document.querySelector('#league-item-rules-status');
+const leagueItemRuleList = document.querySelector('#league-item-rule-list');
+const addLeagueItemRuleButton = document.querySelector('#add-league-item-rule-button');
 const economyHighlightsEnabledInput = document.querySelector('#economy-highlights-enabled-input');
 const economyTierList = document.querySelector('#economy-tier-list');
 const economyTypeList = document.querySelector('#economy-type-list');
@@ -243,12 +269,18 @@ const STYLE_LABELS = {
   unique: 'Uniques',
   maps: 'Maps',
   fragments: 'Fragments and Invitations',
+  atlasItems: 'Atlas Items',
   blueprints: 'Blueprints',
+  heistItems: 'Heist Items',
+  sanctumItems: 'Sanctum Items',
   gems: 'Gems',
   divinationCards: 'Divination Cards',
   scarabs: 'Scarabs',
   oils: 'Oils',
+  currencySpecials: 'Currency Types',
   flasks: 'Flasks',
+  tinctures: 'Tinctures',
+  leagueItems: 'League Items',
   jewelNormal: 'Normal Jewels',
   jewelMagic: 'Magic Jewels',
   jewelRare: 'Rare Jewels',
@@ -291,6 +323,47 @@ const OIL_BASE_TYPES = [
   'Prismatic Oil',
   'Reflective Oil',
   'Tainted Oil'
+];
+const CURRENCY_SUBTYPE_RULES = [
+  ['currency-types-tattoos', 'Tattoos', 'Tattoo'],
+  ['currency-types-catalysts', 'Catalysts', 'Catalyst'],
+  ['currency-types-essences', 'Essences', 'Essence'],
+  ['currency-types-fossils', 'Fossils', 'Fossil'],
+  ['currency-types-resonators', 'Resonators', 'Resonator'],
+  ['currency-types-omens', 'Omens', 'Omen'],
+  ['currency-types-delirium-orbs', 'Delirium Orbs', 'Delirium Orb'],
+  ['currency-types-vials', 'Incursion Vials', 'Vial of'],
+  ['currency-types-blessings', 'Breach Blessings', 'Blessing of'],
+  ['currency-types-expedition-artifacts', 'Expedition Artifacts', 'Artifact'],
+  ['currency-types-runegrafts', 'Runegrafts', 'Runegraft'],
+  ['currency-types-splinters', 'Splinters', 'Splinter']
+];
+const ATLAS_ITEM_RULES = [
+  ['atlas-blighted-maps', 'Blighted Maps', [{ key: 'Class', value: 'Maps' }, { key: 'BlightedMap', value: true }]],
+  ['atlas-blight-ravaged-maps', 'Blight-ravaged Maps', [{ key: 'Class', value: 'Maps' }, { key: 'UberBlightedMap', value: true }]],
+  ['atlas-unique-maps', 'Unique Maps', [{ key: 'Class', value: 'Maps' }, { key: 'Rarity', value: 'Unique' }]],
+  ['atlas-valdo', 'Valdo Maps and Puzzle Boxes', [{ key: 'BaseType', value: "Valdo's Puzzle Box" }]],
+  ['atlas-memories', 'Atlas Memories', [{ key: 'ZanaMemory', value: true }]],
+  ['atlas-logbooks', 'Expedition Logbooks', [{ key: 'Class', value: 'Expedition Logbooks' }]],
+  ['atlas-incursion-temples', 'Incursion Temples', [{ key: 'Class', value: 'Misc Map Items' }, { key: 'BaseType', value: 'Chronicle of Atzoatl' }]]
+];
+const HEIST_ITEM_RULES = [
+  ['heist-contracts', 'Contracts', [{ key: 'Class', value: 'Contracts' }]],
+  ['heist-tools', 'Heist Tools', [{ key: 'Class', value: 'Heist Tools' }]],
+  ['heist-cloaks', 'Heist Cloaks', [{ key: 'Class', value: 'Heist Cloaks' }]],
+  ['heist-brooches', 'Heist Brooches', [{ key: 'Class', value: 'Heist Brooches' }]],
+  ['heist-targets', 'Heist Targets', [{ key: 'Class', value: 'Heist Targets' }]]
+];
+const SANCTUM_ITEM_RULES = [
+  ['sanctum-research', 'Forbidden Tomes and Sanctum Research', [{ key: 'Class', value: 'Sanctum Research' }]],
+  ['sanctum-relics', 'Sanctum Relics', [{ key: 'Class', value: 'Relic' }]]
+];
+const LEAGUE_ITEM_RULES = [
+  ['league-incubators', 'Incubators', [{ key: 'BaseType', value: 'Incubator' }]],
+  ['league-vault-keys', 'Vault and Reliquary Keys', [{ key: 'Class', value: 'Vault Keys' }]],
+  ['league-allflame-embers', 'Allflame Embers', [{ key: 'Class', value: 'Embers of the Allflame' }]],
+  ['league-corpses', 'Corpses', [{ key: 'Class', value: 'Corpses' }]],
+  ['league-grafts', 'Grafts', [{ key: 'Class', value: 'Grafts' }]]
 ];
 const FLASK_BASE_TYPES = [
   'Small Life Flask',
@@ -414,6 +487,20 @@ const FRAGMENT_TYPE_OPTIONS = [
     conditions: [{ key: 'BaseType', value: ['Simulacrum', 'Simulacrum Splinter'] }],
     sample: 'Simulacrum',
     placeholder: 'Leave blank to match Simulacrum and splinters.'
+  },
+  {
+    value: 'lures',
+    label: 'Lures',
+    conditions: [{ key: 'BaseType', value: 'Lure' }],
+    sample: 'Bestiary Lure',
+    placeholder: 'Leave blank to match all Lures.'
+  },
+  {
+    value: 'astrolabes',
+    label: 'Astrolabes',
+    conditions: [{ key: 'BaseType', value: 'Astrolabe' }],
+    sample: 'Nameless Astrolabe',
+    placeholder: 'Leave blank to match all Astrolabes.'
   }
 ];
 const FRAGMENT_TYPE_SELECT_OPTIONS = FRAGMENT_TYPE_OPTIONS.map((entry) => ({ value: entry.value, label: entry.label }));
@@ -441,6 +528,25 @@ const EQUIPMENT_SLOT_PATTERNS = [
   }
 ];
 const EQUIPMENT_SLOT_ORDER = new Map(EQUIPMENT_SLOT_PATTERNS.map((slot, index) => [slot.id, index]));
+
+function createCategoryDefaultRule(id, label, style, conditions) {
+  return {
+    id,
+    action: 'Show',
+    label,
+    style,
+    tier: 'baseline',
+    conditions: structuredClone(conditions)
+  };
+}
+
+function createCurrencySubtypeRule([id, label, baseType]) {
+  return createCategoryDefaultRule(id, label, 'currencySpecials', [
+    { key: 'Class', value: 'Stackable Currency' },
+    { key: 'BaseType', value: baseType }
+  ]);
+}
+
 const CATEGORY_RULE_DEFINITIONS = {
   uniques: {
     label: 'Unique',
@@ -481,6 +587,20 @@ const CATEGORY_RULE_DEFINITIONS = {
     },
     fields: ['minMapTier', 'maxMapTier', 'baseTypes', 'minItemLevel', 'maxItemLevel']
   },
+  atlasItems: {
+    label: 'Atlas item',
+    enabledInput: atlasItemRulesEnabledInput,
+    status: atlasItemRulesStatus,
+    list: atlasItemRuleList,
+    addButton: addAtlasItemRuleButton,
+    defaultStyle: 'atlasItems',
+    defaultTier: 'baseline',
+    baseConditions: [],
+    preserveConditionKeys: ['BlightedMap', 'UberBlightedMap', 'ZanaMemory'],
+    defaultRule: createCategoryDefaultRule('atlas-custom', 'New atlas item rule', 'atlasItems', [{ key: 'Class', value: 'Maps' }]),
+    defaultRules: ATLAS_ITEM_RULES.map(([id, label, conditions]) => createCategoryDefaultRule(id, label, 'atlasItems', conditions)),
+    fields: ['itemClass', 'rarity', 'baseTypes', 'minMapTier', 'maxMapTier', 'minItemLevel', 'maxItemLevel']
+  },
   fragments: {
     label: 'Fragment',
     enabledInput: fragmentRulesEnabledInput,
@@ -517,6 +637,32 @@ const CATEGORY_RULE_DEFINITIONS = {
       conditions: [{ key: 'Class', value: 'Blueprints' }]
     },
     fields: ['rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel']
+  },
+  heistItems: {
+    label: 'Heist item',
+    enabledInput: heistItemRulesEnabledInput,
+    status: heistItemRulesStatus,
+    list: heistItemRuleList,
+    addButton: addHeistItemRuleButton,
+    defaultStyle: 'heistItems',
+    defaultTier: 'baseline',
+    baseConditions: [],
+    defaultRule: createCategoryDefaultRule('heist-custom', 'New heist item rule', 'heistItems', [{ key: 'Class', value: 'Contracts' }]),
+    defaultRules: HEIST_ITEM_RULES.map(([id, label, conditions]) => createCategoryDefaultRule(id, label, 'heistItems', conditions)),
+    fields: ['itemClass', 'rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel']
+  },
+  sanctumItems: {
+    label: 'Sanctum item',
+    enabledInput: sanctumItemRulesEnabledInput,
+    status: sanctumItemRulesStatus,
+    list: sanctumItemRuleList,
+    addButton: addSanctumItemRuleButton,
+    defaultStyle: 'sanctumItems',
+    defaultTier: 'baseline',
+    baseConditions: [],
+    defaultRule: createCategoryDefaultRule('sanctum-custom', 'New sanctum item rule', 'sanctumItems', [{ key: 'Class', value: 'Sanctum Research' }]),
+    defaultRules: SANCTUM_ITEM_RULES.map(([id, label, conditions]) => createCategoryDefaultRule(id, label, 'sanctumItems', conditions)),
+    fields: ['itemClass', 'rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel']
   },
   gems: {
     label: 'Gem',
@@ -576,6 +722,22 @@ const CATEGORY_RULE_DEFINITIONS = {
     },
     fields: ['baseTypes']
   },
+  currencyTypes: {
+    label: 'Currency type',
+    enabledInput: currencyTypeRulesEnabledInput,
+    status: currencyTypeRulesStatus,
+    list: currencyTypeRuleList,
+    addButton: addCurrencyTypeRuleButton,
+    defaultStyle: 'currencySpecials',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Stackable Currency' }],
+    defaultRule: createCategoryDefaultRule('currency-types-custom', 'New currency type rule', 'currencySpecials', [
+      { key: 'Class', value: 'Stackable Currency' },
+      { key: 'BaseType', value: 'Tattoo' }
+    ]),
+    defaultRules: CURRENCY_SUBTYPE_RULES.map(createCurrencySubtypeRule),
+    fields: ['itemClass', 'baseTypes', 'minItemLevel', 'maxItemLevel']
+  },
   flasks: {
     label: 'Flask',
     enabledInput: flaskRulesEnabledInput,
@@ -599,6 +761,31 @@ const CATEGORY_RULE_DEFINITIONS = {
       ]
     },
     fields: ['baseTypes', 'minQuality', 'maxQuality', 'minItemLevel', 'maxItemLevel']
+  },
+  tinctures: {
+    label: 'Tincture',
+    enabledInput: tinctureRulesEnabledInput,
+    status: tinctureRulesStatus,
+    list: tinctureRuleList,
+    addButton: addTinctureRuleButton,
+    defaultStyle: 'tinctures',
+    defaultTier: 'baseline',
+    baseConditions: [{ key: 'Class', value: 'Tinctures' }],
+    defaultRule: createCategoryDefaultRule('tinctures-custom', 'New tincture rule', 'tinctures', [{ key: 'Class', value: 'Tinctures' }]),
+    fields: ['baseTypes', 'rarity', 'minItemLevel', 'maxItemLevel', 'identified']
+  },
+  leagueItems: {
+    label: 'League item',
+    enabledInput: leagueItemRulesEnabledInput,
+    status: leagueItemRulesStatus,
+    list: leagueItemRuleList,
+    addButton: addLeagueItemRuleButton,
+    defaultStyle: 'leagueItems',
+    defaultTier: 'baseline',
+    baseConditions: [],
+    defaultRule: createCategoryDefaultRule('league-custom', 'New league item rule', 'leagueItems', [{ key: 'BaseType', value: 'Incubator' }]),
+    defaultRules: LEAGUE_ITEM_RULES.map(([id, label, conditions]) => createCategoryDefaultRule(id, label, 'leagueItems', conditions)),
+    fields: ['itemClass', 'rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel']
   },
   jewels: {
     label: 'Jewel',
@@ -627,6 +814,24 @@ const ECONOMY_TYPE_LABELS = {
   Fragment: 'Fragments',
   DivinationCard: 'Div Cards',
   Scarab: 'Scarabs',
+  Oil: 'Oils',
+  Essence: 'Essences',
+  Fossil: 'Fossils',
+  Resonator: 'Resonators',
+  DeliriumOrb: 'Delirium Orbs',
+  Tattoo: 'Tattoos',
+  Omen: 'Omens',
+  Runegraft: 'Runegrafts',
+  Artifact: 'Expedition Artifacts',
+  Incubator: 'Incubators',
+  Wombgift: 'Wombgifts',
+  Map: 'Maps',
+  BlightedMap: 'Blighted Maps',
+  BlightRavagedMap: 'Blight-ravaged Maps',
+  Invitation: 'Invitations',
+  Memory: 'Memories',
+  Vial: 'Vials',
+  AllflameEmber: 'Allflame Embers',
   UniqueAccessory: 'Unique Accessories',
   UniqueArmour: 'Unique Armour',
   UniqueWeapon: 'Unique Weapons',
@@ -638,6 +843,7 @@ const ECONOMY_CATEGORY_LABELS = {
   gems: 'Gems',
   'maps-fragments': 'Maps/Fragments',
   jewels: 'Jewels',
+  'league-items': 'League Items',
   'special-bases': 'Special Bases',
   unknown: 'Unknown'
 };
@@ -928,6 +1134,22 @@ function activateLootSection(sectionName) {
 
   for (const section of lootSections) {
     section.classList.toggle('is-active', section.dataset.lootSection === sectionName);
+  }
+}
+
+function activateGroupedPane(groupName, paneName) {
+  for (const button of groupedTabButtons) {
+    if (button.dataset.groupedTab !== groupName) {
+      continue;
+    }
+    button.classList.toggle('is-active', button.dataset.groupedTarget === paneName);
+  }
+
+  for (const pane of groupedPanes) {
+    if (pane.dataset.groupedPane !== groupName) {
+      continue;
+    }
+    pane.classList.toggle('is-active', pane.dataset.groupedPanel === paneName);
   }
 }
 
@@ -2056,13 +2278,19 @@ function getSampleLabelForCategory(categoryId, rule = {}) {
   const samples = {
     uniques: firstBase || 'Unique Heavy Belt',
     maps: firstBase || 'Tier 16 Map',
+    atlasItems: firstBase || 'Blighted Crimson Temple Map',
     fragments: firstBase || 'Screaming Invitation',
     blueprints: firstBase || 'Blueprint',
+    heistItems: firstBase || 'Contract',
+    sanctumItems: firstBase || 'Forbidden Tome',
     gems: firstBase || 'Vaal Lightning Strike',
     divinationCards: firstBase || 'The Doctor',
     scarabs: firstBase || 'Cartography Scarab',
     oils: firstBase || 'Golden Oil',
+    currencyTypes: firstBase || 'Tattoo of the Ngamahu Warrior',
     flasks: firstBase || 'Diamond Flask',
+    tinctures: firstBase || 'Ironwood Tincture',
+    leagueItems: firstBase || 'Incubator',
     jewels: firstBase || 'Cobalt Jewel'
   };
   return samples[categoryId] || firstBase || 'Sample item';
@@ -2154,12 +2382,18 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
     const value = getConditionText(rule, 'BaseType');
     const placeholders = {
       oils: `Leave blank only when this rule should be skipped.\n${OIL_BASE_TYPES.join('\n')}`,
+      currencyTypes: 'Use partial family names or exact bases.\nTattoo\nCatalyst\nEssence\nFossil\nResonator\nOmen\nDelirium Orb\nVial of\nBlessing of\nArtifact\nRunegraft\nSplinter',
+      atlasItems: 'Leave blank when the class/flag already identifies the item.\nBlightedMap rules use the BlightedMap flag.\nChronicle of Atzoatl\nValdo\'s Puzzle Box',
       divinationCards: 'Leave blank to match all divination cards.\nThe Doctor\nBrother\'s Gift',
       gems: 'Leave blank to match all gems.\nScorching Ray\nVaal Lightning Strike',
       fragments: FRAGMENT_TYPE_BY_ID.get(getFragmentTypeForRule(rule))?.placeholder || 'Leave blank to match this fragment type.',
       blueprints: 'Leave blank to match all blueprints.\nBlueprint\nRecords Office',
+      heistItems: 'Leave blank when the class already identifies the item.\nContract\nFoliate Brooch\nThaumaturgical Sensing Charm',
+      sanctumItems: 'Leave blank when the class already identifies the item.\nForbidden Tome\nCenser Relic',
       uniques: 'Leave blank to match all unique items.\nLeather Belt\nHeavy Belt\nMageblood',
       flasks: `Leave blank to match all flasks.\n${FLASK_BASE_TYPES.join('\n')}`,
+      tinctures: 'Leave blank to match all tinctures.\nIronwood Tincture\nPoisonberry Tincture',
+      leagueItems: 'Leave blank when the class already identifies the item.\nIncubator\nReliquary Key\nAllflame Ember\nCorpse\nGraft',
       jewels: 'Leave blank to match all jewels.\nCobalt Jewel\nLarge Cluster Jewel'
     };
     appendLabeled(container, 'Only these names', createTextarea(value.replace(/,\s*/g, '\n'), { categoryRuleField: 'baseTypes' }, placeholders[categoryId] || 'Leave blank to match the whole category.'));
@@ -2187,6 +2421,8 @@ function getFragmentTypeForRule(rule = {}) {
   if (hasBase('Breachstone')) return 'breachstones';
   if (hasBase('Emblem')) return 'legion-emblems';
   if (hasBase('Simulacrum') || hasBase('Simulacrum Splinter')) return 'simulacrum';
+  if (hasBase('Lure')) return 'lures';
+  if (hasBase('Astrolabe')) return 'astrolabes';
   if (BOSS_FRAGMENT_BASE_TYPES.some((base) => hasBase(base))) return 'boss-fragments';
   return 'boss-fragments';
 }
@@ -3854,6 +4090,16 @@ function collectCategoryRuleRow(categoryId, row) {
   pushBooleanCondition(conditions, 'Corrupted', get('corrupted')?.value);
   pushBooleanCondition(conditions, 'Identified', get('identified')?.value);
 
+  if (definition.preserveConditionKeys?.length) {
+    for (const key of definition.preserveConditionKeys) {
+      for (const condition of existing.conditions || []) {
+        if (condition.key === key && !conditions.some((entry) => entry.key === key)) {
+          conditions.push(structuredClone(condition));
+        }
+      }
+    }
+  }
+
   if (definition.fields.includes('baseTypes')) {
     const typedBaseTypes = get('baseTypes')?.value || '';
     if (typedBaseTypes.trim()) {
@@ -4350,6 +4596,10 @@ for (const button of settingsTabButtons) {
 
 for (const button of lootTabButtons) {
   button.addEventListener('click', () => activateLootSection(button.dataset.lootTab));
+}
+
+for (const button of groupedTabButtons) {
+  button.addEventListener('click', () => activateGroupedPane(button.dataset.groupedTab, button.dataset.groupedTarget));
 }
 
 if (lootFilterPanel) {

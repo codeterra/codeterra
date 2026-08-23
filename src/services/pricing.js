@@ -102,7 +102,20 @@ function getPoeNinjaEndpoint(type) {
     return 'stash/current/currency/overview';
   }
 
-  if (['DivinationCard', 'Fossil', 'Resonator', 'Oil', 'Scarab', 'Essence', 'DeliriumOrb'].includes(type)) {
+  if ([
+    'DivinationCard',
+    'Fossil',
+    'Resonator',
+    'Oil',
+    'Scarab',
+    'Essence',
+    'DeliriumOrb',
+    'Runegraft',
+    'AllflameEmber',
+    'Tattoo',
+    'Omen',
+    'Artifact'
+  ].includes(type)) {
     return 'exchange/current/overview';
   }
 

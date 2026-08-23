@@ -5,10 +5,27 @@ const UNSUPPORTED_FILTER_ECONOMY_TYPES = new Set([
 
 const ECONOMY_PROVIDER_CATEGORY_BY_TYPE = {
   Currency: 'stackables',
+  Artifact: 'stackables',
   DivinationCard: 'stackables',
+  DeliriumOrb: 'stackables',
+  Essence: 'stackables',
+  Fossil: 'stackables',
+  Omen: 'stackables',
+  Oil: 'stackables',
+  Resonator: 'stackables',
+  Runegraft: 'stackables',
   Scarab: 'stackables',
+  Tattoo: 'stackables',
+  Vial: 'stackables',
+  AllflameEmber: 'league-items',
+  Incubator: 'league-items',
+  Wombgift: 'league-items',
   Fragment: 'maps-fragments',
   Map: 'maps-fragments',
+  BlightedMap: 'maps-fragments',
+  BlightRavagedMap: 'maps-fragments',
+  Invitation: 'maps-fragments',
+  Memory: 'maps-fragments',
   UniqueMap: 'maps-fragments',
   SkillGem: 'gems',
   UniqueJewel: 'jewels'
@@ -194,15 +211,40 @@ function getDefaultConditions(type, displayName) {
   const conditions = [{ key: 'BaseType', value: displayName }];
 
   const classByType = {
+    AllflameEmber: 'Embers of the Allflame',
+    Artifact: 'Stackable Currency',
     Currency: 'Stackable Currency',
+    DeliriumOrb: 'Stackable Currency',
     DivinationCard: 'Divination Cards',
+    Essence: 'Stackable Currency',
+    Fossil: 'Stackable Currency',
     Fragment: 'Map Fragments',
+    Incubator: 'Stackable Currency',
+    Invitation: 'Misc Map Items',
     Map: 'Maps',
-    Scarab: 'Map Fragments'
+    BlightedMap: 'Maps',
+    BlightRavagedMap: 'Maps',
+    Memory: 'Misc Map Items',
+    Omen: 'Stackable Currency',
+    Oil: 'Stackable Currency',
+    Resonator: 'Stackable Currency',
+    Runegraft: 'Stackable Currency',
+    Scarab: 'Map Fragments',
+    Tattoo: 'Stackable Currency',
+    Vial: 'Stackable Currency',
+    Wombgift: 'Wombgifts'
   };
 
   if (classByType[type]) {
     conditions.unshift({ key: 'Class', value: classByType[type] });
+  }
+
+  if (type === 'BlightedMap') {
+    conditions.push({ key: 'BlightedMap', value: true });
+  } else if (type === 'BlightRavagedMap') {
+    conditions.push({ key: 'UberBlightedMap', value: true });
+  } else if (type === 'Memory') {
+    conditions.push({ key: 'ZanaMemory', value: true });
   }
 
   return {
