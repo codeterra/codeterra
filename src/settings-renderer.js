@@ -363,7 +363,7 @@ const LEAGUE_ITEM_RULES = [
   ['league-vault-keys', 'Vault and Reliquary Keys', [{ key: 'Class', value: 'Vault Keys' }]],
   ['league-allflame-embers', 'Allflame Embers', [{ key: 'Class', value: 'Embers of the Allflame' }]],
   ['league-corpses', 'Corpses', [{ key: 'Class', value: 'Corpses' }]],
-  ['league-grafts', 'Grafts', [{ key: 'Class', value: 'Grafts' }]]
+  ['league-grafts', 'Grafts', [{ key: 'BaseType', value: 'Graft' }]]
 ];
 const FLASK_BASE_TYPES = [
   'Small Life Flask',

@@ -70,7 +70,7 @@ const LEAGUE_ITEM_RULES = [
   ['league-vault-keys', 'Vault and Reliquary Keys', [{ key: 'Class', value: 'Vault Keys' }]],
   ['league-allflame-embers', 'Allflame Embers', [{ key: 'Class', value: 'Embers of the Allflame' }]],
   ['league-corpses', 'Corpses', [{ key: 'Class', value: 'Corpses' }]],
-  ['league-grafts', 'Grafts', [{ key: 'Class', value: 'Grafts' }]]
+  ['league-grafts', 'Grafts', [{ key: 'BaseType', value: 'Graft' }]]
 ];
 const FLASK_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => FLASK_EQUIPMENT_GROUP_IDS.includes(group.id));
 const EQUIPMENT_MISC_VISIBILITY_GROUPS = EQUIPMENT_MISC_GROUPS.filter((group) => (
@@ -1247,7 +1247,22 @@ function normalizeCategoryRule(entry) {
     rule.conditions = normalizeFragmentTypeConditions(fragmentType, rule.conditions);
   }
 
+  normalizeKnownInvalidCategoryConditions(rule);
+
   return rule;
+}
+
+function normalizeKnownInvalidCategoryConditions(rule) {
+  if (!Array.isArray(rule?.conditions)) {
+    return;
+  }
+
+  for (const condition of rule.conditions) {
+    if (condition.key === 'Class' && conditionValueIncludes(condition.value, 'Grafts')) {
+      condition.key = 'BaseType';
+      condition.value = 'Graft';
+    }
+  }
 }
 
 function normalizeFragmentTypeId(value) {
