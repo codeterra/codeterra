@@ -1500,12 +1500,20 @@ function normalizeRule(rule) {
     output.divinationTierId = String(rule.divinationTierId);
   }
 
+  if (rule.uniqueTierId) {
+    output.uniqueTierId = String(rule.uniqueTierId);
+  }
+
   if (Object.prototype.hasOwnProperty.call(rule, 'catchAll')) {
     output.catchAll = Boolean(rule.catchAll);
   }
 
   if (Array.isArray(rule.tierItems)) {
     output.tierItems = rule.tierItems.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+
+  if (Array.isArray(rule.uniqueTierItems)) {
+    output.uniqueTierItems = rule.uniqueTierItems.map((entry) => String(entry || '').trim()).filter(Boolean);
   }
 
   if (rule.economyTierId) {

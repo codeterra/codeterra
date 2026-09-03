@@ -118,6 +118,7 @@ const uniqueRulesEnabledInput = document.querySelector('#unique-rules-enabled-in
 const uniqueRulesStatus = document.querySelector('#unique-rules-status');
 const uniqueRuleList = document.querySelector('#unique-rule-list');
 const addUniqueRuleButton = document.querySelector('#add-unique-rule-button');
+const populateUniqueTiersButton = document.querySelector('#populate-unique-tiers-button');
 const mapRulesEnabledInput = document.querySelector('#map-rules-enabled-input');
 const mapRulesStatus = document.querySelector('#map-rules-status');
 const mapRuleList = document.querySelector('#map-rule-list');
@@ -264,6 +265,7 @@ let previewAudio;
 let previewAudioContext;
 let stashState;
 let baseNamePickerState;
+let lootFilterStyleClipboard;
 const FILTER_FONT_SIZE_MIN = 18;
 const FILTER_FONT_SIZE_MAX = 45;
 
@@ -321,6 +323,38 @@ const DIVINATION_CARD_TIER_DEFAULTS = [
   { id: 'd', label: 'D Tier', sample: 'Her Mask', textColor: [170, 180, 190, 255], backgroundColor: [0, 0, 0, 180], borderColor: [85, 100, 115, 255], fontSize: 30, iconColor: 'Grey', beamColor: 'None' },
   { id: 'f', label: 'F Tier', sample: 'Divination Card', textColor: [120, 130, 140, 255], backgroundColor: [0, 0, 0, 140], borderColor: [55, 65, 75, 200], fontSize: 26, iconColor: 'None', beamColor: 'None', catchAll: true }
 ];
+const UNIQUE_TIER_DEFAULTS = [
+  { id: 's', label: 'S Tier', sample: 'Mageblood base', textColor: [255, 255, 255, 255], backgroundColor: [0, 0, 0, 255], borderColor: [255, 70, 70, 255], fontSize: 45, iconColor: 'Red', beamColor: 'Red' },
+  { id: 'a', label: 'A Tier', sample: 'Headhunter base', textColor: [255, 244, 180, 255], backgroundColor: [0, 0, 0, 235], borderColor: [255, 210, 80, 255], fontSize: 42, iconColor: 'Yellow', beamColor: 'Yellow' },
+  { id: 'b', label: 'B Tier', sample: 'Valuable unique base', textColor: [170, 230, 255, 255], backgroundColor: [0, 0, 0, 220], borderColor: [70, 190, 255, 255], fontSize: 38, iconColor: 'Cyan', beamColor: 'None' },
+  { id: 'c', label: 'C Tier', sample: 'Useful unique base', textColor: [210, 220, 232, 255], backgroundColor: [0, 0, 0, 200], borderColor: [150, 170, 190, 255], fontSize: 34, iconColor: 'White', beamColor: 'None' },
+  { id: 'd', label: 'D Tier', sample: 'Low-value unique base', textColor: [170, 180, 190, 255], backgroundColor: [0, 0, 0, 180], borderColor: [85, 100, 115, 255], fontSize: 30, iconColor: 'Grey', beamColor: 'None' },
+  { id: 'f', label: 'F Tier', sample: 'Unique item', textColor: [120, 130, 140, 255], backgroundColor: [0, 0, 0, 140], borderColor: [55, 65, 75, 200], fontSize: 26, iconColor: 'None', beamColor: 'None', catchAll: true }
+];
+const TIERED_CATEGORY_CONFIGS = {
+  divinationCards: {
+    defaults: DIVINATION_CARD_TIER_DEFAULTS,
+    idField: 'divinationTierId',
+    itemsField: 'tierItems',
+    defaultConditions: [{ key: 'Class', value: 'Divination Cards' }],
+    fallbackText: ' Catch all unmatched div cards',
+    itemPlaceholder: 'Add card name',
+    searchPlaceholder: 'Search cards in tiers',
+    statusLabel: 'divination card tiers',
+    customLabel: 'Custom Tier'
+  },
+  uniques: {
+    defaults: UNIQUE_TIER_DEFAULTS,
+    idField: 'uniqueTierId',
+    itemsField: 'uniqueTierItems',
+    defaultConditions: [{ key: 'Rarity', value: 'Unique' }],
+    fallbackText: ' Catch all unmatched unique base types',
+    itemPlaceholder: 'Add unique base type',
+    searchPlaceholder: 'Search unique base types in tiers',
+    statusLabel: 'unique tiers',
+    customLabel: 'Custom Tier'
+  }
+};
 const DEFAULT_STYLE_OPTIONS = Object.keys(STYLE_LABELS);
 const OIL_BASE_TYPES = [
   'Golden Oil',
@@ -1662,14 +1696,38 @@ function colorToHex(color = []) {
   ).join('').padStart(6, '0').replace(/^/, '#');
 }
 
+function normalizeHexColor(value, fallback = '#000000') {
+  const text = String(value || '').trim();
+  const match = text.match(/^#?([0-9a-fA-F]{6})$/);
+  return match ? `#${match[1].toLowerCase()}` : fallback;
+}
+
 function hexToColor(hex, alpha = 255) {
-  const normalized = String(hex || '#000000').replace('#', '').padEnd(6, '0').slice(0, 6);
+  const normalized = normalizeHexColor(hex).replace('#', '');
+  const opacity = normalizeStyleOpacity(alpha);
   return [
     Number.parseInt(normalized.slice(0, 2), 16) || 0,
     Number.parseInt(normalized.slice(2, 4), 16) || 0,
     Number.parseInt(normalized.slice(4, 6), 16) || 0,
-    Math.max(0, Math.min(255, Math.round(Number(alpha) || 255)))
+    opacity
   ];
+}
+
+function normalizeStyleOpacity(value) {
+  return Math.max(0, Math.min(255, Math.round(Number(value) || 255)));
+}
+
+function getStyleOpacity(style = {}) {
+  if (Number.isFinite(Number(style.opacity))) {
+    return normalizeStyleOpacity(style.opacity);
+  }
+
+  return normalizeStyleOpacity(
+    style.backgroundColor?.[3]
+      ?? style.textColor?.[3]
+      ?? style.borderColor?.[3]
+      ?? 255
+  );
 }
 
 function createTextInput(value, dataset, type = 'text') {
@@ -1677,6 +1735,14 @@ function createTextInput(value, dataset, type = 'text') {
   input.type = type;
   input.value = value ?? '';
   Object.assign(input.dataset, dataset);
+  return input;
+}
+
+function createHexInput(value, dataset) {
+  const input = createTextInput(normalizeHexColor(value), dataset, 'text');
+  input.placeholder = '#ffffff';
+  input.maxLength = 7;
+  input.spellcheck = false;
   return input;
 }
 
@@ -1906,12 +1972,11 @@ function appendColorControl(container, labelText, styleName, field, color) {
   label.textContent = labelText;
   const wrapper = document.createElement('div');
   wrapper.className = 'swatch-input';
-  const picker = createTextInput(colorToHex(color), { styleName, styleField: field, colorPart: 'hex' }, 'color');
-  const alpha = createTextInput(color?.[3] ?? 255, { styleName, styleField: field, colorPart: 'alpha' }, 'number');
-  alpha.min = '0';
-  alpha.max = '255';
+  const hex = colorToHex(color);
+  const picker = createTextInput(hex, { styleName, styleField: field, colorPart: 'hex', colorInputRole: 'picker' }, 'color');
+  const text = createHexInput(hex, { styleName, styleField: field, colorPart: 'hex', colorInputRole: 'text' });
   wrapper.appendChild(picker);
-  wrapper.appendChild(alpha);
+  wrapper.appendChild(text);
   label.appendChild(wrapper);
   container.appendChild(label);
 }
@@ -1921,20 +1986,22 @@ function appendInlineColorControl(container, labelText, field, color) {
   label.textContent = labelText;
   const wrapper = document.createElement('div');
   wrapper.className = 'swatch-input';
-  const picker = createTextInput(colorToHex(color), { styleConfigField: field, colorPart: 'hex' }, 'color');
-  const alpha = createTextInput(color?.[3] ?? 255, { styleConfigField: field, colorPart: 'alpha' }, 'number');
-  alpha.min = '0';
-  alpha.max = '255';
+  const hex = colorToHex(color);
+  const picker = createTextInput(hex, { styleConfigField: field, colorPart: 'hex', colorInputRole: 'picker' }, 'color');
+  const text = createHexInput(hex, { styleConfigField: field, colorPart: 'hex', colorInputRole: 'text' });
   wrapper.appendChild(picker);
-  wrapper.appendChild(alpha);
+  wrapper.appendChild(text);
   label.appendChild(wrapper);
   container.appendChild(label);
 }
 
 function appendInlineStyleControls(container, style = {}) {
+  container.dataset.styleSurface = 'inline';
+  container.prepend(createStyleClipboardActions());
   appendInlineColorControl(container, 'Text', 'textColor', style.textColor);
   appendInlineColorControl(container, 'Background', 'backgroundColor', style.backgroundColor);
   appendInlineColorControl(container, 'Border', 'borderColor', style.borderColor);
+  appendStyleOpacityControl(container, getStyleOpacity(style), { styleConfigField: 'styleOpacity' });
   const fontSizeInput = createTextInput(clampFilterFontSize(style.fontSize || 32), { styleConfigField: 'fontSize' }, 'number');
   fontSizeInput.min = String(FILTER_FONT_SIZE_MIN);
   fontSizeInput.max = String(FILTER_FONT_SIZE_MAX);
@@ -1945,6 +2012,31 @@ function appendInlineStyleControls(container, style = {}) {
   appendLabeled(container, 'Beam', createSelect(style.beam?.color || 'None', FILTER_EFFECT_COLORS, { styleConfigField: 'beamColor' }));
   appendLabeled(container, 'Sound', createOptionSelect(getInlineStyleSoundValue(style), getInlineStyleSoundOptions(style), { styleConfigField: 'sound' }));
   appendLabeled(container, 'Volume', createTextInput(getInlineStyleSoundVolume(style), { styleConfigField: 'soundVolume' }, 'number'));
+}
+
+function createStyleClipboardActions() {
+  const actions = document.createElement('div');
+  actions.className = 'style-clipboard-actions';
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.textContent = 'Copy Style';
+  copy.dataset.copyStyle = 'true';
+  const paste = document.createElement('button');
+  paste.type = 'button';
+  paste.textContent = 'Paste Style';
+  paste.dataset.pasteStyle = 'true';
+  actions.appendChild(copy);
+  actions.appendChild(paste);
+  return actions;
+}
+
+function appendStyleOpacityControl(container, opacity, dataset) {
+  const input = createTextInput(normalizeStyleOpacity(opacity), dataset, 'number');
+  input.min = '0';
+  input.max = '255';
+  input.step = '1';
+  input.className = 'style-opacity-input';
+  appendLabeled(container, 'Opacity', input);
 }
 
 function appendRulePreview(container, labelText, style = {}, rule = {}) {
@@ -2030,18 +2122,27 @@ function collectInlineStyleConfig(container, fallbackStyle = {}) {
   const style = structuredClone(fallbackStyle || {});
   const controls = [...container.querySelectorAll('[data-style-config-field]')];
   const colorGroups = {};
+  let styleOpacity = getStyleOpacity(style);
 
   for (const control of controls) {
     const field = control.dataset.styleConfigField;
     if (!field) continue;
 
     if (control.dataset.colorPart) {
+      if (control.dataset.colorPart === 'hex'
+        && control.dataset.colorInputRole === 'text'
+        && !normalizeHexColor(control.value, '')) {
+        continue;
+      }
       colorGroups[field] ||= {};
       colorGroups[field][control.dataset.colorPart] = control.value;
       continue;
     }
 
-    if (field === 'fontSize') {
+    if (field === 'styleOpacity') {
+      styleOpacity = normalizeStyleOpacity(control.value);
+      style.opacity = styleOpacity;
+    } else if (field === 'fontSize') {
       style.fontSize = clampFilterFontSize(control.value);
     } else if (field === 'iconColor') {
       style.minimapIcon = control.value === 'None'
@@ -2057,10 +2158,223 @@ function collectInlineStyleConfig(container, fallbackStyle = {}) {
   }
 
   for (const [field, parts] of Object.entries(colorGroups)) {
-    style[field] = hexToColor(parts.hex, parts.alpha);
+    style[field] = hexToColor(parts.hex, styleOpacity);
   }
 
   return style;
+}
+
+function syncColorControlInput(input) {
+  if (!input?.dataset?.colorInputRole) {
+    return false;
+  }
+
+  const wrapper = input.closest('.swatch-input');
+  const picker = wrapper?.querySelector('[data-color-input-role="picker"]');
+  const text = wrapper?.querySelector('[data-color-input-role="text"]');
+  if (!picker || !text) {
+    return false;
+  }
+
+  if (input.dataset.colorInputRole === 'picker') {
+    text.value = normalizeHexColor(picker.value, text.value || '#000000');
+    return true;
+  }
+
+  if (input.dataset.colorInputRole === 'text') {
+    const normalized = normalizeHexColor(text.value, '');
+    text.classList.toggle('is-invalid', !normalized);
+    if (normalized) {
+      text.value = normalized;
+      picker.value = normalized;
+    }
+    return true;
+  }
+
+  return true;
+}
+
+function copyStyleFromButton(button) {
+  const surface = button.closest('[data-style-surface]');
+  const style = collectStyleSurface(surface);
+  if (!style) {
+    setStatus(filterStatus, 'No style controls found to copy.', true);
+    return;
+  }
+
+  lootFilterStyleClipboard = structuredClone(style);
+  setStatus(filterStatus, 'Style copied.');
+}
+
+function pasteStyleFromButton(button) {
+  const surface = button.closest('[data-style-surface]');
+  if (!surface) {
+    setStatus(filterStatus, 'No style controls found to paste into.', true);
+    return;
+  }
+
+  if (!lootFilterStyleClipboard) {
+    setStatus(filterStatus, 'Copy a style before pasting.', true);
+    return;
+  }
+
+  applyStyleToSurface(surface, lootFilterStyleClipboard);
+  markLootFilterDirty();
+  setStatus(filterStatus, 'Style pasted. Save Changes to keep it.');
+}
+
+function collectStyleSurface(surface) {
+  if (!surface) {
+    return undefined;
+  }
+
+  if (surface.dataset.styleSurface === 'profile') {
+    const styleName = surface.dataset.styleSurfaceStyleName;
+    return collectProfileStyleSurface(surface, lootFilterState?.profile?.styles?.[styleName] || {});
+  }
+
+  return collectInlineStyleConfig(surface, {});
+}
+
+function collectProfileStyleSurface(surface, fallbackStyle = {}) {
+  const style = structuredClone(fallbackStyle || {});
+  const controls = [...surface.querySelectorAll('[data-style-field]')];
+  const colorGroups = {};
+  let styleOpacity = getStyleOpacity(style);
+
+  for (const control of controls) {
+    const field = control.dataset.styleField;
+    if (!field) continue;
+
+    if (control.dataset.colorPart) {
+      if (control.dataset.colorPart === 'hex'
+        && control.dataset.colorInputRole === 'text'
+        && !normalizeHexColor(control.value, '')) {
+        continue;
+      }
+      colorGroups[field] ||= {};
+      colorGroups[field][control.dataset.colorPart] = control.value;
+      continue;
+    }
+
+    if (field === 'styleOpacity') {
+      styleOpacity = normalizeStyleOpacity(control.value);
+      style.opacity = styleOpacity;
+    } else if (field === 'fontSize') {
+      style.fontSize = clampFilterFontSize(control.value);
+    } else if (field === 'alertSoundId') {
+      const id = Number(control.value);
+      style.alertSound = Number.isFinite(id) && id > 0
+        ? { ...(style.alertSound || {}), id }
+        : null;
+    } else if (field === 'alertSoundVolume') {
+      if (style.alertSound) style.alertSound.volume = Number(control.value);
+    } else if (field.startsWith('tierSoundFile:')) {
+      const tier = field.split(':')[1];
+      style.tierSounds ||= {};
+      style.tierSounds[tier] = control.value
+        ? { ...(style.tierSounds[tier] || {}), file: control.value }
+        : null;
+    } else if (field.startsWith('tierSoundVolume:')) {
+      const tier = field.split(':')[1];
+      if (style.tierSounds?.[tier]) {
+        style.tierSounds[tier].volume = Number(control.value);
+      }
+    } else if (field === 'iconColor') {
+      style.minimapIcon = control.value === 'None'
+        ? null
+        : { ...(style.minimapIcon || { size: 1, shape: 'Circle' }), color: control.value };
+    } else if (field === 'iconShape' && style.minimapIcon) {
+      style.minimapIcon.shape = control.value;
+    } else if (field === 'beamColor') {
+      style.beam = control.value === 'None' ? null : { color: control.value, temporary: true };
+    }
+  }
+
+  for (const [field, parts] of Object.entries(colorGroups)) {
+    const color = hexToColor(parts.hex, styleOpacity);
+    if (field.startsWith('tierBorder:')) {
+      const tier = field.split(':')[1];
+      style.tierBorders ||= {};
+      style.tierBorders[tier] = color;
+    } else {
+      style[field] = color;
+    }
+  }
+
+  return style;
+}
+
+function applyStyleToSurface(surface, style = {}) {
+  const isProfile = surface.dataset.styleSurface === 'profile';
+  const fieldAttr = isProfile ? 'styleField' : 'styleConfigField';
+  setColorField(surface, fieldAttr, 'textColor', style.textColor);
+  setColorField(surface, fieldAttr, 'backgroundColor', style.backgroundColor);
+  setColorField(surface, fieldAttr, 'borderColor', style.borderColor);
+  setFieldValue(surface, fieldAttr, 'styleOpacity', getStyleOpacity(style));
+  setFieldValue(surface, fieldAttr, 'fontSize', clampFilterFontSize(style.fontSize || 32));
+  setFieldValue(surface, fieldAttr, 'iconColor', style.minimapIcon?.color || 'None');
+  setFieldValue(surface, fieldAttr, 'iconShape', style.minimapIcon?.shape || 'Circle');
+  setFieldValue(surface, fieldAttr, 'beamColor', style.beam?.color || 'None');
+
+  if (isProfile) {
+    setFieldValue(surface, fieldAttr, 'alertSoundId', style.alertSound?.id || '');
+    setFieldValue(surface, fieldAttr, 'alertSoundVolume', style.alertSound?.volume || 80);
+    for (const tier of STYLE_SOUND_TIERS) {
+      setFieldValue(surface, fieldAttr, `tierSoundFile:${tier}`, style.tierSounds?.[tier]?.file || '');
+      setFieldValue(surface, fieldAttr, `tierSoundVolume:${tier}`, style.tierSounds?.[tier]?.volume || 100);
+    }
+    for (const tier of TIER_OPTIONS) {
+      setColorField(surface, fieldAttr, `tierBorder:${tier}`, style.tierBorders?.[tier] || style.borderColor);
+    }
+  } else {
+    setFieldValue(surface, fieldAttr, 'sound', getInlineStyleSoundValue(style));
+    setFieldValue(surface, fieldAttr, 'soundVolume', getInlineStyleSoundVolume(style));
+  }
+}
+
+function setColorField(surface, fieldAttr, field, color) {
+  if (!color) {
+    return;
+  }
+
+  const hex = colorToHex(color);
+  for (const control of surface.querySelectorAll(`[data-${kebabCase(fieldAttr)}="${cssEscape(field)}"][data-color-part="hex"]`)) {
+    control.value = hex;
+    control.classList.remove('is-invalid');
+  }
+}
+
+function setFieldValue(surface, fieldAttr, field, value) {
+  const control = surface.querySelector(`[data-${kebabCase(fieldAttr)}="${cssEscape(field)}"]:not([data-color-part])`);
+  if (!control) {
+    return;
+  }
+
+  if (control.tagName === 'SELECT') {
+    ensureSelectOption(control, value);
+  }
+  control.value = value;
+}
+
+function ensureSelectOption(select, value) {
+  const normalized = String(value ?? '');
+  if ([...select.options].some((option) => option.value === normalized)) {
+    return;
+  }
+
+  const option = document.createElement('option');
+  option.value = normalized;
+  option.textContent = normalized;
+  select.appendChild(option);
+}
+
+function kebabCase(value) {
+  return String(value || '').replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+}
+
+function cssEscape(value) {
+  return window.CSS?.escape ? window.CSS.escape(String(value)) : String(value).replace(/["\\]/g, '\\$&');
 }
 
 function clampFilterFontSize(value) {
@@ -2212,6 +2526,8 @@ function renderStyleList(profile) {
     const style = profile.styles?.[styleName] || {};
     const card = document.createElement('article');
     card.className = 'filter-style-card';
+    card.dataset.styleSurface = 'profile';
+    card.dataset.styleSurfaceStyleName = styleName;
 
     const header = document.createElement('div');
     header.className = 'filter-style-card__header';
@@ -2219,6 +2535,7 @@ function renderStyleList(profile) {
     title.className = 'filter-style-card__title';
     title.textContent = getStyleLabel(styleName);
     header.appendChild(title);
+    header.appendChild(createStyleClipboardActions());
     card.appendChild(header);
 
     const visualGrid = document.createElement('div');
@@ -2226,6 +2543,7 @@ function renderStyleList(profile) {
     appendColorControl(visualGrid, 'Text', styleName, 'textColor', style.textColor);
     appendColorControl(visualGrid, 'Background', styleName, 'backgroundColor', style.backgroundColor);
     appendColorControl(visualGrid, 'Border', styleName, 'borderColor', style.borderColor);
+    appendStyleOpacityControl(visualGrid, getStyleOpacity(style), { styleName, styleField: 'styleOpacity' });
     appendLabeled(visualGrid, 'Font size', createTextInput(style.fontSize || 32, { styleName, styleField: 'fontSize' }, 'number'));
     appendLabeled(visualGrid, 'Icon color', createSelect(style.minimapIcon?.color || 'None', ['None', 'Red', 'Green', 'Blue', 'Brown', 'White', 'Yellow', 'Cyan', 'Grey', 'Orange', 'Pink', 'Purple'], { styleName, styleField: 'iconColor' }));
     appendLabeled(visualGrid, 'Icon shape', createSelect(style.minimapIcon?.shape || 'Circle', ['Circle', 'Diamond', 'Hexagon', 'Square', 'Star', 'Triangle', 'Cross', 'Moon', 'Raindrop'], { styleName, styleField: 'iconShape' }));
@@ -2330,7 +2648,7 @@ function renderCategoryRuleList(categoryId, category = {}) {
   definition.list.innerHTML = '';
   setStatus(definition.status, `${entries.filter((entry) => entry.enabled !== false).length} ${definition.label.toLowerCase()} rules enabled.`);
 
-  if (categoryId === 'divinationCards') {
+  if (isTieredCategory(categoryId)) {
     renderDivinationCardTierList(categoryId, definition, category);
     return;
   }
@@ -2409,31 +2727,40 @@ function renderCategoryRuleList(categoryId, category = {}) {
 }
 
 function renderDivinationCardTierList(categoryId, definition, category = {}) {
-  const tierRows = getDivinationCardTierRows(category);
+  const tierConfig = getTieredCategoryConfig(categoryId);
+  const tierRows = getDivinationCardTierRows(category, tierConfig);
   const enabledCount = tierRows.filter((row) => row.rule.enabled !== false && (row.cards.length > 0 || row.catchAll)).length;
-  setStatus(definition.status, `${enabledCount} divination card tiers enabled.`);
+  setStatus(definition.status, `${enabledCount} ${tierConfig.statusLabel} enabled.`);
   definition.list.classList.add('div-card-tier-list');
   definition.list.appendChild(createCategoryBaselineRow(categoryId, definition, category));
 
   const toolbar = document.createElement('div');
   toolbar.className = 'div-card-tier-toolbar';
   const search = createTextInput('', { divCardTierSearch: 'true' }, 'search');
-  search.placeholder = 'Search cards in tiers';
+  search.placeholder = tierConfig.searchPlaceholder;
   toolbar.appendChild(search);
   definition.list.appendChild(toolbar);
 
   for (const tierRow of tierRows) {
-    definition.list.appendChild(createDivinationCardTierRow(category, tierRow));
+    definition.list.appendChild(createDivinationCardTierRow(category, tierRow, tierConfig));
   }
 }
 
-function getDivinationCardTierRows(category = {}) {
+function isTieredCategory(categoryId) {
+  return Boolean(TIERED_CATEGORY_CONFIGS[categoryId]);
+}
+
+function getTieredCategoryConfig(categoryId) {
+  return TIERED_CATEGORY_CONFIGS[categoryId] || TIERED_CATEGORY_CONFIGS.divinationCards;
+}
+
+function getDivinationCardTierRows(category = {}, tierConfig = TIERED_CATEGORY_CONFIGS.divinationCards) {
   const rules = [...(category.rules || [])];
   const usedRules = new Set();
-  const fixedDefaults = DIVINATION_CARD_TIER_DEFAULTS.map((tierDefault) => {
-    const byId = rules.find((rule) => getDivinationCardTierId(rule) === tierDefault.id);
+  const fixedDefaults = tierConfig.defaults.map((tierDefault) => {
+    const byId = rules.find((rule) => getDivinationCardTierId(rule, tierConfig) === tierDefault.id);
     const fallback = tierDefault.id === 'f'
-      ? rules.find((rule) => !usedRules.has(rule) && !getDivinationCardTierId(rule) && isDivinationCardCatchAllRule(rule))
+      ? rules.find((rule) => !usedRules.has(rule) && !getDivinationCardTierId(rule, tierConfig) && isDivinationCardCatchAllRule(rule, tierConfig))
       : undefined;
     const rule = byId || fallback;
     if (rule) {
@@ -2444,24 +2771,24 @@ function getDivinationCardTierRows(category = {}) {
       tierId: tierDefault.id,
       fixed: true,
       default: tierDefault,
-      catchAll: Boolean(rule ? (rule.catchAll || isDivinationCardCatchAllRule(rule)) : tierDefault.catchAll),
-      cards: rule ? getDivinationCardTierCards(rule) : [],
-      rule: rule || createDivinationCardTierRule(tierDefault)
+      catchAll: Boolean(rule ? (rule.catchAll || isDivinationCardCatchAllRule(rule, tierConfig)) : tierDefault.catchAll),
+      cards: rule ? getDivinationCardTierCards(rule, tierConfig) : [],
+      rule: rule || createDivinationCardTierRule(tierDefault, tierConfig)
     };
   });
 
   const customRows = rules
     .filter((rule) => !usedRules.has(rule))
     .map((rule, index) => ({
-      tierId: getDivinationCardTierId(rule) || `custom-${index}`,
+      tierId: getDivinationCardTierId(rule, tierConfig) || `custom-${index}`,
       fixed: false,
       default: {
-        id: getDivinationCardTierId(rule) || `custom-${index}`,
+        id: getDivinationCardTierId(rule, tierConfig) || `custom-${index}`,
         label: rule.label || `Custom Tier ${index + 1}`,
-        sample: getDivinationCardTierCards(rule)[0] || 'Divination Card'
+        sample: getDivinationCardTierCards(rule, tierConfig)[0] || 'Item'
       },
       catchAll: false,
-      cards: getDivinationCardTierCards(rule),
+      cards: getDivinationCardTierCards(rule, tierConfig),
       rule
     }));
 
@@ -2472,20 +2799,20 @@ function getDivinationCardTierRows(category = {}) {
   ];
 }
 
-function createDivinationCardTierRule(tierDefault = {}) {
+function createDivinationCardTierRule(tierDefault = {}, tierConfig = TIERED_CATEGORY_CONFIGS.divinationCards) {
   return {
     id: `divination-card-tier-${tierDefault.id || Date.now()}`,
-    divinationTierId: tierDefault.id || `custom-${Date.now()}`,
+    [tierConfig.idField]: tierDefault.id || `custom-${Date.now()}`,
     enabled: true,
     action: 'Show',
-    label: tierDefault.label || 'Custom Tier',
+    label: tierDefault.label || tierConfig.customLabel,
     source: 'category-rule',
     style: INHERIT_STYLE,
     tier: 'baseline',
     overrideCategoryStyle: true,
     styleOverride: createDivinationCardTierStyle(tierDefault),
     catchAll: Boolean(tierDefault.catchAll),
-    conditions: [{ key: 'Class', value: 'Divination Cards' }]
+    conditions: structuredClone(tierConfig.defaultConditions)
   };
 }
 
@@ -2506,7 +2833,7 @@ function createDivinationCardTierStyle(tierDefault = {}) {
   };
 }
 
-function createDivinationCardTierRow(category, tierRow) {
+function createDivinationCardTierRow(category, tierRow, tierConfig = TIERED_CATEGORY_CONFIGS.divinationCards) {
   const row = document.createElement('article');
   row.className = 'div-card-tier-row';
   row.dataset.divCardTierRow = 'true';
@@ -2548,7 +2875,7 @@ function createDivinationCardTierRow(category, tierRow) {
   const addRow = document.createElement('div');
   addRow.className = 'div-card-tier-add-row';
   const addInput = createTextInput('', { divCardTierAddInput: 'true' });
-  addInput.placeholder = 'Add card name';
+  addInput.placeholder = tierConfig.itemPlaceholder;
   const addButton = document.createElement('button');
   addButton.type = 'button';
   addButton.textContent = 'Add Card';
@@ -2564,7 +2891,7 @@ function createDivinationCardTierRow(category, tierRow) {
   catchAllInput.checked = Boolean(tierRow.catchAll);
   catchAllInput.dataset.divCardTierField = 'catchAll';
   catchAll.appendChild(catchAllInput);
-  catchAll.appendChild(document.createTextNode(' Catch all unmatched div cards'));
+  catchAll.appendChild(document.createTextNode(tierConfig.fallbackText));
   if (tierRow.tierId === 'f') {
     row.appendChild(catchAll);
   }
@@ -2603,9 +2930,9 @@ function createDivinationCardChip(cardName) {
   return chip;
 }
 
-function getDivinationCardTierId(rule = {}) {
-  if (rule.divinationTierId) {
-    return String(rule.divinationTierId);
+function getDivinationCardTierId(rule = {}, tierConfig = TIERED_CATEGORY_CONFIGS.divinationCards) {
+  if (rule[tierConfig.idField]) {
+    return String(rule[tierConfig.idField]);
   }
 
   const label = String(rule.label || '').trim().toLowerCase();
@@ -2617,13 +2944,17 @@ function getDivinationCardTierId(rule = {}) {
   return undefined;
 }
 
-function isDivinationCardCatchAllRule(rule = {}) {
-  return (rule.conditions || []).some((condition) => (
-    condition.key === 'Class' && conditionValueIncludes(condition.value, 'Divination Cards')
-  )) && !getConditionValues(rule, 'BaseType').length;
+function isDivinationCardCatchAllRule(rule = {}, tierConfig = TIERED_CATEGORY_CONFIGS.divinationCards) {
+  return tierConfig.defaultConditions.every((expected) => (rule.conditions || []).some((condition) => (
+    condition.key === expected.key && conditionValueIncludes(condition.value, expected.value)
+  ))) && !getConditionValues(rule, 'BaseType').length;
 }
 
-function getDivinationCardTierCards(rule = {}) {
+function getDivinationCardTierCards(rule = {}, tierConfig = TIERED_CATEGORY_CONFIGS.divinationCards) {
+  if (Array.isArray(rule[tierConfig.itemsField])) {
+    return rule[tierConfig.itemsField].map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+
   if (Array.isArray(rule.tierItems)) {
     return rule.tierItems.map((entry) => String(entry || '').trim()).filter(Boolean);
   }
@@ -5038,18 +5369,27 @@ function collectStyles() {
     const style = styles[styleName] || {};
     const controls = [...filterStyleList.querySelectorAll(`[data-style-name="${styleName}"]`)];
     const colorGroups = {};
+    let styleOpacity = getStyleOpacity(style);
 
     for (const control of controls) {
       const field = control.dataset.styleField;
       if (!field) continue;
 
       if (control.dataset.colorPart) {
+        if (control.dataset.colorPart === 'hex'
+          && control.dataset.colorInputRole === 'text'
+          && !normalizeHexColor(control.value, '')) {
+          continue;
+        }
         colorGroups[field] ||= {};
         colorGroups[field][control.dataset.colorPart] = control.value;
         continue;
       }
 
-      if (field === 'fontSize') {
+      if (field === 'styleOpacity') {
+        styleOpacity = normalizeStyleOpacity(control.value);
+        style.opacity = styleOpacity;
+      } else if (field === 'fontSize') {
         style.fontSize = Number(control.value);
       } else if (field === 'alertSoundId') {
         const id = Number(control.value);
@@ -5081,7 +5421,7 @@ function collectStyles() {
     }
 
     for (const [field, parts] of Object.entries(colorGroups)) {
-      const color = hexToColor(parts.hex, parts.alpha);
+      const color = hexToColor(parts.hex, styleOpacity);
       if (field.startsWith('tierBorder:')) {
         const tier = field.split(':')[1];
         style.tierBorders ||= {};
@@ -5207,8 +5547,8 @@ function collectCategoryRules() {
       style: definition.defaultStyle,
       tier: 'baseline',
       styleConfig: baselineRow ? collectInlineStyleConfig(baselineRow, existingCategory.styleConfig) : existingCategory.styleConfig,
-      rules: categoryId === 'divinationCards'
-        ? collectDivinationCardTierRules(definition.list, existingCategory)
+      rules: isTieredCategory(categoryId)
+        ? collectDivinationCardTierRules(categoryId, definition.list, existingCategory)
         : [...definition.list.querySelectorAll(`[data-category-rule-category="${categoryId}"]`)]
           .map((row) => collectCategoryRuleRow(categoryId, row))
           .filter((rule) => rule.conditions.length > 0)
@@ -5217,7 +5557,8 @@ function collectCategoryRules() {
   return output;
 }
 
-function collectDivinationCardTierRules(list, existingCategory = {}) {
+function collectDivinationCardTierRules(categoryId, list, existingCategory = {}) {
+  const tierConfig = getTieredCategoryConfig(categoryId);
   const categoryStyle = existingCategory.styleConfig || {};
   return [...list.querySelectorAll('[data-div-card-tier-row]')]
     .map((row, index) => {
@@ -5231,14 +5572,14 @@ function collectDivinationCardTierRules(list, existingCategory = {}) {
         return undefined;
       }
 
-      const conditions = [{ key: 'Class', value: 'Divination Cards' }];
+      const conditions = structuredClone(tierConfig.defaultConditions);
       if (!catchAll) {
         conditions.push({ key: 'BaseType', value: cards });
       }
 
       return {
-        id: `divination-card-tier-${row.dataset.divCardTierId || index}`,
-        divinationTierId: row.dataset.divCardTierId || `custom-${index}`,
+        id: `${categoryId}-tier-${row.dataset.divCardTierId || index}`,
+        [tierConfig.idField]: row.dataset.divCardTierId || `custom-${index}`,
         enabled: get('enabled')?.checked !== false,
         action: get('action')?.value || 'Show',
         label,
@@ -5248,7 +5589,7 @@ function collectDivinationCardTierRules(list, existingCategory = {}) {
         overrideCategoryStyle: true,
         styleOverride: collectInlineStyleConfig(row, categoryStyle),
         catchAll,
-        tierItems: cards,
+        [tierConfig.itemsField]: cards,
         conditions
       };
     })
@@ -5846,6 +6187,20 @@ if (lootFilterPanel) {
 }
 
 document.addEventListener('click', (event) => {
+  const copyStyleButton = event.target?.closest?.('[data-copy-style]');
+  if (copyStyleButton) {
+    event.preventDefault();
+    copyStyleFromButton(copyStyleButton);
+    return;
+  }
+
+  const pasteStyleButton = event.target?.closest?.('[data-paste-style]');
+  if (pasteStyleButton) {
+    event.preventDefault();
+    pasteStyleFromButton(pasteStyleButton);
+    return;
+  }
+
   const openPickerButton = event.target?.closest?.('[data-open-base-name-picker]');
   if (openPickerButton) {
     event.preventDefault();
@@ -5902,6 +6257,10 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+  if (syncColorControlInput(event.target)) {
+    return;
+  }
+
   if (!baseNamePickerState || !event.target?.matches?.('[data-base-picker-search]')) {
     return;
   }
@@ -5910,6 +6269,10 @@ document.addEventListener('input', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (syncColorControlInput(event.target)) {
+    return;
+  }
+
   if (!baseNamePickerState) {
     return;
   }
@@ -6251,9 +6614,28 @@ if (populateDivinationCardTiersButton) {
   });
 }
 
+if (populateUniqueTiersButton) {
+  populateUniqueTiersButton.addEventListener('click', () => {
+    runButton(populateUniqueTiersButton, uniqueRulesStatus, 'Populating...', async () => {
+      await saveLootFilterWorkbenchState();
+      const state = await window.poehelper.populateUniqueTiers();
+      renderLootFilterState(state);
+      const refresh = state.uniqueTierRefresh || {};
+      const counts = refresh.tierCounts || {};
+      const countText = ['s', 'a', 'b', 'c', 'd', 'f']
+        .map((tierId) => `${tierId.toUpperCase()}: ${counts[tierId] || 0}`)
+        .join(', ');
+      setStatus(
+        uniqueRulesStatus,
+        `Populated ${refresh.totalBases || 0} unique base types from ${refresh.source || 'economy'} for ${refresh.league || 'current league'} (${countText}). Save Changes or Write Filter File when ready.`
+      );
+    });
+  });
+}
+
 function addCategoryRule(categoryId) {
   const definition = CATEGORY_RULE_DEFINITIONS[categoryId];
-  if (categoryId === 'divinationCards') {
+  if (isTieredCategory(categoryId)) {
     addDivinationCardTier(categoryId, definition);
     return;
   }
@@ -6277,6 +6659,7 @@ function addCategoryRule(categoryId) {
 }
 
 function addDivinationCardTier(categoryId, definition) {
+  const tierConfig = getTieredCategoryConfig(categoryId);
   lootFilterState.profile.categoryRules ||= {};
   const current = collectCategoryRules()[categoryId] || { enabled: true, rules: [] };
   const customId = `custom-${Date.now()}`;
@@ -6287,17 +6670,17 @@ function addDivinationCardTier(categoryId, definition) {
       {
         ...createDivinationCardTierRule({
           id: customId,
-          label: 'Custom Tier',
-          sample: 'Divination Card'
-        }),
-        id: `divination-card-tier-${customId}`,
-        divinationTierId: customId,
+          label: tierConfig.customLabel,
+          sample: 'Item'
+        }, tierConfig),
+        id: `${categoryId}-tier-${customId}`,
+        [tierConfig.idField]: customId,
         catchAll: false
       }
     ]
   };
   renderCategoryRuleList(categoryId, lootFilterState.profile.categoryRules[categoryId]);
-  setStatus(definition.status, 'Custom divination card tier added. Add card names, then Save Changes.');
+  setStatus(definition.status, `Custom ${definition.label.toLowerCase()} tier added. Add names, then Save Changes.`);
 }
 
 if (filterPreviewSearchInput) {
@@ -6475,7 +6858,7 @@ specialItemList.addEventListener('click', (event) => {
 
 for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
   definition.list.addEventListener('click', (event) => {
-    if (categoryId === 'divinationCards') {
+    if (isTieredCategory(categoryId)) {
       const addButton = event.target?.closest?.('[data-div-card-tier-add]');
       if (addButton) {
         const row = addButton.closest('[data-div-card-tier-row]');
@@ -6485,7 +6868,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
           input.value = '';
           input.focus();
         }
-        setStatus(definition.status, 'Divination card added to tier. Save Changes to keep this change.');
+        setStatus(definition.status, `${definition.label} entry added to tier. Save Changes to keep this change.`);
         return;
       }
 
@@ -6497,7 +6880,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
           updateDivinationCardTierSummary(tier);
         }
         updateDivinationCardTierSearch(list, list.querySelector('[data-div-card-tier-search]')?.value);
-        setStatus(definition.status, 'Divination card removed from tier. Save Changes to keep this change.');
+        setStatus(definition.status, `${definition.label} entry removed from tier. Save Changes to keep this change.`);
         return;
       }
     }
@@ -6530,13 +6913,13 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
   });
 
   definition.list.addEventListener('input', (event) => {
-    if (categoryId === 'divinationCards' && event.target?.dataset?.divCardTierSearch) {
+    if (isTieredCategory(categoryId) && event.target?.dataset?.divCardTierSearch) {
       updateDivinationCardTierSearch(definition.list, event.target.value);
     }
   });
 
   definition.list.addEventListener('keydown', (event) => {
-    if (categoryId !== 'divinationCards' || event.key !== 'Enter' || !event.target?.dataset?.divCardTierAddInput) {
+    if (!isTieredCategory(categoryId) || event.key !== 'Enter' || !event.target?.dataset?.divCardTierAddInput) {
       return;
     }
 
@@ -6545,7 +6928,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
   });
 
   definition.list.addEventListener('dragstart', (event) => {
-    if (categoryId !== 'divinationCards') {
+    if (!isTieredCategory(categoryId)) {
       return;
     }
 
@@ -6557,7 +6940,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
   });
 
   definition.list.addEventListener('dragover', (event) => {
-    if (categoryId !== 'divinationCards' || !event.target?.closest?.('[data-div-card-tier-drop]')) {
+    if (!isTieredCategory(categoryId) || !event.target?.closest?.('[data-div-card-tier-drop]')) {
       return;
     }
 
@@ -6566,7 +6949,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
   });
 
   definition.list.addEventListener('drop', (event) => {
-    if (categoryId !== 'divinationCards') {
+    if (!isTieredCategory(categoryId)) {
       return;
     }
 
@@ -6579,7 +6962,7 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
     event.preventDefault();
     addDivinationCardNameToTier(row, cardName);
     updateDivinationCardTierSearch(definition.list, definition.list.querySelector('[data-div-card-tier-search]')?.value);
-    setStatus(definition.status, 'Divination card moved between tiers. Save Changes to keep this change.');
+    setStatus(definition.status, `${definition.label} entry moved between tiers. Save Changes to keep this change.`);
   });
 }
 

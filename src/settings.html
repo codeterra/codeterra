@@ -465,19 +465,23 @@
                       <button type="button" data-grouped-tab="misc-items" data-grouped-target="gems">Gems</button>
                       <button type="button" data-grouped-tab="misc-items" data-grouped-target="jewels">Jewels</button>
                       <button type="button" data-grouped-tab="misc-items" data-grouped-target="chance">Chancing</button>
+                      <button type="button" data-grouped-tab="misc-items" data-grouped-target="flasks">Flasks</button>
                       <button type="button" data-grouped-tab="misc-items" data-grouped-target="misc">Misc</button>
                     </nav>
                     <div class="grouped-panes">
                       <section class="grouped-pane is-active" data-grouped-pane="misc-items" data-grouped-panel="uniques">
                         <div class="section-heading-row">
                           <h3>Unique Rules</h3>
-                          <button id="add-unique-rule-button" type="button">Add Unique Rule</button>
+                          <div class="section-heading-actions">
+                            <button id="populate-unique-tiers-button" type="button">Populate from Economy</button>
+                            <button id="add-unique-rule-button" type="button">Add Custom Tier</button>
+                          </div>
                         </div>
                         <label class="inline-toggle">
                           <input id="unique-rules-enabled-input" type="checkbox">
                           Enable unique category rules
                         </label>
-                        <p id="unique-rules-status" class="status-line">Style unique items by class, base type, item level, or other rule fields.</p>
+                        <p id="unique-rules-status" class="status-line">Group unique base types into styleable tiers. Item filters match unique bases, not unique names.</p>
                         <div id="unique-rule-list" class="category-rule-list"></div>
                       </section>
                       <section class="grouped-pane" data-grouped-pane="misc-items" data-grouped-panel="gems">
@@ -529,6 +533,8 @@
                         </label>
                         <p id="misc-rules-status" class="status-line">Show 6-links, 6-sockets, RGB links, and quality recipe items before equipment hiding rules.</p>
                         <div id="misc-rule-list" class="misc-rule-list"></div>
+                      </section>
+                      <section class="grouped-pane" data-grouped-pane="misc-items" data-grouped-panel="flasks">
                         <div class="section-heading-row">
                           <h3>Flask Rules</h3>
                           <button id="add-flask-rule-button" type="button">Add Flask Rule</button>

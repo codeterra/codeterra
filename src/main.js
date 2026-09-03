@@ -40,6 +40,7 @@ const {
   getLootFilterSoundPreview,
   importLootFilterProfile,
   populateDivinationCardTiersFromEconomy,
+  populateUniqueTiersFromEconomy,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
   sanitizeFilterFileName,
@@ -2297,6 +2298,25 @@ ipcMain.handle('populate-divination-card-tiers', async () => {
     const classified = classifyError(error);
     recordApiError('divination-card-tiers', error, classified);
     throw new Error(formatErrorMessage('Divination card tier refresh failed', error));
+  }
+});
+
+ipcMain.handle('populate-unique-tiers', async () => {
+  try {
+    const update = await populateUniqueTiersFromEconomy(settings, settings.league || 'Standard');
+    settings = writeSettings({
+      ...settings,
+      lootFilter: update.lootFilter
+    });
+    publishSettings();
+    return {
+      ...(await getLootFilterState(settings)),
+      uniqueTierRefresh: update.result
+    };
+  } catch (error) {
+    const classified = classifyError(error);
+    recordApiError('unique-tiers', error, classified);
+    throw new Error(formatErrorMessage('Unique tier refresh failed', error));
   }
 });
 

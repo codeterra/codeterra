@@ -12,7 +12,8 @@ const {
 const { EQUIPMENT_BASE_REQUIREMENTS } = require('../data/equipment-base-requirements');
 const {
   refreshDivinationCardTierRules,
-  refreshEconomyHighlightRules
+  refreshEconomyHighlightRules,
+  refreshUniqueTierRules
 } = require('./economy-highlights');
 const { getChanceBaseOptions } = require('./base-type-catalog');
 const { getCatalogMetadata } = require('./catalog-metadata');
@@ -447,6 +448,25 @@ async function populateDivinationCardTiersFromEconomy(settings, league) {
   };
 }
 
+async function populateUniqueTiersFromEconomy(settings, league) {
+  const lootFilter = normalizeLootFilterSettings(settings.lootFilter);
+  const categoryRules = lootFilter.profile.categoryRules || {};
+  const currentCategory = categoryRules.uniques || {};
+  const result = await refreshUniqueTierRules(league, currentCategory);
+  return {
+    lootFilter: updateActiveProfileEntry(lootFilter, {
+      profile: normalizeLootFilterProfile({
+        ...lootFilter.profile,
+        categoryRules: {
+          ...categoryRules,
+          uniques: result.category
+        }
+      })
+    }),
+    result
+  };
+}
+
 function writeLootFilter(settings) {
   const lootFilter = normalizeLootFilterSettings(settings.lootFilter);
   const output = generateLootFilter(lootFilter.profile);
@@ -779,6 +799,7 @@ module.exports = {
   importLootFilterProfile,
   normalizeLootFilterSettings,
   populateDivinationCardTiersFromEconomy,
+  populateUniqueTiersFromEconomy,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
   restoreLootFilterHistory,

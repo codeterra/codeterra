@@ -145,6 +145,9 @@ contextBridge.exposeInMainWorld('poehelper', {
   populateDivinationCardTiers() {
     return ipcRenderer.invoke('populate-divination-card-tiers');
   },
+  populateUniqueTiers() {
+    return ipcRenderer.invoke('populate-unique-tiers');
+  },
   setShortcuts(shortcuts) {
     return ipcRenderer.invoke('set-shortcuts', shortcuts);
   },

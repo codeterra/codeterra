@@ -81,6 +81,13 @@ const DEFAULT_DIVINATION_CARD_ECONOMY_TIERS = [
   { id: 'f', label: 'F Tier', minChaos: 0, catchAll: true }
 ];
 
+const DEFAULT_UNIQUE_ECONOMY_TYPES = [
+  'UniqueAccessory',
+  'UniqueArmour',
+  'UniqueWeapon',
+  'UniqueFlask'
+];
+
 const DEFAULT_DIVINATION_CARD_TIER_STYLES = {
   s: { textColor: [255, 255, 255, 255], backgroundColor: [0, 0, 0, 255], borderColor: [255, 70, 70, 255], fontSize: 45, minimapIcon: { color: 'Red', shape: 'Square', size: 1 }, beam: { color: 'Red', temporary: true }, alertSound: null, customAlertSound: null },
   a: { textColor: [255, 244, 180, 255], backgroundColor: [0, 0, 0, 235], borderColor: [255, 210, 80, 255], fontSize: 42, minimapIcon: { color: 'Yellow', shape: 'Square', size: 1 }, beam: { color: 'Yellow', temporary: true }, alertSound: null, customAlertSound: null },
@@ -465,6 +472,26 @@ async function refreshDivinationCardTierRules(league, category = {}) {
   });
 }
 
+async function refreshUniqueTierRules(league, category = {}) {
+  const currencyEndpoint = getPoeNinjaEndpoint('Currency');
+  const [currencyOverview, ...uniqueOverviews] = await Promise.all([
+    fetchPoeNinjaOverview(league, 'Currency', currencyEndpoint).catch(() => undefined),
+    ...DEFAULT_UNIQUE_ECONOMY_TYPES.map(async (type) => ({
+      type,
+      endpoint: getPoeNinjaEndpoint(type),
+      overview: await fetchPoeNinjaOverview(league, type, getPoeNinjaEndpoint(type))
+    }))
+  ]);
+
+  return createUniqueTierRulesFromOverviews({
+    league,
+    category,
+    currencyOverview,
+    overviews: uniqueOverviews,
+    currencyEndpoint
+  });
+}
+
 function createDivinationCardTierRulesFromOverviews({
   league,
   category = {},
@@ -556,9 +583,125 @@ function createDivinationCardTierRulesFromOverviews({
   };
 }
 
+function createUniqueTierRulesFromOverviews({
+  league,
+  category = {},
+  overviews = [],
+  currencyOverview,
+  currencyEndpoint = 'stash/current/currency/overview'
+} = {}) {
+  const divineChaosValue = findDivineChaosValue([
+    { type: 'Currency', endpoint: currencyEndpoint, overview: currencyOverview }
+  ]) || 150;
+  const existingRules = Array.isArray(category.rules) ? category.rules : [];
+  const existingByTier = new Map(existingRules
+    .filter((rule) => rule?.uniqueTierId)
+    .map((rule) => [String(rule.uniqueTierId), rule]));
+  const customRules = existingRules.filter((rule) => {
+    const tierId = String(rule?.uniqueTierId || '');
+    return tierId
+      && !DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.some((tier) => tier.id === tierId)
+      && getUniqueTierItems(rule).length > 0;
+  });
+  const customNames = new Set(customRules.flatMap(getUniqueTierItems).map((name) => normalizeName(name).toLowerCase()));
+  const byBase = new Map();
+
+  for (const { type, overview } of overviews) {
+    for (const row of overview?.lines || []) {
+      const baseType = normalizeName(row.baseType);
+      const chaosValue = Number(row.chaosValue);
+      if (!baseType || !Number.isFinite(chaosValue) || customNames.has(baseType.toLowerCase())) {
+        continue;
+      }
+
+      const current = byBase.get(baseType.toLowerCase());
+      if (!current || chaosValue > current.chaosValue) {
+        byBase.set(baseType.toLowerCase(), {
+          baseType,
+          chaosValue,
+          providerType: type,
+          displayName: normalizeName(row.name || baseType)
+        });
+      }
+    }
+  }
+
+  const rows = [...byBase.values()]
+    .sort((left, right) => right.chaosValue - left.chaosValue || left.baseType.localeCompare(right.baseType));
+  const namesByTier = new Map(DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.map((tier) => [tier.id, []]));
+
+  for (const item of rows) {
+    const tier = DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.find((candidate) => {
+      const minChaos = getTierMinChaos(candidate, divineChaosValue);
+      return item.chaosValue >= minChaos;
+    }) || DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.at(-1);
+    namesByTier.get(tier.id).push(item.baseType);
+  }
+
+  const fixedRules = DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.map((tier) => {
+    const existing = existingByTier.get(tier.id) || {};
+    const names = namesByTier.get(tier.id) || [];
+    if (!tier.catchAll && names.length === 0) {
+      return undefined;
+    }
+
+    const conditions = [{ key: 'Rarity', value: 'Unique' }];
+    if (!tier.catchAll) {
+      conditions.push({ key: 'BaseType', value: names });
+    }
+
+    return {
+      ...existing,
+      id: existing.id || `uniques-tier-${tier.id}`,
+      uniqueTierId: tier.id,
+      enabled: existing.enabled !== false,
+      action: existing.action || 'Show',
+      label: existing.label || tier.label,
+      source: 'category-rule',
+      style: existing.style || '__inherit',
+      tier: 'baseline',
+      overrideCategoryStyle: existing.overrideCategoryStyle !== false,
+      styleOverride: existing.styleOverride || DEFAULT_DIVINATION_CARD_TIER_STYLES[tier.id],
+      catchAll: Boolean(tier.catchAll),
+      uniqueTierItems: names,
+      conditions
+    };
+  }).filter(Boolean);
+
+  return {
+    category: {
+      ...category,
+      enabled: category.enabled !== false,
+      rules: [
+        ...fixedRules.filter((rule) => rule.uniqueTierId !== 'f'),
+        ...customRules,
+        ...fixedRules.filter((rule) => rule.uniqueTierId === 'f')
+      ]
+    },
+    source: 'poe.ninja',
+    league,
+    refreshedAt: new Date().toISOString(),
+    totalBases: rows.length,
+    divineChaosValue,
+    tierCounts: Object.fromEntries([...namesByTier.entries()].map(([tierId, names]) => [tierId, names.length]))
+  };
+}
+
 function getDivinationTierItems(rule = {}) {
   if (Array.isArray(rule.tierItems)) {
     return rule.tierItems;
+  }
+
+  const baseType = (rule.conditions || []).find((condition) => condition.key === 'BaseType')?.value;
+  if (Array.isArray(baseType)) {
+    return baseType;
+  }
+  return baseType ? [baseType] : [];
+}
+
+function getUniqueTierItems(rule = {}) {
+  if (Array.isArray(rule.uniqueTierItems)) {
+    return rule.uniqueTierItems;
   }
 
   const baseType = (rule.conditions || []).find((condition) => condition.key === 'BaseType')?.value;
@@ -575,8 +718,10 @@ module.exports = {
   DEFAULT_ECONOMY_TIERS,
   DEFAULT_DIVINATION_CARD_ECONOMY_TIERS,
   createDivinationCardTierRulesFromOverviews,
+  createUniqueTierRulesFromOverviews,
   createEconomyRuleSnapshotFromOverviews,
   createEconomyRulesFromOverviews,
   refreshDivinationCardTierRules,
+  refreshUniqueTierRules,
   refreshEconomyHighlightRules
 };

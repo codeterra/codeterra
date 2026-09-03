@@ -17,7 +17,8 @@ const { EQUIPMENT_BASE_REQUIREMENTS } = require('../src/data/equipment-base-requ
 const {
   createDivinationCardTierRulesFromOverviews,
   createEconomyRuleSnapshotFromOverviews,
-  createEconomyRulesFromOverviews
+  createEconomyRulesFromOverviews,
+  createUniqueTierRulesFromOverviews
 } = require('../src/services/economy-highlights');
 const { summarizeFilterFileDiff } = require('../src/services/loot-filter-diff');
 const { generateLootFilter } = require('../src/services/loot-filter-generator');
@@ -721,6 +722,78 @@ assert.equal(
   populatedDivinationTiers.category.rules.find((rule) => rule.divinationTierId === 'f').catchAll,
   true
 );
+
+const populatedUniqueTiers = createUniqueTierRulesFromOverviews({
+  league: 'Mercenaries',
+  category: {
+    enabled: true,
+    rules: [
+      {
+        id: 'uniques-tier-custom',
+        uniqueTierId: 'custom-belts',
+        enabled: true,
+        action: 'Show',
+        label: 'Custom belts',
+        source: 'category-rule',
+        style: '__inherit',
+        uniqueTierItems: ['Heavy Belt'],
+        conditions: [
+          { key: 'Rarity', value: 'Unique' },
+          { key: 'BaseType', value: ['Heavy Belt'] }
+        ]
+      }
+    ]
+  },
+  overviews: [
+    {
+      type: 'UniqueAccessory',
+      endpoint: 'stash/current/item/overview',
+      overview: {
+        lines: [
+          { name: 'Mageblood', baseType: 'Heavy Belt', chaosValue: 5000 },
+          { name: 'Astral Projector', baseType: 'Topaz Ring', chaosValue: 250 },
+          { name: 'Le Heup of All', baseType: 'Iron Ring', chaosValue: 1 }
+        ]
+      }
+    },
+    {
+      type: 'UniqueArmour',
+      endpoint: 'stash/current/item/overview',
+      overview: {
+        lines: [
+          { name: 'Progenesis', baseType: 'Amethyst Flask', chaosValue: 2200 },
+          { name: 'The Squire', baseType: 'Elegant Round Shield', chaosValue: 120 }
+        ]
+      }
+    }
+  ],
+  currencyOverview: {
+    lines: [
+      { currencyTypeName: 'Divine Orb', chaosEquivalent: 200 }
+    ]
+  }
+});
+assert.deepEqual(populatedUniqueTiers.tierCounts, { s: 1, a: 1, b: 1, c: 0, d: 0, f: 1 });
+assert.deepEqual(
+  populatedUniqueTiers.category.rules.map((rule) => rule.uniqueTierId),
+  ['s', 'a', 'b', 'custom-belts', 'f']
+);
+assert.deepEqual(
+  populatedUniqueTiers.category.rules.find((rule) => rule.uniqueTierId === 'a').uniqueTierItems,
+  ['Topaz Ring']
+);
+assert.equal(
+  populatedUniqueTiers.category.rules.find((rule) => rule.uniqueTierId === 'custom-belts').uniqueTierItems.includes('Heavy Belt'),
+  true
+);
+const uniqueTierOutput = generateLootFilter(normalizeLootFilterProfile({
+  categoryRules: {
+    uniques: populatedUniqueTiers.category
+  }
+}));
+const uniqueSBlock = getRuleBlock(uniqueTierOutput, 'S Tier');
+assert.match(uniqueSBlock, /Rarity Unique/);
+assert.match(uniqueSBlock, /BaseType "Amethyst Flask"/);
 
 const importedFilterText = [
   '# Friend filter',
