@@ -39,6 +39,7 @@ const {
   getLootFilterState,
   getLootFilterSoundPreview,
   importLootFilterProfile,
+  populateDivinationCardTiersFromEconomy,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
   sanitizeFilterFileName,
@@ -2277,6 +2278,25 @@ ipcMain.handle('refresh-loot-filter-economy', async () => {
     const classified = classifyError(error);
     recordApiError('loot-filter-economy', error, classified);
     throw new Error(formatErrorMessage('Economy highlight refresh failed', error));
+  }
+});
+
+ipcMain.handle('populate-divination-card-tiers', async () => {
+  try {
+    const update = await populateDivinationCardTiersFromEconomy(settings, settings.league || 'Standard');
+    settings = writeSettings({
+      ...settings,
+      lootFilter: update.lootFilter
+    });
+    publishSettings();
+    return {
+      ...(await getLootFilterState(settings)),
+      divinationCardTierRefresh: update.result
+    };
+  } catch (error) {
+    const classified = classifyError(error);
+    recordApiError('divination-card-tiers', error, classified);
+    throw new Error(formatErrorMessage('Divination card tier refresh failed', error));
   }
 });
 

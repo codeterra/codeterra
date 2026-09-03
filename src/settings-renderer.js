@@ -150,6 +150,7 @@ const divinationCardRulesEnabledInput = document.querySelector('#divination-card
 const divinationCardRulesStatus = document.querySelector('#divination-card-rules-status');
 const divinationCardRuleList = document.querySelector('#divination-card-rule-list');
 const addDivinationCardRuleButton = document.querySelector('#add-divination-card-rule-button');
+const populateDivinationCardTiersButton = document.querySelector('#populate-divination-card-tiers-button');
 const oilRulesEnabledInput = document.querySelector('#oil-rules-enabled-input');
 const oilRulesStatus = document.querySelector('#oil-rules-status');
 const oilRuleList = document.querySelector('#oil-rule-list');
@@ -312,6 +313,14 @@ const STYLE_TIER_LABELS = {
   high: 'High',
   valuable: 'Valuable'
 };
+const DIVINATION_CARD_TIER_DEFAULTS = [
+  { id: 's', label: 'S Tier', sample: 'The Doctor', textColor: [255, 255, 255, 255], backgroundColor: [0, 0, 0, 255], borderColor: [255, 70, 70, 255], fontSize: 45, iconColor: 'Red', beamColor: 'Red' },
+  { id: 'a', label: 'A Tier', sample: 'Brother\'s Gift', textColor: [255, 244, 180, 255], backgroundColor: [0, 0, 0, 235], borderColor: [255, 210, 80, 255], fontSize: 42, iconColor: 'Yellow', beamColor: 'Yellow' },
+  { id: 'b', label: 'B Tier', sample: 'The Enlightened', textColor: [170, 230, 255, 255], backgroundColor: [0, 0, 0, 220], borderColor: [70, 190, 255, 255], fontSize: 38, iconColor: 'Cyan', beamColor: 'None' },
+  { id: 'c', label: 'C Tier', sample: 'The Chains that Bind', textColor: [210, 220, 232, 255], backgroundColor: [0, 0, 0, 200], borderColor: [150, 170, 190, 255], fontSize: 34, iconColor: 'White', beamColor: 'None' },
+  { id: 'd', label: 'D Tier', sample: 'Her Mask', textColor: [170, 180, 190, 255], backgroundColor: [0, 0, 0, 180], borderColor: [85, 100, 115, 255], fontSize: 30, iconColor: 'Grey', beamColor: 'None' },
+  { id: 'f', label: 'F Tier', sample: 'Divination Card', textColor: [120, 130, 140, 255], backgroundColor: [0, 0, 0, 140], borderColor: [55, 65, 75, 200], fontSize: 26, iconColor: 'None', beamColor: 'None', catchAll: true }
+];
 const DEFAULT_STYLE_OPTIONS = Object.keys(STYLE_LABELS);
 const OIL_BASE_TYPES = [
   'Golden Oil',
@@ -2321,6 +2330,11 @@ function renderCategoryRuleList(categoryId, category = {}) {
   definition.list.innerHTML = '';
   setStatus(definition.status, `${entries.filter((entry) => entry.enabled !== false).length} ${definition.label.toLowerCase()} rules enabled.`);
 
+  if (categoryId === 'divinationCards') {
+    renderDivinationCardTierList(categoryId, definition, category);
+    return;
+  }
+
   definition.list.appendChild(createCategoryBaselineRow(categoryId, definition, category));
 
   if (entries.length === 0) {
@@ -2392,6 +2406,282 @@ function renderCategoryRuleList(categoryId, category = {}) {
     row.appendChild(conditionSummary);
     definition.list.appendChild(row);
   });
+}
+
+function renderDivinationCardTierList(categoryId, definition, category = {}) {
+  const tierRows = getDivinationCardTierRows(category);
+  const enabledCount = tierRows.filter((row) => row.rule.enabled !== false && (row.cards.length > 0 || row.catchAll)).length;
+  setStatus(definition.status, `${enabledCount} divination card tiers enabled.`);
+  definition.list.classList.add('div-card-tier-list');
+  definition.list.appendChild(createCategoryBaselineRow(categoryId, definition, category));
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'div-card-tier-toolbar';
+  const search = createTextInput('', { divCardTierSearch: 'true' }, 'search');
+  search.placeholder = 'Search cards in tiers';
+  toolbar.appendChild(search);
+  definition.list.appendChild(toolbar);
+
+  for (const tierRow of tierRows) {
+    definition.list.appendChild(createDivinationCardTierRow(category, tierRow));
+  }
+}
+
+function getDivinationCardTierRows(category = {}) {
+  const rules = [...(category.rules || [])];
+  const usedRules = new Set();
+  const fixedDefaults = DIVINATION_CARD_TIER_DEFAULTS.map((tierDefault) => {
+    const byId = rules.find((rule) => getDivinationCardTierId(rule) === tierDefault.id);
+    const fallback = tierDefault.id === 'f'
+      ? rules.find((rule) => !usedRules.has(rule) && !getDivinationCardTierId(rule) && isDivinationCardCatchAllRule(rule))
+      : undefined;
+    const rule = byId || fallback;
+    if (rule) {
+      usedRules.add(rule);
+    }
+
+    return {
+      tierId: tierDefault.id,
+      fixed: true,
+      default: tierDefault,
+      catchAll: Boolean(rule ? (rule.catchAll || isDivinationCardCatchAllRule(rule)) : tierDefault.catchAll),
+      cards: rule ? getDivinationCardTierCards(rule) : [],
+      rule: rule || createDivinationCardTierRule(tierDefault)
+    };
+  });
+
+  const customRows = rules
+    .filter((rule) => !usedRules.has(rule))
+    .map((rule, index) => ({
+      tierId: getDivinationCardTierId(rule) || `custom-${index}`,
+      fixed: false,
+      default: {
+        id: getDivinationCardTierId(rule) || `custom-${index}`,
+        label: rule.label || `Custom Tier ${index + 1}`,
+        sample: getDivinationCardTierCards(rule)[0] || 'Divination Card'
+      },
+      catchAll: false,
+      cards: getDivinationCardTierCards(rule),
+      rule
+    }));
+
+  return [
+    ...fixedDefaults.filter((row) => row.tierId !== 'f'),
+    ...customRows,
+    ...fixedDefaults.filter((row) => row.tierId === 'f')
+  ];
+}
+
+function createDivinationCardTierRule(tierDefault = {}) {
+  return {
+    id: `divination-card-tier-${tierDefault.id || Date.now()}`,
+    divinationTierId: tierDefault.id || `custom-${Date.now()}`,
+    enabled: true,
+    action: 'Show',
+    label: tierDefault.label || 'Custom Tier',
+    source: 'category-rule',
+    style: INHERIT_STYLE,
+    tier: 'baseline',
+    overrideCategoryStyle: true,
+    styleOverride: createDivinationCardTierStyle(tierDefault),
+    catchAll: Boolean(tierDefault.catchAll),
+    conditions: [{ key: 'Class', value: 'Divination Cards' }]
+  };
+}
+
+function createDivinationCardTierStyle(tierDefault = {}) {
+  return {
+    textColor: tierDefault.textColor || [220, 228, 236, 255],
+    backgroundColor: tierDefault.backgroundColor || [0, 0, 0, 180],
+    borderColor: tierDefault.borderColor || [90, 90, 90, 220],
+    fontSize: tierDefault.fontSize || 32,
+    minimapIcon: tierDefault.iconColor && tierDefault.iconColor !== 'None'
+      ? { color: tierDefault.iconColor, shape: 'Square', size: 1 }
+      : null,
+    beam: tierDefault.beamColor && tierDefault.beamColor !== 'None'
+      ? { color: tierDefault.beamColor, temporary: true }
+      : null,
+    alertSound: null,
+    customAlertSound: null
+  };
+}
+
+function createDivinationCardTierRow(category, tierRow) {
+  const row = document.createElement('article');
+  row.className = 'div-card-tier-row';
+  row.dataset.divCardTierRow = 'true';
+  row.dataset.divCardTierId = tierRow.tierId;
+  row.dataset.divCardFixedTier = String(Boolean(tierRow.fixed));
+
+  const rule = tierRow.rule || {};
+  const style = rule.overrideCategoryStyle
+    ? mergeInlineStyleConfig(category.styleConfig, rule.styleOverride || rule.styleConfig)
+    : mergeInlineStyleConfig(category.styleConfig, createDivinationCardTierStyle(tierRow.default));
+
+  const header = document.createElement('div');
+  header.className = 'div-card-tier-row__header';
+  const enabled = document.createElement('input');
+  enabled.type = 'checkbox';
+  enabled.checked = rule.enabled !== false;
+  enabled.dataset.divCardTierField = 'enabled';
+  const label = createTextInput(rule.label || tierRow.default.label, { divCardTierField: 'label' });
+  const action = createSelect(rule.action || 'Show', SPECIAL_ACTION_OPTIONS, { divCardTierField: 'action' });
+  const summary = document.createElement('div');
+  summary.className = 'div-card-tier-row__summary';
+  summary.textContent = `${tierRow.cards.length} named cards`;
+  summary.dataset.divCardTierSummary = 'true';
+  header.appendChild(enabled);
+  header.appendChild(label);
+  header.appendChild(action);
+  header.appendChild(summary);
+  row.appendChild(header);
+
+  const chips = document.createElement('div');
+  chips.className = 'div-card-chip-list';
+  chips.dataset.divCardChipList = 'true';
+  chips.dataset.divCardTierDrop = 'true';
+  for (const cardName of tierRow.cards) {
+    chips.appendChild(createDivinationCardChip(cardName));
+  }
+  row.appendChild(chips);
+
+  const addRow = document.createElement('div');
+  addRow.className = 'div-card-tier-add-row';
+  const addInput = createTextInput('', { divCardTierAddInput: 'true' });
+  addInput.placeholder = 'Add card name';
+  const addButton = document.createElement('button');
+  addButton.type = 'button';
+  addButton.textContent = 'Add Card';
+  addButton.dataset.divCardTierAdd = 'true';
+  addRow.appendChild(addInput);
+  addRow.appendChild(addButton);
+  row.appendChild(addRow);
+
+  const catchAll = document.createElement('label');
+  catchAll.className = 'div-card-tier-catch-all';
+  const catchAllInput = document.createElement('input');
+  catchAllInput.type = 'checkbox';
+  catchAllInput.checked = Boolean(tierRow.catchAll);
+  catchAllInput.dataset.divCardTierField = 'catchAll';
+  catchAll.appendChild(catchAllInput);
+  catchAll.appendChild(document.createTextNode(' Catch all unmatched div cards'));
+  if (tierRow.tierId === 'f') {
+    row.appendChild(catchAll);
+  }
+
+  const details = document.createElement('details');
+  details.className = 'div-card-tier-style';
+  const detailsSummary = document.createElement('summary');
+  detailsSummary.textContent = 'Tier style';
+  details.appendChild(detailsSummary);
+  const styleGrid = document.createElement('div');
+  styleGrid.className = 'inline-style-panel';
+  appendInlineStyleControls(styleGrid, style);
+  details.appendChild(styleGrid);
+  row.appendChild(details);
+
+  appendRulePreview(row, tierRow.cards[0] || tierRow.default.sample || rule.label, style, { action: rule.action || 'Show' });
+  updateDivinationCardTierSummary(row);
+  return row;
+}
+
+function createDivinationCardChip(cardName) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'div-card-chip';
+  chip.draggable = true;
+  chip.dataset.divCardName = cardName;
+  const name = document.createElement('span');
+  name.className = 'div-card-chip__name';
+  name.textContent = cardName;
+  const remove = document.createElement('span');
+  remove.className = 'div-card-chip__remove';
+  remove.textContent = 'x';
+  remove.dataset.divCardRemove = cardName;
+  chip.appendChild(name);
+  chip.appendChild(remove);
+  return chip;
+}
+
+function getDivinationCardTierId(rule = {}) {
+  if (rule.divinationTierId) {
+    return String(rule.divinationTierId);
+  }
+
+  const label = String(rule.label || '').trim().toLowerCase();
+  const match = label.match(/^([sabcdf])(?:\s+tier)?\b/);
+  if (match) {
+    return match[1];
+  }
+
+  return undefined;
+}
+
+function isDivinationCardCatchAllRule(rule = {}) {
+  return (rule.conditions || []).some((condition) => (
+    condition.key === 'Class' && conditionValueIncludes(condition.value, 'Divination Cards')
+  )) && !getConditionValues(rule, 'BaseType').length;
+}
+
+function getDivinationCardTierCards(rule = {}) {
+  if (Array.isArray(rule.tierItems)) {
+    return rule.tierItems.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+
+  return getConditionValues(rule, 'BaseType');
+}
+
+function getConditionValues(rule = {}, key) {
+  const condition = (rule.conditions || []).find((entry) => entry.key === key);
+  if (!condition) {
+    return [];
+  }
+
+  return (Array.isArray(condition.value) ? condition.value : splitTextValues(condition.value))
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+}
+
+function updateDivinationCardTierSummary(row) {
+  const summary = row.querySelector('[data-div-card-tier-summary]');
+  if (!summary) {
+    return;
+  }
+
+  const count = row.querySelectorAll('[data-div-card-name]').length;
+  const catchAll = row.querySelector('[data-div-card-tier-field="catchAll"]')?.checked;
+  summary.textContent = catchAll ? `${count} named cards + fallback` : `${count} named cards`;
+}
+
+function addDivinationCardNameToTier(row, cardName) {
+  const normalized = String(cardName || '').trim();
+  if (!row || !normalized) {
+    return;
+  }
+
+  const list = row.closest('.div-card-tier-list');
+  if (!list) {
+    return;
+  }
+
+  for (const chip of list.querySelectorAll('[data-div-card-name]')) {
+    if (normalizeBaseKey(chip.dataset.divCardName) === normalizeBaseKey(normalized)) {
+      chip.remove();
+    }
+  }
+
+  row.querySelector('[data-div-card-chip-list]').appendChild(createDivinationCardChip(normalized));
+  for (const tier of list.querySelectorAll('[data-div-card-tier-row]')) {
+    updateDivinationCardTierSummary(tier);
+  }
+}
+
+function updateDivinationCardTierSearch(list, query) {
+  const needle = String(query || '').trim().toLowerCase();
+  for (const chip of list.querySelectorAll('[data-div-card-name]')) {
+    const isMatch = Boolean(needle) && chip.dataset.divCardName.toLowerCase().includes(needle);
+    chip.classList.toggle('is-search-match', isMatch);
+  }
 }
 
 function createCategoryBaselineRow(categoryId, definition, category = {}) {
@@ -4917,12 +5207,52 @@ function collectCategoryRules() {
       style: definition.defaultStyle,
       tier: 'baseline',
       styleConfig: baselineRow ? collectInlineStyleConfig(baselineRow, existingCategory.styleConfig) : existingCategory.styleConfig,
-      rules: [...definition.list.querySelectorAll(`[data-category-rule-category="${categoryId}"]`)]
-        .map((row) => collectCategoryRuleRow(categoryId, row))
-        .filter((rule) => rule.conditions.length > 0)
+      rules: categoryId === 'divinationCards'
+        ? collectDivinationCardTierRules(definition.list, existingCategory)
+        : [...definition.list.querySelectorAll(`[data-category-rule-category="${categoryId}"]`)]
+          .map((row) => collectCategoryRuleRow(categoryId, row))
+          .filter((rule) => rule.conditions.length > 0)
     };
   }
   return output;
+}
+
+function collectDivinationCardTierRules(list, existingCategory = {}) {
+  const categoryStyle = existingCategory.styleConfig || {};
+  return [...list.querySelectorAll('[data-div-card-tier-row]')]
+    .map((row, index) => {
+      const get = (field) => row.querySelector(`[data-div-card-tier-field="${field}"]`);
+      const label = get('label')?.value?.trim() || `Divination card tier ${index + 1}`;
+      const cards = [...row.querySelectorAll('[data-div-card-name]')]
+        .map((chip) => chip.dataset.divCardName)
+        .filter(Boolean);
+      const catchAll = row.dataset.divCardTierId === 'f' && get('catchAll')?.checked === true;
+      if (!cards.length && !catchAll) {
+        return undefined;
+      }
+
+      const conditions = [{ key: 'Class', value: 'Divination Cards' }];
+      if (!catchAll) {
+        conditions.push({ key: 'BaseType', value: cards });
+      }
+
+      return {
+        id: `divination-card-tier-${row.dataset.divCardTierId || index}`,
+        divinationTierId: row.dataset.divCardTierId || `custom-${index}`,
+        enabled: get('enabled')?.checked !== false,
+        action: get('action')?.value || 'Show',
+        label,
+        source: 'category-rule',
+        style: INHERIT_STYLE,
+        tier: 'baseline',
+        overrideCategoryStyle: true,
+        styleOverride: collectInlineStyleConfig(row, categoryStyle),
+        catchAll,
+        tierItems: cards,
+        conditions
+      };
+    })
+    .filter(Boolean);
 }
 
 function collectCategoryRuleRow(categoryId, row) {
@@ -5902,8 +6232,32 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
   definition.addButton.addEventListener('click', () => addCategoryRule(categoryId));
 }
 
+if (populateDivinationCardTiersButton) {
+  populateDivinationCardTiersButton.addEventListener('click', () => {
+    runButton(populateDivinationCardTiersButton, divinationCardRulesStatus, 'Populating...', async () => {
+      await saveLootFilterWorkbenchState();
+      const state = await window.poehelper.populateDivinationCardTiers();
+      renderLootFilterState(state);
+      const refresh = state.divinationCardTierRefresh || {};
+      const counts = refresh.tierCounts || {};
+      const countText = ['s', 'a', 'b', 'c', 'd', 'f']
+        .map((tierId) => `${tierId.toUpperCase()}: ${counts[tierId] || 0}`)
+        .join(', ');
+      setStatus(
+        divinationCardRulesStatus,
+        `Populated ${refresh.totalCards || 0} divination cards from ${refresh.source || 'economy'} for ${refresh.league || 'current league'} (${countText}). Save Changes or Write Filter File when ready.`
+      );
+    });
+  });
+}
+
 function addCategoryRule(categoryId) {
   const definition = CATEGORY_RULE_DEFINITIONS[categoryId];
+  if (categoryId === 'divinationCards') {
+    addDivinationCardTier(categoryId, definition);
+    return;
+  }
+
   lootFilterState.profile.categoryRules ||= {};
   const category = lootFilterState.profile.categoryRules[categoryId] || { enabled: true, rules: [] };
   lootFilterState.profile.categoryRules[categoryId] = {
@@ -5920,6 +6274,30 @@ function addCategoryRule(categoryId) {
   };
   renderLootFilterState(lootFilterState);
   setStatus(filterStatus, `${definition.label} rule added. Save Changes to keep it.`);
+}
+
+function addDivinationCardTier(categoryId, definition) {
+  lootFilterState.profile.categoryRules ||= {};
+  const current = collectCategoryRules()[categoryId] || { enabled: true, rules: [] };
+  const customId = `custom-${Date.now()}`;
+  lootFilterState.profile.categoryRules[categoryId] = {
+    ...current,
+    rules: [
+      ...(current.rules || []),
+      {
+        ...createDivinationCardTierRule({
+          id: customId,
+          label: 'Custom Tier',
+          sample: 'Divination Card'
+        }),
+        id: `divination-card-tier-${customId}`,
+        divinationTierId: customId,
+        catchAll: false
+      }
+    ]
+  };
+  renderCategoryRuleList(categoryId, lootFilterState.profile.categoryRules[categoryId]);
+  setStatus(definition.status, 'Custom divination card tier added. Add card names, then Save Changes.');
 }
 
 if (filterPreviewSearchInput) {
@@ -6097,6 +6475,33 @@ specialItemList.addEventListener('click', (event) => {
 
 for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
   definition.list.addEventListener('click', (event) => {
+    if (categoryId === 'divinationCards') {
+      const addButton = event.target?.closest?.('[data-div-card-tier-add]');
+      if (addButton) {
+        const row = addButton.closest('[data-div-card-tier-row]');
+        const input = row?.querySelector('[data-div-card-tier-add-input]');
+        addDivinationCardNameToTier(row, input?.value);
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        setStatus(definition.status, 'Divination card added to tier. Save Changes to keep this change.');
+        return;
+      }
+
+      const removeTarget = event.target?.closest?.('[data-div-card-remove]');
+      if (removeTarget) {
+        const list = removeTarget.closest('.div-card-tier-list');
+        removeTarget.closest('[data-div-card-name]')?.remove();
+        for (const tier of list.querySelectorAll('[data-div-card-tier-row]')) {
+          updateDivinationCardTierSummary(tier);
+        }
+        updateDivinationCardTierSearch(list, list.querySelector('[data-div-card-tier-search]')?.value);
+        setStatus(definition.status, 'Divination card removed from tier. Save Changes to keep this change.');
+        return;
+      }
+    }
+
     if (event.target?.dataset?.removeCategoryRuleCategory !== categoryId) {
       return;
     }
@@ -6122,6 +6527,59 @@ for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)
     } else if (event.target?.dataset?.styleConfigField === 'sound') {
       previewSelectedFilterSound(event.target.value, event.target.closest('.inline-style-grid, .inline-style-panel'));
     }
+  });
+
+  definition.list.addEventListener('input', (event) => {
+    if (categoryId === 'divinationCards' && event.target?.dataset?.divCardTierSearch) {
+      updateDivinationCardTierSearch(definition.list, event.target.value);
+    }
+  });
+
+  definition.list.addEventListener('keydown', (event) => {
+    if (categoryId !== 'divinationCards' || event.key !== 'Enter' || !event.target?.dataset?.divCardTierAddInput) {
+      return;
+    }
+
+    event.preventDefault();
+    event.target.closest('[data-div-card-tier-row]')?.querySelector('[data-div-card-tier-add]')?.click();
+  });
+
+  definition.list.addEventListener('dragstart', (event) => {
+    if (categoryId !== 'divinationCards') {
+      return;
+    }
+
+    const chip = event.target?.closest?.('[data-div-card-name]');
+    if (chip) {
+      event.dataTransfer.setData('text/plain', chip.dataset.divCardName);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  });
+
+  definition.list.addEventListener('dragover', (event) => {
+    if (categoryId !== 'divinationCards' || !event.target?.closest?.('[data-div-card-tier-drop]')) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  });
+
+  definition.list.addEventListener('drop', (event) => {
+    if (categoryId !== 'divinationCards') {
+      return;
+    }
+
+    const row = event.target?.closest?.('[data-div-card-tier-drop]')?.closest('[data-div-card-tier-row]');
+    const cardName = event.dataTransfer.getData('text/plain');
+    if (!row || !cardName) {
+      return;
+    }
+
+    event.preventDefault();
+    addDivinationCardNameToTier(row, cardName);
+    updateDivinationCardTierSearch(definition.list, definition.list.querySelector('[data-div-card-tier-search]')?.value);
+    setStatus(definition.status, 'Divination card moved between tiers. Save Changes to keep this change.');
   });
 }
 

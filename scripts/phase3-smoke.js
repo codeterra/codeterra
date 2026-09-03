@@ -15,6 +15,7 @@ const {
 const { getCanonicalBaseType } = require('../src/data/catalog-ambiguity-rules');
 const { EQUIPMENT_BASE_REQUIREMENTS } = require('../src/data/equipment-base-requirements');
 const {
+  createDivinationCardTierRulesFromOverviews,
   createEconomyRuleSnapshotFromOverviews,
   createEconomyRulesFromOverviews
 } = require('../src/services/economy-highlights');
@@ -594,6 +595,132 @@ const quietFragmentCategoryProfile = normalizeLootFilterProfile({
 });
 const quietFragmentBlock = getRuleBlock(generateLootFilter(quietFragmentCategoryProfile), 'Quiet fragments');
 assert.doesNotMatch(quietFragmentBlock, /PlayAlertSound|CustomAlertSound|DisableDropSoundIfAlertSound/);
+
+const divinationTierProfile = normalizeLootFilterProfile({
+  categoryRules: {
+    divinationCards: {
+      enabled: true,
+      style: 'divinationCards',
+      tier: 'baseline',
+      rules: [
+        {
+          id: 'divination-card-tier-s',
+          divinationTierId: 's',
+          enabled: true,
+          action: 'Show',
+          label: 'S Tier',
+          source: 'category-rule',
+          style: '__inherit',
+          overrideCategoryStyle: true,
+          tierItems: ['The Doctor', 'Brother\'s Gift'],
+          styleOverride: {
+            textColor: [255, 255, 255, 255],
+            backgroundColor: [0, 0, 0, 255],
+            borderColor: [255, 70, 70, 255],
+            fontSize: 45,
+            alertSound: null,
+            customAlertSound: null
+          },
+          conditions: [
+            { key: 'Class', value: 'Divination Cards' },
+            { key: 'BaseType', value: ['The Doctor', 'Brother\'s Gift'] }
+          ]
+        },
+        {
+          id: 'divination-card-tier-f',
+          divinationTierId: 'f',
+          catchAll: true,
+          enabled: true,
+          action: 'Show',
+          label: 'F Tier',
+          source: 'category-rule',
+          style: '__inherit',
+          overrideCategoryStyle: true,
+          tierItems: ['Her Mask'],
+          styleOverride: {
+            textColor: [120, 130, 140, 255],
+            backgroundColor: [0, 0, 0, 140],
+            borderColor: [55, 65, 75, 200],
+            fontSize: 26,
+            alertSound: null,
+            customAlertSound: null
+          },
+          conditions: [{ key: 'Class', value: 'Divination Cards' }]
+        }
+      ]
+    }
+  }
+});
+assert.equal(divinationTierProfile.categoryRules.divinationCards.rules[0].divinationTierId, 's');
+assert.equal(divinationTierProfile.categoryRules.divinationCards.rules[1].catchAll, true);
+assert.deepEqual(divinationTierProfile.categoryRules.divinationCards.rules[1].tierItems, ['Her Mask']);
+const divinationTierOutput = generateLootFilter(divinationTierProfile);
+const divinationSBlock = getRuleBlock(divinationTierOutput, 'S Tier');
+assert.match(divinationSBlock, /BaseType "The Doctor" "Brother's Gift"/);
+assert.equal(divinationTierOutput.indexOf('# S Tier') < divinationTierOutput.indexOf('# F Tier'), true);
+
+const populatedDivinationTiers = createDivinationCardTierRulesFromOverviews({
+  league: 'Mercenaries',
+  category: {
+    enabled: true,
+    rules: [
+      {
+        id: 'divination-card-tier-custom',
+        divinationTierId: 'custom-trade',
+        enabled: true,
+        action: 'Show',
+        label: 'Custom trade cards',
+        source: 'category-rule',
+        style: '__inherit',
+        tierItems: ['The Nurse'],
+        conditions: [
+          { key: 'Class', value: 'Divination Cards' },
+          { key: 'BaseType', value: ['The Nurse'] }
+        ]
+      }
+    ]
+  },
+  divinationOverview: {
+    items: [
+      { id: 'doctor', name: 'The Doctor' },
+      { id: 'brothers-gift', name: 'Brother\'s Gift' },
+      { id: 'enlightened', name: 'The Enlightened' },
+      { id: 'chains-that-bind', name: 'The Chains that Bind' },
+      { id: 'her-mask', name: 'Her Mask' },
+      { id: 'nurse', name: 'The Nurse' }
+    ],
+    lines: [
+      { id: 'doctor', primaryValue: 2200 },
+      { id: 'brothers-gift', primaryValue: 250 },
+      { id: 'enlightened', primaryValue: 120 },
+      { id: 'chains-that-bind', primaryValue: 25 },
+      { id: 'her-mask', primaryValue: 1 },
+      { id: 'nurse', primaryValue: 900 }
+    ]
+  },
+  currencyOverview: {
+    lines: [
+      { currencyTypeName: 'Divine Orb', chaosEquivalent: 200 }
+    ]
+  }
+});
+assert.deepEqual(populatedDivinationTiers.tierCounts, { s: 1, a: 1, b: 1, c: 1, d: 0, f: 1 });
+assert.deepEqual(
+  populatedDivinationTiers.category.rules.map((rule) => rule.divinationTierId),
+  ['s', 'a', 'b', 'c', 'custom-trade', 'f']
+);
+assert.deepEqual(
+  populatedDivinationTiers.category.rules.find((rule) => rule.divinationTierId === 'a').tierItems,
+  ['Brother\'s Gift']
+);
+assert.equal(
+  populatedDivinationTiers.category.rules.find((rule) => rule.divinationTierId === 'custom-trade').tierItems.includes('The Nurse'),
+  true
+);
+assert.equal(
+  populatedDivinationTiers.category.rules.find((rule) => rule.divinationTierId === 'f').catchAll,
+  true
+);
 
 const importedFilterText = [
   '# Friend filter',

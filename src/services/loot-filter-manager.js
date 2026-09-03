@@ -10,7 +10,10 @@ const {
   normalizeLootFilterProfile
 } = require('../domain/loot-filter');
 const { EQUIPMENT_BASE_REQUIREMENTS } = require('../data/equipment-base-requirements');
-const { refreshEconomyHighlightRules } = require('./economy-highlights');
+const {
+  refreshDivinationCardTierRules,
+  refreshEconomyHighlightRules
+} = require('./economy-highlights');
 const { getChanceBaseOptions } = require('./base-type-catalog');
 const { getCatalogMetadata } = require('./catalog-metadata');
 const { generateLootFilter } = require('./loot-filter-generator');
@@ -425,6 +428,25 @@ async function refreshLootFilterEconomyHighlights(settings, league) {
   });
 }
 
+async function populateDivinationCardTiersFromEconomy(settings, league) {
+  const lootFilter = normalizeLootFilterSettings(settings.lootFilter);
+  const categoryRules = lootFilter.profile.categoryRules || {};
+  const currentCategory = categoryRules.divinationCards || {};
+  const result = await refreshDivinationCardTierRules(league, currentCategory);
+  return {
+    lootFilter: updateActiveProfileEntry(lootFilter, {
+      profile: normalizeLootFilterProfile({
+        ...lootFilter.profile,
+        categoryRules: {
+          ...categoryRules,
+          divinationCards: result.category
+        }
+      })
+    }),
+    result
+  };
+}
+
 function writeLootFilter(settings) {
   const lootFilter = normalizeLootFilterSettings(settings.lootFilter);
   const output = generateLootFilter(lootFilter.profile);
@@ -756,6 +778,7 @@ module.exports = {
   getLootFilterSoundPreview,
   importLootFilterProfile,
   normalizeLootFilterSettings,
+  populateDivinationCardTiersFromEconomy,
   removeLootFilterRule,
   refreshLootFilterEconomyHighlights,
   restoreLootFilterHistory,

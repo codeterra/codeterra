@@ -310,13 +310,16 @@
                       <section class="grouped-pane" data-grouped-pane="currency" data-grouped-panel="divination-cards">
                         <div class="section-heading-row">
                           <h3>Divination Card Rules</h3>
-                          <button id="add-divination-card-rule-button" type="button">Add Div Card Rule</button>
+                          <div class="section-heading-actions">
+                            <button id="populate-divination-card-tiers-button" type="button">Populate from Economy</button>
+                            <button id="add-divination-card-rule-button" type="button">Add Custom Tier</button>
+                          </div>
                         </div>
                         <label class="inline-toggle">
                           <input id="divination-card-rules-enabled-input" type="checkbox">
                           Enable divination card category rules
                         </label>
-                        <p id="divination-card-rules-status" class="status-line">Style divination cards globally or by selected card names.</p>
+                        <p id="divination-card-rules-status" class="status-line">Group divination cards into styleable tiers. F can catch all unmatched cards.</p>
                         <div id="divination-card-rule-list" class="category-rule-list"></div>
                       </section>
                     </div>

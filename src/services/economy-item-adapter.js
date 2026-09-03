@@ -85,8 +85,21 @@ function hasAlternateGemDiscriminator(row) {
 }
 
 function getExchangeItemName(overview, row) {
-  const item = overview?.core?.items?.[row.id] || overview?.items?.[row.id];
+  const item = getExchangeItemById(overview?.core?.items, row.id)
+    || getExchangeItemById(overview?.items, row.id);
   return item?.name || row.currencyTypeName || row.name;
+}
+
+function getExchangeItemById(items, id) {
+  if (!items || !id) {
+    return undefined;
+  }
+
+  if (Array.isArray(items)) {
+    return items.find((item) => String(item?.id || '') === String(id));
+  }
+
+  return items[id];
 }
 
 function getProviderDisplayName(overview, row, endpoint) {

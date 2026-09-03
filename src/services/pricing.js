@@ -148,8 +148,21 @@ function findCurrencyLine(lines, item) {
 }
 
 function getExchangeItemName(overview, line) {
-  const item = overview.core?.items?.[line.id] || overview.items?.[line.id];
+  const item = getExchangeItemById(overview.core?.items, line.id)
+    || getExchangeItemById(overview.items, line.id);
   return item?.name || line.currencyTypeName || line.name;
+}
+
+function getExchangeItemById(items, id) {
+  if (!items || !id) {
+    return undefined;
+  }
+
+  if (Array.isArray(items)) {
+    return items.find((item) => String(item?.id || '') === String(id));
+  }
+
+  return items[id];
 }
 
 function findExchangeLine(overview, item) {

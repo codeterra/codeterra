@@ -1496,6 +1496,18 @@ function normalizeRule(rule) {
     output.fragmentType = String(rule.fragmentType);
   }
 
+  if (rule.divinationTierId) {
+    output.divinationTierId = String(rule.divinationTierId);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(rule, 'catchAll')) {
+    output.catchAll = Boolean(rule.catchAll);
+  }
+
+  if (Array.isArray(rule.tierItems)) {
+    output.tierItems = rule.tierItems.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+
   if (rule.economyTierId) {
     output.economyTierId = String(rule.economyTierId);
   }

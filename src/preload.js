@@ -142,6 +142,9 @@ contextBridge.exposeInMainWorld('poehelper', {
   refreshLootFilterEconomy() {
     return ipcRenderer.invoke('refresh-loot-filter-economy');
   },
+  populateDivinationCardTiers() {
+    return ipcRenderer.invoke('populate-divination-card-tiers');
+  },
   setShortcuts(shortcuts) {
     return ipcRenderer.invoke('set-shortcuts', shortcuts);
   },

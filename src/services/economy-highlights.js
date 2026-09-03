@@ -72,6 +72,24 @@ const DEFAULT_ECONOMY_TIERS = [
   }
 ];
 
+const DEFAULT_DIVINATION_CARD_ECONOMY_TIERS = [
+  { id: 's', label: 'S Tier', minDivines: 10 },
+  { id: 'a', label: 'A Tier', minDivines: 1 },
+  { id: 'b', label: 'B Tier', minChaos: 100 },
+  { id: 'c', label: 'C Tier', minChaos: 20 },
+  { id: 'd', label: 'D Tier', minChaos: 5 },
+  { id: 'f', label: 'F Tier', minChaos: 0, catchAll: true }
+];
+
+const DEFAULT_DIVINATION_CARD_TIER_STYLES = {
+  s: { textColor: [255, 255, 255, 255], backgroundColor: [0, 0, 0, 255], borderColor: [255, 70, 70, 255], fontSize: 45, minimapIcon: { color: 'Red', shape: 'Square', size: 1 }, beam: { color: 'Red', temporary: true }, alertSound: null, customAlertSound: null },
+  a: { textColor: [255, 244, 180, 255], backgroundColor: [0, 0, 0, 235], borderColor: [255, 210, 80, 255], fontSize: 42, minimapIcon: { color: 'Yellow', shape: 'Square', size: 1 }, beam: { color: 'Yellow', temporary: true }, alertSound: null, customAlertSound: null },
+  b: { textColor: [170, 230, 255, 255], backgroundColor: [0, 0, 0, 220], borderColor: [70, 190, 255, 255], fontSize: 38, minimapIcon: { color: 'Cyan', shape: 'Square', size: 1 }, beam: null, alertSound: null, customAlertSound: null },
+  c: { textColor: [210, 220, 232, 255], backgroundColor: [0, 0, 0, 200], borderColor: [150, 170, 190, 255], fontSize: 34, minimapIcon: { color: 'White', shape: 'Square', size: 1 }, beam: null, alertSound: null, customAlertSound: null },
+  d: { textColor: [170, 180, 190, 255], backgroundColor: [0, 0, 0, 180], borderColor: [85, 100, 115, 255], fontSize: 30, minimapIcon: { color: 'Grey', shape: 'Square', size: 1 }, beam: null, alertSound: null, customAlertSound: null },
+  f: { textColor: [120, 130, 140, 255], backgroundColor: [0, 0, 0, 140], borderColor: [55, 65, 75, 200], fontSize: 26, minimapIcon: null, beam: null, alertSound: null, customAlertSound: null }
+};
+
 const ECONOMY_SELECTION_PRIORITY = {
   Currency: 0,
   Fragment: 1,
@@ -429,12 +447,136 @@ async function refreshEconomyHighlightRules(league, config = {}) {
   };
 }
 
+async function refreshDivinationCardTierRules(league, category = {}) {
+  const divinationEndpoint = getPoeNinjaEndpoint('DivinationCard');
+  const currencyEndpoint = getPoeNinjaEndpoint('Currency');
+  const [divinationOverview, currencyOverview] = await Promise.all([
+    fetchPoeNinjaOverview(league, 'DivinationCard', divinationEndpoint),
+    fetchPoeNinjaOverview(league, 'Currency', currencyEndpoint).catch(() => undefined)
+  ]);
+
+  return createDivinationCardTierRulesFromOverviews({
+    league,
+    category,
+    divinationOverview,
+    currencyOverview,
+    divinationEndpoint,
+    currencyEndpoint
+  });
+}
+
+function createDivinationCardTierRulesFromOverviews({
+  league,
+  category = {},
+  divinationOverview,
+  currencyOverview,
+  divinationEndpoint = 'exchange/current/overview',
+  currencyEndpoint = 'stash/current/currency/overview'
+} = {}) {
+  const divineChaosValue = findDivineChaosValue([
+    { type: 'Currency', endpoint: currencyEndpoint, overview: currencyOverview }
+  ]) || 150;
+  const existingRules = Array.isArray(category.rules) ? category.rules : [];
+  const existingByTier = new Map(existingRules
+    .filter((rule) => rule?.divinationTierId)
+    .map((rule) => [String(rule.divinationTierId), rule]));
+  const customRules = existingRules.filter((rule) => {
+    const tierId = String(rule?.divinationTierId || '');
+    return tierId
+      && !DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.some((tier) => tier.id === tierId)
+      && getDivinationTierItems(rule).length > 0;
+  });
+  const customNames = new Set(customRules.flatMap(getDivinationTierItems).map((name) => normalizeName(name).toLowerCase()));
+  const rows = (divinationOverview?.lines || [])
+    .map((row) => normalizePoeNinjaEconomyRow({
+      type: 'DivinationCard',
+      endpoint: divinationEndpoint,
+      overview: divinationOverview,
+      row
+    }))
+    .filter((item) => item.supported && Number.isFinite(item.chaosValue))
+    .filter((item) => !customNames.has(normalizeName(item.displayName).toLowerCase()))
+    .sort((left, right) => right.chaosValue - left.chaosValue || left.displayName.localeCompare(right.displayName));
+  const namesByTier = new Map(DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.map((tier) => [tier.id, []]));
+
+  for (const item of rows) {
+    const tier = DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.find((candidate) => {
+      const minChaos = getTierMinChaos(candidate, divineChaosValue);
+      return item.chaosValue >= minChaos;
+    }) || DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.at(-1);
+    namesByTier.get(tier.id).push(item.displayName);
+  }
+
+  const fixedRules = DEFAULT_DIVINATION_CARD_ECONOMY_TIERS.map((tier) => {
+    const existing = existingByTier.get(tier.id) || {};
+    const names = namesByTier.get(tier.id) || [];
+    if (!tier.catchAll && names.length === 0) {
+      return undefined;
+    }
+
+    const conditions = [{ key: 'Class', value: 'Divination Cards' }];
+    if (!tier.catchAll) {
+      conditions.push({ key: 'BaseType', value: names });
+    }
+
+    return {
+      ...existing,
+      id: existing.id || `divination-card-tier-${tier.id}`,
+      divinationTierId: tier.id,
+      enabled: existing.enabled !== false,
+      action: existing.action || 'Show',
+      label: existing.label || tier.label,
+      source: 'category-rule',
+      style: existing.style || '__inherit',
+      tier: 'baseline',
+      overrideCategoryStyle: existing.overrideCategoryStyle !== false,
+      styleOverride: existing.styleOverride || DEFAULT_DIVINATION_CARD_TIER_STYLES[tier.id],
+      catchAll: Boolean(tier.catchAll),
+      tierItems: names,
+      conditions
+    };
+  }).filter(Boolean);
+
+  return {
+    category: {
+      ...category,
+      enabled: category.enabled !== false,
+      rules: [
+        ...fixedRules.filter((rule) => rule.divinationTierId !== 'f'),
+        ...customRules,
+        ...fixedRules.filter((rule) => rule.divinationTierId === 'f')
+      ]
+    },
+    source: 'poe.ninja',
+    league,
+    refreshedAt: new Date().toISOString(),
+    totalCards: rows.length,
+    divineChaosValue,
+    tierCounts: Object.fromEntries([...namesByTier.entries()].map(([tierId, names]) => [tierId, names.length]))
+  };
+}
+
+function getDivinationTierItems(rule = {}) {
+  if (Array.isArray(rule.tierItems)) {
+    return rule.tierItems;
+  }
+
+  const baseType = (rule.conditions || []).find((condition) => condition.key === 'BaseType')?.value;
+  if (Array.isArray(baseType)) {
+    return baseType;
+  }
+  return baseType ? [baseType] : [];
+}
+
 module.exports = {
   ECONOMY_CACHE_VERSION,
   ECONOMY_CACHE_STALE_HOURS,
   DEFAULT_ECONOMY_TYPES,
   DEFAULT_ECONOMY_TIERS,
+  DEFAULT_DIVINATION_CARD_ECONOMY_TIERS,
+  createDivinationCardTierRulesFromOverviews,
   createEconomyRuleSnapshotFromOverviews,
   createEconomyRulesFromOverviews,
+  refreshDivinationCardTierRules,
   refreshEconomyHighlightRules
 };
