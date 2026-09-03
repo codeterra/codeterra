@@ -253,6 +253,19 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
         baseline: [120, 90, 0, 255]
       }
     },
+    equipmentSpecials: {
+      textColor: [255, 245, 190, 255],
+      backgroundColor: [22, 12, 4, 238],
+      borderColor: [235, 165, 65, 255],
+      fontSize: 38,
+      alertSound: { id: 4, volume: 70 },
+      minimapIcon: { size: 1, color: 'Orange', shape: 'Diamond' },
+      tierBorders: {
+        high: [255, 205, 90, 255],
+        valuable: [235, 165, 65, 255],
+        baseline: [150, 95, 45, 255]
+      }
+    },
     chance: {
       textColor: [150, 255, 180, 255],
       backgroundColor: [10, 18, 12, 240],
@@ -804,6 +817,46 @@ const DEFAULT_LOOT_FILTER_PROFILE = {
       style: 'currencySpecials',
       tier: 'baseline',
       rules: CURRENCY_SUBTYPE_RULES.map(createStackableCurrencySubtypeRule)
+    },
+    equipmentSpecials: {
+      enabled: true,
+      style: 'equipmentSpecials',
+      tier: 'baseline',
+      rules: [
+        createCategoryRule('equipment-special-shaper', 'Shaper influenced equipment', 'equipmentSpecials', [
+          { key: 'HasInfluence', value: 'Shaper' }
+        ]),
+        createCategoryRule('equipment-special-elder', 'Elder influenced equipment', 'equipmentSpecials', [
+          { key: 'HasInfluence', value: 'Elder' }
+        ]),
+        createCategoryRule('equipment-special-crusader', 'Crusader influenced equipment', 'equipmentSpecials', [
+          { key: 'HasInfluence', value: 'Crusader' }
+        ]),
+        createCategoryRule('equipment-special-hunter', 'Hunter influenced equipment', 'equipmentSpecials', [
+          { key: 'HasInfluence', value: 'Hunter' }
+        ]),
+        createCategoryRule('equipment-special-redeemer', 'Redeemer influenced equipment', 'equipmentSpecials', [
+          { key: 'HasInfluence', value: 'Redeemer' }
+        ]),
+        createCategoryRule('equipment-special-warlord', 'Warlord influenced equipment', 'equipmentSpecials', [
+          { key: 'HasInfluence', value: 'Warlord' }
+        ]),
+        createCategoryRule('equipment-special-abyss-socket', 'Abyssal socket equipment', 'equipmentSpecials', [
+          { key: 'Sockets', operator: '>=', value: '1A' }
+        ]),
+        createCategoryRule('equipment-special-fractured', 'Fractured equipment', 'equipmentSpecials', [
+          { key: 'FracturedItem', value: true }
+        ]),
+        createCategoryRule('equipment-special-synthesised', 'Synthesised equipment', 'equipmentSpecials', [
+          { key: 'SynthesisedItem', value: true }
+        ]),
+        createCategoryRule('equipment-special-eater-implicit', 'Eater implicit equipment', 'equipmentSpecials', [
+          { key: 'HasEaterOfWorldsImplicit', operator: '>=', value: 1 }
+        ]),
+        createCategoryRule('equipment-special-exarch-implicit', 'Exarch implicit equipment', 'equipmentSpecials', [
+          { key: 'HasSearingExarchImplicit', operator: '>=', value: 1 }
+        ])
+      ]
     },
     flasks: {
       enabled: true,
@@ -1379,8 +1432,9 @@ function normalizeCurrencyTier(entry, styles = DEFAULT_LOOT_FILTER_PROFILE.style
 
   const styleName = String(entry.style || 'currency');
   const tier = entry.tier ? String(entry.tier) : 'baseline';
+  const hasStyleOverride = Object.prototype.hasOwnProperty.call(entry, 'styleOverride');
   const styleOverride = normalizeStyleOverride(
-    Object.prototype.hasOwnProperty.call(entry, 'styleOverride')
+    hasStyleOverride
       ? entry.styleOverride
       : entry.styleConfig
   );
@@ -1415,6 +1469,11 @@ function normalizeRule(rule) {
     return undefined;
   }
 
+  const hasStyleOverride = Object.prototype.hasOwnProperty.call(rule, 'styleOverride');
+  const styleOverrideSource = hasStyleOverride
+    ? rule.styleOverride
+    : (rule.overrideCategoryStyle ? rule.styleConfig : undefined);
+  const styleOverride = normalizeStyleOverride(styleOverrideSource);
   const output = {
     id: String(rule.id || `rule-${Date.now()}`),
     enabled: rule.enabled !== false,
@@ -1423,8 +1482,8 @@ function normalizeRule(rule) {
     source: String(rule.source || 'manual'),
     style: String(rule.style || 'default'),
     tier: rule.tier ? String(rule.tier) : undefined,
-    styleOverride: normalizeStyleOverride(rule.styleOverride),
-    overrideCategoryStyle: Boolean(rule.overrideCategoryStyle || rule.styleOverride),
+    styleOverride,
+    overrideCategoryStyle: Boolean(rule.overrideCategoryStyle || styleOverride),
     styleConfig: rule.styleConfig && typeof rule.styleConfig === 'object'
       ? normalizeInlineStyle(rule.styleConfig, DEFAULT_LOOT_FILTER_PROFILE.styles[rule.style] || DEFAULT_LOOT_FILTER_PROFILE.styles.default)
       : undefined,

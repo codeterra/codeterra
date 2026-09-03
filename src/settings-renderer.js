@@ -110,6 +110,10 @@ const rareBaselineStyle = document.querySelector('#rare-baseline-style');
 const rareTierList = document.querySelector('#rare-tier-list');
 const addCurrencyTierButton = document.querySelector('#add-currency-tier-button');
 const addRareTierButton = document.querySelector('#add-rare-tier-button');
+const equipmentSpecialRulesEnabledInput = document.querySelector('#equipment-special-rules-enabled-input');
+const equipmentSpecialRulesStatus = document.querySelector('#equipment-special-rules-status');
+const equipmentSpecialRuleList = document.querySelector('#equipment-special-rule-list');
+const addEquipmentSpecialRuleButton = document.querySelector('#add-equipment-special-rule-button');
 const uniqueRulesEnabledInput = document.querySelector('#unique-rules-enabled-input');
 const uniqueRulesStatus = document.querySelector('#unique-rules-status');
 const uniqueRuleList = document.querySelector('#unique-rule-list');
@@ -258,6 +262,7 @@ let pendingFilterImportPreview;
 let previewAudio;
 let previewAudioContext;
 let stashState;
+let baseNamePickerState;
 const FILTER_FONT_SIZE_MIN = 18;
 const FILTER_FONT_SIZE_MAX = 45;
 
@@ -265,6 +270,7 @@ const STYLE_LABELS = {
   default: 'Default',
   currency: 'Currency',
   rare: 'Rare Items',
+  equipmentSpecials: 'Special Equipment',
   chance: 'Chance Bases',
   unique: 'Uniques',
   maps: 'Maps',
@@ -364,6 +370,64 @@ const LEAGUE_ITEM_RULES = [
   ['league-allflame-embers', 'Allflame Embers', [{ key: 'Class', value: 'Embers of the Allflame' }]],
   ['league-corpses', 'Corpses', [{ key: 'Class', value: 'Corpses' }]],
   ['league-grafts', 'Grafts', [{ key: 'BaseType', value: 'Graft' }]]
+];
+const FILTER_ITEM_CLASS_GROUPS = [
+  {
+    id: 'equipment-armour',
+    label: 'Armour',
+    classes: ['Body Armours', 'Boots', 'Gloves', 'Helmets', 'Shields']
+  },
+  {
+    id: 'equipment-weapons',
+    label: 'Weapons',
+    classes: [
+      'Bows',
+      'Claws',
+      'Daggers',
+      'One Hand Axes',
+      'One Hand Maces',
+      'One Hand Swords',
+      'Rune Daggers',
+      'Sceptres',
+      'Staves',
+      'Thrusting One Hand Swords',
+      'Two Hand Axes',
+      'Two Hand Maces',
+      'Two Hand Swords',
+      'Wands',
+      'Warstaves'
+    ]
+  },
+  {
+    id: 'equipment-other',
+    label: 'Other Equipment',
+    classes: ['Amulets', 'Belts', 'Hybrid Flasks', 'Jewels', 'Life Flasks', 'Mana Flasks', 'Quivers', 'Rings', 'Utility Flasks']
+  },
+  {
+    id: 'core-items',
+    label: 'Core Items',
+    classes: ['Divination Cards', 'Maps', 'Map Fragments', 'Misc Map Items', 'Skill Gems', 'Stackable Currency', 'Support Gems']
+  },
+  {
+    id: 'league-items',
+    label: 'League Items',
+    classes: [
+      'Blueprints',
+      'Contracts',
+      'Corpses',
+      'Embers of the Allflame',
+      'Expedition Logbooks',
+      'Heist Brooches',
+      'Heist Cloaks',
+      'Heist Targets',
+      'Heist Tools',
+      'Relic',
+      'Sanctum Research',
+      'Tinctures',
+      'Vault Keys',
+      'Wombgifts'
+    ]
+  }
 ];
 const FLASK_BASE_TYPES = [
   'Small Life Flask',
@@ -738,6 +802,34 @@ const CATEGORY_RULE_DEFINITIONS = {
     defaultRules: CURRENCY_SUBTYPE_RULES.map(createCurrencySubtypeRule),
     fields: ['itemClass', 'baseTypes', 'minItemLevel', 'maxItemLevel']
   },
+  equipmentSpecials: {
+    label: 'Special equipment',
+    enabledInput: equipmentSpecialRulesEnabledInput,
+    status: equipmentSpecialRulesStatus,
+    list: equipmentSpecialRuleList,
+    addButton: addEquipmentSpecialRuleButton,
+    defaultStyle: 'equipmentSpecials',
+    defaultTier: 'baseline',
+    baseConditions: [],
+    defaultRule: createCategoryDefaultRule('equipment-special-custom', 'New special equipment rule', 'equipmentSpecials', [
+      { key: 'HasInfluence', value: 'Shaper' }
+    ]),
+    fields: [
+      'itemClass',
+      'rarity',
+      'baseTypes',
+      'influence',
+      'minAbyssSockets',
+      'minEaterImplicit',
+      'minExarchImplicit',
+      'fractured',
+      'synthesised',
+      'corrupted',
+      'identified',
+      'minItemLevel',
+      'maxItemLevel'
+    ]
+  },
   flasks: {
     label: 'Flask',
     enabledInput: flaskRulesEnabledInput,
@@ -809,6 +901,25 @@ const CATEGORY_RULE_DEFINITIONS = {
     fields: ['rarity', 'baseTypes', 'minItemLevel', 'maxItemLevel', 'corrupted']
   }
 };
+const BASE_NAME_PICKER_POLICIES = {
+  rareTiers: { contextual: false, equipment: true, profile: true, catalog: true, current: true },
+  uniques: { contextual: false, equipment: true, profile: true, catalog: true, current: true },
+  maps: { contextual: true, equipment: false, profile: true, catalog: true, current: true, catalogFilter: 'maps' },
+  atlasItems: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  fragments: { contextual: true, equipment: false, profile: false, catalog: false, current: true },
+  blueprints: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  heistItems: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  sanctumItems: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  gems: { contextual: false, equipment: false, profile: true, catalog: false, current: true },
+  divinationCards: { contextual: false, equipment: false, profile: true, catalog: false, current: true },
+  oils: { contextual: true, equipment: false, profile: false, catalog: false, current: true },
+  currencyTypes: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  equipmentSpecials: { contextual: false, equipment: true, profile: true, catalog: true, current: true },
+  flasks: { contextual: true, equipment: false, profile: false, catalog: false, current: true },
+  tinctures: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  leagueItems: { contextual: true, equipment: false, profile: true, catalog: false, current: true },
+  jewels: { contextual: true, equipment: false, profile: true, catalog: true, current: true, catalogFilter: 'jewels' }
+};
 const ECONOMY_TYPE_LABELS = {
   Currency: 'Currency',
   Fragment: 'Fragments',
@@ -861,6 +972,7 @@ const DEFAULT_ECONOMY_TIERS = [
 const SPECIAL_RARITY_OPTIONS = ['', 'Normal', 'Magic', 'Rare', 'Unique'];
 const SPECIAL_ACTION_OPTIONS = ['Show', 'Hide'];
 const SPECIAL_BOOLEAN_OPTIONS = ['', 'True', 'False'];
+const EQUIPMENT_INFLUENCE_OPTIONS = ['', 'Shaper', 'Elder', 'Crusader', 'Hunter', 'Redeemer', 'Warlord'];
 const SPECIAL_TEXT_FIELDS = [
   ['baseType', 'Base type', 'BaseType'],
   ['itemClass', 'Class', 'Class'],
@@ -1566,6 +1678,38 @@ function createTextarea(value, dataset, placeholder = '') {
   textarea.spellcheck = false;
   Object.assign(textarea.dataset, dataset);
   return textarea;
+}
+
+function createBaseNamePickerField(textarea, context = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'base-name-field';
+  const actions = document.createElement('div');
+  actions.className = 'base-name-field__actions';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Select Items';
+  button.dataset.openBaseNamePicker = 'true';
+  button.dataset.basePickerContext = JSON.stringify(context);
+  actions.appendChild(button);
+  wrapper.appendChild(actions);
+  wrapper.appendChild(textarea);
+  return wrapper;
+}
+
+function createClassNamePickerField(textarea, context = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'base-name-field';
+  const actions = document.createElement('div');
+  actions.className = 'base-name-field__actions';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Select Classes';
+  button.dataset.openClassNamePicker = 'true';
+  button.dataset.classPickerContext = JSON.stringify(context);
+  actions.appendChild(button);
+  wrapper.appendChild(actions);
+  wrapper.appendChild(textarea);
+  return wrapper;
 }
 
 function createSelect(value, options, dataset) {
@@ -2288,6 +2432,7 @@ function getSampleLabelForCategory(categoryId, rule = {}) {
     scarabs: firstBase || 'Cartography Scarab',
     oils: firstBase || 'Golden Oil',
     currencyTypes: firstBase || 'Tattoo of the Ngamahu Warrior',
+    equipmentSpecials: firstBase || 'Influenced Vaal Regalia',
     flasks: firstBase || 'Diamond Flask',
     tinctures: firstBase || 'Ironwood Tincture',
     leagueItems: firstBase || 'Incubator',
@@ -2331,7 +2476,10 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
   }
 
   if (definition.fields.includes('itemClass')) {
-    appendLabeled(container, 'Class', createTextarea(getConditionText(rule, 'Class').replace(/,\s*/g, '\n'), { categoryRuleField: 'itemClass' }, 'Optional classes, one per line'));
+    appendLabeled(container, 'Class', createClassNamePickerField(
+      createTextarea(getConditionText(rule, 'Class').replace(/,\s*/g, '\n'), { categoryRuleField: 'itemClass' }, 'Optional classes, one per line'),
+      { kind: 'categoryRule', categoryId }
+    ));
   }
 
   if (definition.fields.includes('rarity')) {
@@ -2378,6 +2526,30 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
     appendLabeled(container, 'Identified', createSelect(getConditionText(rule, 'Identified'), SPECIAL_BOOLEAN_OPTIONS, { categoryRuleField: 'identified' }));
   }
 
+  if (definition.fields.includes('influence')) {
+    appendLabeled(container, 'Influence', createSelect(getConditionText(rule, 'HasInfluence'), EQUIPMENT_INFLUENCE_OPTIONS, { categoryRuleField: 'influence' }));
+  }
+
+  if (definition.fields.includes('minAbyssSockets')) {
+    appendLabeled(container, 'Min Abyss sockets', createTextInput(getAbyssSocketCount(rule), { categoryRuleField: 'minAbyssSockets' }, 'number'));
+  }
+
+  if (definition.fields.includes('minEaterImplicit')) {
+    appendLabeled(container, 'Min Eater implicit', createTextInput(getConditionText(rule, 'HasEaterOfWorldsImplicit', '>='), { categoryRuleField: 'minEaterImplicit' }, 'number'));
+  }
+
+  if (definition.fields.includes('minExarchImplicit')) {
+    appendLabeled(container, 'Min Exarch implicit', createTextInput(getConditionText(rule, 'HasSearingExarchImplicit', '>='), { categoryRuleField: 'minExarchImplicit' }, 'number'));
+  }
+
+  if (definition.fields.includes('fractured')) {
+    appendLabeled(container, 'Fractured', createSelect(getConditionText(rule, 'FracturedItem'), SPECIAL_BOOLEAN_OPTIONS, { categoryRuleField: 'fractured' }));
+  }
+
+  if (definition.fields.includes('synthesised')) {
+    appendLabeled(container, 'Synthesised', createSelect(getConditionText(rule, 'SynthesisedItem'), SPECIAL_BOOLEAN_OPTIONS, { categoryRuleField: 'synthesised' }));
+  }
+
   if (definition.fields.includes('baseTypes')) {
     const value = getConditionText(rule, 'BaseType');
     const placeholders = {
@@ -2394,9 +2566,13 @@ function appendCategoryConditionControls(container, categoryId, definition, rule
       flasks: `Leave blank to match all flasks.\n${FLASK_BASE_TYPES.join('\n')}`,
       tinctures: 'Leave blank to match all tinctures.\nIronwood Tincture\nPoisonberry Tincture',
       leagueItems: 'Leave blank when the class already identifies the item.\nIncubator\nReliquary Key\nAllflame Ember\nCorpse\nGraft',
+      equipmentSpecials: 'Leave blank to match all equipment with the selected special condition.\nVaal Regalia\nStygian Vise\nHubris Circlet',
       jewels: 'Leave blank to match all jewels.\nCobalt Jewel\nLarge Cluster Jewel'
     };
-    appendLabeled(container, 'Only these names', createTextarea(value.replace(/,\s*/g, '\n'), { categoryRuleField: 'baseTypes' }, placeholders[categoryId] || 'Leave blank to match the whole category.'));
+    appendLabeled(container, 'Only these names', createBaseNamePickerField(
+      createTextarea(value.replace(/,\s*/g, '\n'), { categoryRuleField: 'baseTypes' }, placeholders[categoryId] || 'Leave blank to match the whole category.'),
+      { kind: 'categoryRule', categoryId }
+    ));
   }
 }
 
@@ -3322,6 +3498,696 @@ function getEquipmentBaseSectionLabel(sectionNode) {
   return title.replace(/\s+\(\d+\/\d+\)$/, '');
 }
 
+function openBaseNamePicker(button) {
+  const wrapper = button.closest('.base-name-field');
+  const target = wrapper?.querySelector('textarea');
+  if (!target) {
+    return;
+  }
+
+  const context = parseBaseNamePickerContext(button.dataset.basePickerContext);
+  const row = button.closest('.filter-rule-row, .tier-row, .special-item-row');
+  if (context.categoryId === 'fragments') {
+    context.fragmentType = row?.querySelector('[data-category-rule-field="fragmentType"]')?.value || context.fragmentType;
+  }
+  if (context.kind === 'rareRule') {
+    context.attributeGroup = row?.querySelector('[data-tier-field="attributeGroup"]')?.value || '';
+  }
+
+  closeBaseNamePicker();
+  const options = buildBaseNamePickerOptions(context, target);
+  const labels = {
+    title: 'Select Items',
+    description: 'Filter the catalog, select names, then apply them to this rule.',
+    searchPlaceholder: 'Search base names'
+  };
+  baseNamePickerState = {
+    target,
+    context,
+    labels,
+    options,
+    selectedKeys: new Set(splitTextValues(target.value).map(normalizeBaseKey)),
+    query: '',
+    groupId: 'all'
+  };
+
+  const drawer = document.createElement('aside');
+  drawer.className = 'base-name-picker-drawer is-open';
+  drawer.dataset.baseNamePickerDrawer = 'true';
+  drawer.innerHTML = `
+    <div class="base-name-picker-drawer__header">
+      <div>
+        <h2>${labels.title}</h2>
+        <p class="status-line status-line--muted">${labels.description}</p>
+      </div>
+      <button type="button" data-base-picker-close="true">Close</button>
+    </div>
+    <div class="base-name-picker-drawer__controls">
+      <label>Search <input type="search" data-base-picker-search="true" placeholder="${labels.searchPlaceholder}"></label>
+      <label>Group <select data-base-picker-group="true"></select></label>
+    </div>
+    <div class="base-name-picker-drawer__selected" data-base-picker-selected="true"></div>
+    <div class="base-name-picker-drawer__results" data-base-picker-results="true"></div>
+    <div class="base-name-picker-drawer__footer">
+      <span class="status-line" data-base-picker-status="true"></span>
+      <button type="button" data-base-picker-clear="true">Clear</button>
+      <button type="button" data-base-picker-apply="true">Apply</button>
+    </div>
+  `;
+  document.body.appendChild(drawer);
+  baseNamePickerState.drawer = drawer;
+  renderBaseNamePicker();
+  drawer.querySelector('[data-base-picker-search="true"]')?.focus();
+}
+
+function openClassNamePicker(button) {
+  const wrapper = button.closest('.base-name-field');
+  const target = wrapper?.querySelector('textarea');
+  if (!target) {
+    return;
+  }
+
+  const context = parseBaseNamePickerContext(button.dataset.classPickerContext);
+  closeBaseNamePicker();
+  const options = buildClassNamePickerOptions(context, target);
+  const labels = {
+    title: 'Select Classes',
+    description: 'Select valid item classes, then apply them to this rule.',
+    searchPlaceholder: 'Search item classes'
+  };
+  baseNamePickerState = {
+    target,
+    context,
+    labels,
+    options,
+    selectedKeys: new Set(splitTextValues(target.value).map(normalizeBaseKey)),
+    query: '',
+    groupId: 'all'
+  };
+
+  const drawer = document.createElement('aside');
+  drawer.className = 'base-name-picker-drawer is-open';
+  drawer.dataset.baseNamePickerDrawer = 'true';
+  drawer.innerHTML = `
+    <div class="base-name-picker-drawer__header">
+      <div>
+        <h2>${labels.title}</h2>
+        <p class="status-line status-line--muted">${labels.description}</p>
+      </div>
+      <button type="button" data-base-picker-close="true">Close</button>
+    </div>
+    <div class="base-name-picker-drawer__controls">
+      <label>Search <input type="search" data-base-picker-search="true" placeholder="${labels.searchPlaceholder}"></label>
+      <label>Group <select data-base-picker-group="true"></select></label>
+    </div>
+    <div class="base-name-picker-drawer__selected" data-base-picker-selected="true"></div>
+    <div class="base-name-picker-drawer__results" data-base-picker-results="true"></div>
+    <div class="base-name-picker-drawer__footer">
+      <span class="status-line" data-base-picker-status="true"></span>
+      <button type="button" data-base-picker-clear="true">Clear</button>
+      <button type="button" data-base-picker-apply="true">Apply</button>
+    </div>
+  `;
+  document.body.appendChild(drawer);
+  baseNamePickerState.drawer = drawer;
+  renderBaseNamePicker();
+  drawer.querySelector('[data-base-picker-search="true"]')?.focus();
+}
+
+function parseBaseNamePickerContext(value) {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function closeBaseNamePicker() {
+  baseNamePickerState?.drawer?.remove();
+  baseNamePickerState = undefined;
+}
+
+function renderBaseNamePicker() {
+  if (!baseNamePickerState?.drawer) {
+    return;
+  }
+
+  const { drawer, options, selectedKeys, query, groupId } = baseNamePickerState;
+  const groupSelect = drawer.querySelector('[data-base-picker-group="true"]');
+  const selectedPanel = drawer.querySelector('[data-base-picker-selected="true"]');
+  const results = drawer.querySelector('[data-base-picker-results="true"]');
+  const status = drawer.querySelector('[data-base-picker-status="true"]');
+  const groups = getBaseNamePickerGroups(options);
+
+  if (groupSelect && groupSelect.options.length === 0) {
+    for (const group of [{ id: 'all', label: 'All groups' }, ...groups]) {
+      const option = document.createElement('option');
+      option.value = group.id;
+      option.textContent = group.label;
+      groupSelect.appendChild(option);
+    }
+  }
+  if (groupSelect) {
+    groupSelect.value = groupId;
+  }
+
+  const filteredOptions = filterBaseNamePickerOptions(options, query, groupId);
+  renderBaseNamePickerSelected(selectedPanel, options, selectedKeys);
+  results.innerHTML = '';
+
+  if (filteredOptions.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No matching names found.';
+    results.appendChild(empty);
+  } else {
+    for (const group of groupBaseNamePickerOptions(filteredOptions)) {
+      results.appendChild(createBaseNamePickerGroup(group, selectedKeys));
+    }
+  }
+
+  if (status) {
+    status.textContent = `${selectedKeys.size} selected, ${filteredOptions.length} visible.`;
+  }
+}
+
+function renderBaseNamePickerSelected(container, options, selectedKeys) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = '';
+  const selectedOptions = getSelectedBaseNameOptions(options, selectedKeys);
+  if (selectedOptions.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'base-name-picker-selected__empty';
+    empty.textContent = 'No names selected.';
+    container.appendChild(empty);
+    return;
+  }
+
+  for (const option of selectedOptions.slice(0, 40)) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'base-name-picker-chip';
+    chip.dataset.basePickerRemoveKey = option.key;
+    chip.textContent = option.name;
+    container.appendChild(chip);
+  }
+
+  if (selectedOptions.length > 40) {
+    const more = document.createElement('span');
+    more.className = 'base-name-picker-selected__empty';
+    more.textContent = `+${selectedOptions.length - 40} more`;
+    container.appendChild(more);
+  }
+}
+
+function createBaseNamePickerGroup(group, selectedKeys) {
+  const section = document.createElement('section');
+  section.className = 'base-name-picker-group';
+  section.dataset.basePickerGroupSection = group.id;
+
+  const header = document.createElement('div');
+  header.className = 'base-name-picker-group__header';
+  const title = document.createElement('div');
+  title.className = 'base-name-picker-group__title';
+  title.textContent = `${group.label} (${group.options.length})`;
+  header.appendChild(title);
+
+  const actions = document.createElement('div');
+  actions.className = 'base-name-picker-group__actions';
+  if (group.options.some((option) => option.level > 0)) {
+    for (const [action, label] of [['top2', 'Top 2'], ['top5', 'Top 5']]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.basePickerGroupAction = action;
+      button.dataset.basePickerGroupId = group.id;
+      button.textContent = label;
+      actions.appendChild(button);
+    }
+  }
+  for (const [action, label] of [['all', 'All'], ['none', 'None']]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.basePickerGroupAction = action;
+    button.dataset.basePickerGroupId = group.id;
+    button.textContent = label;
+    actions.appendChild(button);
+  }
+  header.appendChild(actions);
+  section.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'base-name-picker-grid';
+  for (const option of group.options) {
+    const label = document.createElement('label');
+    label.className = 'base-name-picker-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.basePickerOptionKey = option.key;
+    checkbox.checked = selectedKeys.has(option.key);
+    const text = document.createElement('span');
+    text.className = 'base-name-picker-option__name';
+    text.textContent = option.name;
+    const meta = document.createElement('span');
+    meta.className = 'base-name-picker-option__meta';
+    meta.textContent = option.meta || option.groupLabel || '';
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    label.appendChild(meta);
+    grid.appendChild(label);
+  }
+  section.appendChild(grid);
+  return section;
+}
+
+function buildBaseNamePickerOptions(context = {}, target) {
+  const options = [];
+  const seen = new Set();
+  const policy = getBaseNamePickerPolicy(context);
+  const addOption = (name, groupId, groupLabel, meta = '') => {
+    const normalizedName = String(name || '').trim().replace(/\s+/g, ' ');
+    if (!normalizedName) {
+      return;
+    }
+    const key = normalizeBaseKey(normalizedName);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    const requirement = getEquipmentBaseRequirement(normalizedName);
+    options.push({
+      key,
+      name: normalizedName,
+      groupId,
+      groupLabel,
+      meta: requirement ? `Lvl ${requirement.level} - ${meta || groupLabel}` : (meta || groupLabel),
+      level: requirement?.level || 0,
+      defenses: requirement?.defenses || 0
+    });
+  };
+  const addNames = (names, groupId, groupLabel, meta = '') => {
+    for (const name of Array.isArray(names) ? names : [names]) {
+      addOption(name, groupId, groupLabel, meta);
+    }
+  };
+
+  if (policy.contextual) {
+    addContextualBaseNameOptions({ context, categoryId: context.categoryId || '', addOption, addNames });
+  }
+  if (policy.equipment) {
+    addEquipmentBaseNameOptions({ context, addOption });
+  }
+  if (policy.profile) {
+    addProfileBaseNameOptions(addOption, context, policy);
+  }
+  if (policy.catalog) {
+    for (const base of getFilteredBaseCatalogOptions(policy.catalogFilter)) {
+      addOption(base, 'known-catalog', 'Known Catalog', 'Catalog');
+    }
+  }
+  if (policy.current !== false) {
+    for (const selected of splitTextValues(target?.value)) {
+      addOption(selected, 'current-custom', 'Current Custom Names', 'Typed value');
+    }
+  }
+
+  return options.sort(compareBaseNamePickerOptions);
+}
+
+function getBaseNamePickerPolicy(context = {}) {
+  const categoryId = context.categoryId || (context.kind === 'rareRule' ? 'rareTiers' : '');
+  return {
+    contextual: false,
+    equipment: false,
+    profile: true,
+    catalog: false,
+    current: true,
+    ...(BASE_NAME_PICKER_POLICIES[categoryId] || {})
+  };
+}
+
+function getFilteredBaseCatalogOptions(filterName) {
+  if (!filterName) {
+    return chanceBaseOptions;
+  }
+  if (filterName === 'maps') {
+    return chanceBaseOptions.filter((base) => /\bMap\b|Valdo|Atzoatl|Doryani/i.test(base));
+  }
+  if (filterName === 'jewels') {
+    return chanceBaseOptions.filter((base) => /\bJewel\b/i.test(base));
+  }
+  return chanceBaseOptions;
+}
+
+function buildClassNamePickerOptions(context = {}, target) {
+  const options = [];
+  const seen = new Set();
+  const addOption = (name, groupId, groupLabel, meta = '') => {
+    const normalizedName = String(name || '').trim().replace(/\s+/g, ' ');
+    if (!normalizedName) {
+      return;
+    }
+    const key = normalizeBaseKey(normalizedName);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    options.push({
+      key,
+      name: normalizedName,
+      groupId,
+      groupLabel,
+      meta: meta || groupLabel,
+      level: 0,
+      defenses: 0
+    });
+  };
+  const addNames = (names, groupId, groupLabel, meta = '') => {
+    for (const name of Array.isArray(names) ? names : [names]) {
+      addOption(name, groupId, groupLabel, meta);
+    }
+  };
+
+  for (const group of FILTER_ITEM_CLASS_GROUPS) {
+    addNames(group.classes, group.id, group.label, 'Item class');
+  }
+  addEquipmentClassOptions(addOption);
+  addCategoryClassOptions(addOption);
+  addProfileClassOptions(addOption);
+  for (const selected of splitTextValues(target?.value)) {
+    addOption(selected, 'current-custom', 'Current Custom Classes', 'Typed value');
+  }
+
+  return options.sort(compareBaseNamePickerOptions);
+}
+
+function addContextualBaseNameOptions({ context, categoryId, addOption, addNames }) {
+  if (categoryId === 'fragments') {
+    const allowedTypes = context.fragmentType && FRAGMENT_TYPE_BY_ID.has(context.fragmentType)
+      ? [FRAGMENT_TYPE_BY_ID.get(context.fragmentType)]
+      : FRAGMENT_TYPE_OPTIONS;
+    for (const fragmentType of allowedTypes) {
+      for (const condition of fragmentType.conditions || []) {
+        if (condition.key === 'BaseType') {
+          addNames(condition.value, `fragments:${fragmentType.value}`, fragmentType.label, 'Fragment type');
+        }
+      }
+    }
+  } else if (categoryId === 'oils') {
+    addNames(OIL_BASE_TYPES, 'oils', 'Oils', 'Oil');
+  } else if (categoryId === 'flasks') {
+    addNames(FLASK_BASE_TYPES, 'flasks', 'Flasks', 'Flask');
+  } else if (categoryId === 'currencyTypes') {
+    for (const [, label, baseType] of CURRENCY_SUBTYPE_RULES) {
+      addOption(baseType, 'currency-types', 'Currency Types', label);
+    }
+    for (const tier of lootFilterState?.profile?.currencyTiers || []) {
+      addNames(tier.bases || [], 'currency-profile', 'Currency Rules', tier.label || 'Currency');
+    }
+  } else if (categoryId === 'atlasItems') {
+    for (const [, label, conditions] of ATLAS_ITEM_RULES) {
+      addBaseNamesFromConditions(conditions, 'atlas-items', 'Atlas Items', label, addOption);
+    }
+  } else if (categoryId === 'leagueItems') {
+    for (const [, label, conditions] of LEAGUE_ITEM_RULES) {
+      addBaseNamesFromConditions(conditions, 'league-items', 'League Items', label, addOption);
+    }
+  }
+}
+
+function addEquipmentBaseNameOptions({ context, addOption }) {
+  const groups = lootFilterState?.rareEquipmentGroups || {};
+  const requestedAttribute = context.kind === 'rareRule' ? context.attributeGroup : '';
+  const [requestedSection, requestedGroup] = requestedAttribute ? requestedAttribute.split(':') : [];
+  for (const [section, label] of [
+    ['armor', 'Armour'],
+    ['shields', 'Shields'],
+    ['weapons', 'Weapons'],
+    ['misc', 'Jewelry, Belts, Quivers']
+  ]) {
+    if (requestedSection && section !== requestedSection) {
+      continue;
+    }
+    for (const group of groups[section] || []) {
+      if (requestedGroup && group.id !== requestedGroup) {
+        continue;
+      }
+      for (const base of group.bases || []) {
+        addOption(base, `${section}:${group.id}`, `${label} - ${group.label}`, group.label);
+      }
+    }
+  }
+}
+
+function addProfileBaseNameOptions(addOption, context = {}, policy = {}) {
+  const profile = lootFilterState?.profile || {};
+  const categoryId = context.categoryId || (context.kind === 'rareRule' ? 'rareTiers' : '');
+  const allowName = (name) => isBaseNameAllowedForPicker(name, categoryId, policy);
+
+  if (['rareTiers', 'uniques', 'equipmentSpecials'].includes(categoryId)) {
+    for (const base of profile.chanceBases?.bases || []) {
+      if (allowName(base)) {
+        addOption(base, 'profile-chance', 'Profile Chance Bases', 'Chance base');
+      }
+    }
+    for (const tier of profile.rareTiers || []) {
+      addBaseNamesFromConditions(tier.conditions, 'profile-rare', 'Profile Rare Rules', tier.label, addOption, allowName);
+    }
+  }
+
+  if (categoryId === 'currencyTypes') {
+    for (const tier of profile.currencyTiers || []) {
+      for (const base of tier.bases || []) {
+        if (allowName(base)) {
+          addOption(base, 'currency-profile', 'Currency Rules', tier.label || 'Currency');
+        }
+      }
+    }
+  }
+
+  for (const relatedCategoryId of getRelatedBasePickerCategoryIds(categoryId)) {
+    const category = profile.categoryRules?.[relatedCategoryId];
+    for (const rule of category?.rules || []) {
+      addBaseNamesFromConditions(rule.conditions, 'profile-category', 'Profile Category Rules', rule.label, addOption, allowName);
+    }
+  }
+}
+
+function getRelatedBasePickerCategoryIds(categoryId) {
+  if (!categoryId || categoryId === 'rareTiers') {
+    return [];
+  }
+  if (categoryId === 'heistItems') {
+    return ['heistItems', 'blueprints'];
+  }
+  if (categoryId === 'blueprints') {
+    return ['blueprints', 'heistItems'];
+  }
+  return [categoryId];
+}
+
+function isBaseNameAllowedForPicker(name, categoryId, policy = {}) {
+  if (!name) {
+    return false;
+  }
+  if (categoryId === 'fragments') {
+    return FRAGMENT_TYPE_OPTIONS.some((fragmentType) =>
+      (fragmentType.conditions || []).some((condition) =>
+        condition.key === 'BaseType' && conditionValueIncludes(condition.value, name)
+      )
+    );
+  }
+  if (categoryId === 'oils') {
+    return OIL_BASE_TYPES.some((oil) => normalizeBaseKey(oil) === normalizeBaseKey(name));
+  }
+  if (categoryId === 'flasks') {
+    return FLASK_BASE_TYPES.some((flask) => normalizeBaseKey(flask) === normalizeBaseKey(name));
+  }
+  if (policy.catalogFilter === 'maps') {
+    return /\bMap\b|Valdo|Atzoatl|Doryani/i.test(name);
+  }
+  if (policy.catalogFilter === 'jewels') {
+    return /\bJewel\b/i.test(name);
+  }
+  return true;
+}
+
+function addEquipmentClassOptions(addOption) {
+  const groups = lootFilterState?.rareEquipmentGroups || {};
+  for (const [section, label] of [
+    ['armor', 'Armour'],
+    ['shields', 'Shields'],
+    ['weapons', 'Weapons'],
+    ['misc', 'Other Equipment']
+  ]) {
+    for (const group of groups[section] || []) {
+      for (const className of group.classes || []) {
+        addOption(className, `equipment:${section}`, `Equipment - ${label}`, group.label);
+      }
+    }
+  }
+}
+
+function addCategoryClassOptions(addOption) {
+  for (const [categoryId, definition] of Object.entries(CATEGORY_RULE_DEFINITIONS)) {
+    for (const condition of [
+      ...(definition.baseConditions || []),
+      ...((definition.defaultRule || {}).conditions || []),
+      ...(definition.defaultRules || []).flatMap((rule) => rule.conditions || [])
+    ]) {
+      if (condition.key !== 'Class') {
+        continue;
+      }
+      for (const value of Array.isArray(condition.value) ? condition.value : [condition.value]) {
+        addOption(value, `category:${categoryId}`, `${definition.label} Defaults`, 'Default class');
+      }
+    }
+  }
+  for (const fragmentType of FRAGMENT_TYPE_OPTIONS) {
+    for (const condition of fragmentType.conditions || []) {
+      if (condition.key !== 'Class') {
+        continue;
+      }
+      for (const value of Array.isArray(condition.value) ? condition.value : [condition.value]) {
+        addOption(value, 'category:fragments', 'Fragment Defaults', fragmentType.label);
+      }
+    }
+  }
+}
+
+function addProfileClassOptions(addOption) {
+  const profile = lootFilterState?.profile || {};
+  for (const tier of profile.rareTiers || []) {
+    addClassNamesFromConditions(tier.conditions, 'profile-rare', 'Profile Rare Rules', tier.label, addOption);
+  }
+  for (const category of Object.values(profile.categoryRules || {})) {
+    for (const rule of category.rules || []) {
+      addClassNamesFromConditions(rule.conditions, 'profile-category', 'Profile Category Rules', rule.label, addOption);
+    }
+  }
+  for (const rule of profile.userRules || []) {
+    addClassNamesFromConditions(rule.conditions, 'profile-captured', 'Captured Rules', rule.label, addOption);
+  }
+}
+
+function addBaseNamesFromConditions(conditions = [], groupId, groupLabel, meta, addOption, allowName = () => true) {
+  for (const condition of conditions || []) {
+    if (condition.key !== 'BaseType') {
+      continue;
+    }
+    for (const value of Array.isArray(condition.value) ? condition.value : [condition.value]) {
+      if (allowName(value)) {
+        addOption(value, groupId, groupLabel, meta || 'Profile rule');
+      }
+    }
+  }
+}
+
+function addClassNamesFromConditions(conditions = [], groupId, groupLabel, meta, addOption) {
+  for (const condition of conditions || []) {
+    if (condition.key !== 'Class') {
+      continue;
+    }
+    for (const value of Array.isArray(condition.value) ? condition.value : [condition.value]) {
+      addOption(value, groupId, groupLabel, meta || 'Profile rule');
+    }
+  }
+}
+
+function compareBaseNamePickerOptions(left, right) {
+  if (left.groupLabel !== right.groupLabel) {
+    return left.groupLabel.localeCompare(right.groupLabel);
+  }
+  const tierSort = compareEquipmentBaseTier(left.name, right.name);
+  if (tierSort !== 0) {
+    return tierSort;
+  }
+  return left.name.localeCompare(right.name);
+}
+
+function getBaseNamePickerGroups(options = []) {
+  const groups = new Map();
+  for (const option of options) {
+    if (!groups.has(option.groupId)) {
+      groups.set(option.groupId, { id: option.groupId, label: option.groupLabel });
+    }
+  }
+  return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function filterBaseNamePickerOptions(options = [], query = '', groupId = 'all') {
+  const normalizedQuery = normalizeBaseKey(query);
+  return options.filter((option) => {
+    if (groupId !== 'all' && option.groupId !== groupId) {
+      return false;
+    }
+    if (!normalizedQuery) {
+      return true;
+    }
+    return normalizeBaseKey(`${option.name} ${option.groupLabel} ${option.meta}`).includes(normalizedQuery);
+  });
+}
+
+function groupBaseNamePickerOptions(options = []) {
+  const groups = new Map();
+  for (const option of options) {
+    if (!groups.has(option.groupId)) {
+      groups.set(option.groupId, { id: option.groupId, label: option.groupLabel, options: [] });
+    }
+    groups.get(option.groupId).options.push(option);
+  }
+  return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function getSelectedBaseNameOptions(options = [], selectedKeys = new Set()) {
+  const byKey = new Map(options.map((option) => [option.key, option]));
+  return [...selectedKeys]
+    .map((key) => byKey.get(key) || { key, name: key, groupLabel: 'Current Custom Names', meta: 'Typed value', level: 0, defenses: 0 })
+    .sort(compareBaseNamePickerOptions);
+}
+
+function applyBaseNamePickerGroupAction(groupId, action) {
+  if (!baseNamePickerState) {
+    return;
+  }
+  const groupOptions = filterBaseNamePickerOptions(baseNamePickerState.options, baseNamePickerState.query, groupId);
+  let affected = groupOptions;
+  if (action === 'top2' || action === 'top5') {
+    const limit = action === 'top2' ? 2 : 5;
+    affected = [...groupOptions]
+      .sort((left, right) => (right.level - left.level) || (right.defenses - left.defenses) || right.name.localeCompare(left.name))
+      .slice(0, limit);
+  }
+
+  if (action === 'none') {
+    for (const option of affected) {
+      baseNamePickerState.selectedKeys.delete(option.key);
+    }
+  } else {
+    for (const option of affected) {
+      baseNamePickerState.selectedKeys.add(option.key);
+    }
+  }
+  renderBaseNamePicker();
+}
+
+function applyBaseNamePickerSelection() {
+  if (!baseNamePickerState?.target) {
+    return;
+  }
+
+  const selected = getSelectedBaseNameOptions(baseNamePickerState.options, baseNamePickerState.selectedKeys)
+    .map((option) => option.name);
+  baseNamePickerState.target.value = selected.join('\n');
+  baseNamePickerState.target.dispatchEvent(new Event('input', { bubbles: true }));
+  baseNamePickerState.target.dispatchEvent(new Event('change', { bubbles: true }));
+  closeBaseNamePicker();
+  markLootFilterDirty();
+}
+
 function renderCurrencyTiers(tiers) {
   currencyTierList.innerHTML = '';
   tiers.forEach((tier, index) => {
@@ -3412,7 +4278,10 @@ function renderRareTiers(tiers) {
 
 function appendRareRuleConditionControls(container, rule, index) {
   appendLabeled(container, 'Attribute group', createOptionSelect(rule.attributeGroup || '', getRareAttributeOptions(), { rareTierIndex: index, tierField: 'attributeGroup' }));
-  appendLabeled(container, 'Only these names', createTextarea(getConditionText(rule, 'BaseType').replace(/,\s*/g, '\n'), { rareTierIndex: index, tierField: 'baseTypes' }, 'Leave blank to match all rare items for this rule.'));
+  appendLabeled(container, 'Only these names', createBaseNamePickerField(
+    createTextarea(getConditionText(rule, 'BaseType').replace(/,\s*/g, '\n'), { rareTierIndex: index, tierField: 'baseTypes' }, 'Leave blank to match all rare items for this rule.'),
+    { kind: 'rareRule', categoryId: 'rareTiers' }
+  ));
   appendLabeled(container, 'Min ilvl', createTextInput(getConditionText(rule, 'ItemLevel', '>=') || rule.minItemLevel || '', { rareTierIndex: index, tierField: 'minItemLevel' }, 'number'));
   appendLabeled(container, 'Max ilvl', createTextInput(getConditionText(rule, 'ItemLevel', '<='), { rareTierIndex: index, tierField: 'maxItemLevel' }, 'number'));
   appendLabeled(container, 'Min quality', createTextInput(getConditionText(rule, 'Quality', '>='), { rareTierIndex: index, tierField: 'minQuality' }, 'number'));
@@ -4089,6 +4958,12 @@ function collectCategoryRuleRow(categoryId, row) {
   pushNumberCondition(conditions, 'Quality', '<=', get('maxQuality')?.value);
   pushBooleanCondition(conditions, 'Corrupted', get('corrupted')?.value);
   pushBooleanCondition(conditions, 'Identified', get('identified')?.value);
+  pushTextCondition(conditions, 'HasInfluence', get('influence')?.value);
+  pushAbyssSocketCondition(conditions, get('minAbyssSockets')?.value);
+  pushNumberCondition(conditions, 'HasEaterOfWorldsImplicit', '>=', get('minEaterImplicit')?.value);
+  pushNumberCondition(conditions, 'HasSearingExarchImplicit', '>=', get('minExarchImplicit')?.value);
+  pushBooleanCondition(conditions, 'FracturedItem', get('fractured')?.value);
+  pushBooleanCondition(conditions, 'SynthesisedItem', get('synthesised')?.value);
 
   if (definition.preserveConditionKeys?.length) {
     for (const key of definition.preserveConditionKeys) {
@@ -4352,6 +5227,25 @@ function pushTextCondition(conditions, key, rawValue, splitValues = false) {
   conditions.push({
     key,
     value: entries.length === 1 ? entries[0] : entries
+  });
+}
+
+function getAbyssSocketCount(rule) {
+  const value = getConditionText(rule, 'Sockets', '>=');
+  const match = String(value || '').match(/^(\d+)\s*A$/i);
+  return match ? match[1] : '';
+}
+
+function pushAbyssSocketCondition(conditions, rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return;
+  }
+
+  conditions.push({
+    key: 'Sockets',
+    operator: '>=',
+    value: `${Math.round(value)}A`
   });
 }
 
@@ -4620,6 +5514,97 @@ if (lootFilterPanel) {
     }
   });
 }
+
+document.addEventListener('click', (event) => {
+  const openPickerButton = event.target?.closest?.('[data-open-base-name-picker]');
+  if (openPickerButton) {
+    event.preventDefault();
+    openBaseNamePicker(openPickerButton);
+    return;
+  }
+
+  const openClassPickerButton = event.target?.closest?.('[data-open-class-name-picker]');
+  if (openClassPickerButton) {
+    event.preventDefault();
+    openClassNamePicker(openClassPickerButton);
+    return;
+  }
+
+  if (!baseNamePickerState) {
+    return;
+  }
+
+  const closeButton = event.target?.closest?.('[data-base-picker-close]');
+  if (closeButton) {
+    event.preventDefault();
+    closeBaseNamePicker();
+    return;
+  }
+
+  const applyButton = event.target?.closest?.('[data-base-picker-apply]');
+  if (applyButton) {
+    event.preventDefault();
+    applyBaseNamePickerSelection();
+    return;
+  }
+
+  const clearButton = event.target?.closest?.('[data-base-picker-clear]');
+  if (clearButton) {
+    event.preventDefault();
+    baseNamePickerState.selectedKeys.clear();
+    renderBaseNamePicker();
+    return;
+  }
+
+  const removeChip = event.target?.closest?.('[data-base-picker-remove-key]');
+  if (removeChip) {
+    event.preventDefault();
+    baseNamePickerState.selectedKeys.delete(removeChip.dataset.basePickerRemoveKey);
+    renderBaseNamePicker();
+    return;
+  }
+
+  const groupAction = event.target?.closest?.('[data-base-picker-group-action]');
+  if (groupAction) {
+    event.preventDefault();
+    applyBaseNamePickerGroupAction(groupAction.dataset.basePickerGroupId, groupAction.dataset.basePickerGroupAction);
+  }
+});
+
+document.addEventListener('input', (event) => {
+  if (!baseNamePickerState || !event.target?.matches?.('[data-base-picker-search]')) {
+    return;
+  }
+  baseNamePickerState.query = event.target.value;
+  renderBaseNamePicker();
+});
+
+document.addEventListener('change', (event) => {
+  if (!baseNamePickerState) {
+    return;
+  }
+
+  if (event.target?.matches?.('[data-base-picker-group]')) {
+    baseNamePickerState.groupId = event.target.value || 'all';
+    renderBaseNamePicker();
+    return;
+  }
+
+  if (event.target?.matches?.('[data-base-picker-option-key]')) {
+    if (event.target.checked) {
+      baseNamePickerState.selectedKeys.add(event.target.dataset.basePickerOptionKey);
+    } else {
+      baseNamePickerState.selectedKeys.delete(event.target.dataset.basePickerOptionKey);
+    }
+    renderBaseNamePicker();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && baseNamePickerState) {
+    closeBaseNamePicker();
+  }
+});
 
 saveLeagueButton.addEventListener('click', async () => {
   const settings = await window.poehelper.setLeague(leagueInput.value);

@@ -491,6 +491,83 @@ const quietLowCurrencyBlock = getRuleBlock(lowCurrencyNoSoundOutput, 'Quiet low 
 assert.doesNotMatch(quietLowCurrencyBlock, /PlayAlertSound|CustomAlertSound|DisableDropSoundIfAlertSound/);
 assert.match(getRuleBlock(lowCurrencyNoSoundOutput, 'Currency baseline'), /PlayAlertSound 2 80/);
 
+const overrideRoundTripProfile = normalizeLootFilterProfile(JSON.parse(JSON.stringify(normalizeLootFilterProfile({
+  currencyTiers: [
+    {
+      id: 'currency-override-round-trip',
+      action: 'Show',
+      label: 'Currency override round trip',
+      bases: ['Chaos Orb'],
+      style: '__inherit',
+      overrideCategoryStyle: true,
+      styleConfig: {
+        textColor: [255, 255, 255, 255],
+        backgroundColor: [0, 0, 0, 255],
+        borderColor: [120, 255, 120, 255],
+        fontSize: 35,
+        alertSound: null,
+        customAlertSound: null
+      }
+    }
+  ],
+  rareTiers: [
+    {
+      id: 'rare-override-round-trip',
+      enabled: true,
+      action: 'Show',
+      label: 'Rare override round trip',
+      source: 'rare-item-rule',
+      style: 'rare',
+      overrideCategoryStyle: true,
+      styleConfig: {
+        textColor: [255, 255, 0, 255],
+        backgroundColor: [0, 0, 0, 255],
+        borderColor: [255, 255, 0, 255],
+        fontSize: 36,
+        alertSound: null,
+        customAlertSound: null
+      },
+      conditions: [{ key: 'Rarity', value: 'Rare' }]
+    }
+  ],
+  categoryRules: {
+    maps: {
+      enabled: true,
+      style: 'maps',
+      tier: 'baseline',
+      rules: [
+        {
+          id: 'map-override-round-trip',
+          enabled: true,
+          action: 'Show',
+          label: 'Map override round trip',
+          source: 'category-rule',
+          style: '__inherit',
+          overrideCategoryStyle: true,
+          styleConfig: {
+            textColor: [255, 255, 255, 255],
+            backgroundColor: [0, 0, 0, 255],
+            borderColor: [255, 0, 0, 255],
+            fontSize: 38,
+            alertSound: null,
+            customAlertSound: null
+          },
+          conditions: [
+            { key: 'Class', value: 'Maps' },
+            { key: 'MapTier', operator: '>=', value: 14 }
+          ]
+        }
+      ]
+    }
+  }
+}))));
+assert.equal(overrideRoundTripProfile.currencyTiers[0].overrideCategoryStyle, true);
+assert.deepEqual(overrideRoundTripProfile.currencyTiers[0].styleOverride.alertSound, null);
+assert.equal(overrideRoundTripProfile.rareTiers[0].overrideCategoryStyle, true);
+assert.deepEqual(overrideRoundTripProfile.rareTiers[0].styleOverride.customAlertSound, null);
+assert.equal(overrideRoundTripProfile.categoryRules.maps.rules[0].overrideCategoryStyle, true);
+assert.deepEqual(overrideRoundTripProfile.categoryRules.maps.rules[0].styleOverride.alertSound, null);
+
 const quietFragmentCategoryProfile = normalizeLootFilterProfile({
   categoryRules: {
     fragments: {

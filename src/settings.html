@@ -568,6 +568,7 @@
                       <button type="button" data-equipment-tab="weapons">Weapons</button>
                       <button type="button" data-equipment-tab="jewelry">Jewelry</button>
                       <button type="button" data-equipment-tab="rare-rules">Rare Rules</button>
+                      <button type="button" data-equipment-tab="special-rules">Special Rules</button>
                     </nav>
                     <div class="equipment-panes">
                       <section class="equipment-pane is-active" data-equipment-pane="armor">
@@ -605,6 +606,21 @@
                         </div>
                         <div id="rare-baseline-style" class="category-baseline-list"></div>
                         <div id="rare-tier-list" class="tier-list"></div>
+                      </section>
+                      <section class="equipment-pane" data-equipment-pane="special-rules">
+                        <div class="section-heading-row">
+                          <div>
+                            <h4>Special Equipment Rules</h4>
+                            <p class="status-line status-line--muted">Runs before Equipment Visibility so influenced, Abyss-socketed, fractured, synthesised, and eldritch items can be kept visible.</p>
+                          </div>
+                          <button id="add-equipment-special-rule-button" type="button">Add Special Rule</button>
+                        </div>
+                        <label class="inline-toggle">
+                          <input id="equipment-special-rules-enabled-input" type="checkbox">
+                          Enable special equipment rules
+                        </label>
+                        <p id="equipment-special-rules-status" class="status-line">Special equipment rules run before Equipment Visibility hides.</p>
+                        <div id="equipment-special-rule-list" class="category-rule-list"></div>
                       </section>
                     </div>
                   </div>
